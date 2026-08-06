@@ -1694,6 +1694,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
         const element = elementForHash(cell.elementHash)
         const px = originX + x * cellSize
         const py = originY + canvasY * cellSize
+        const zoneColor = visibleLayers.biome ? zoneColorForType(worldZones[y * size.width + x] ?? 7) : undefined
         const fluidContactPath = element.state !== 'solid' && visibleLayers.ground && (
           solidAt(x - 1, y) || solidAt(x + 1, y) || solidAt(x, y - 1) || solidAt(x, y + 1)
         )
@@ -1774,6 +1775,12 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
             }
             context.fillStyle = patterns.get(fillElement.texture ?? '') ?? fillElement.color
             context.fillRect(px, py, cellSize, cellSize)
+            if (zoneColor) {
+              // The game applies the zone colour to the foreground substance,
+              // so natural terrain keeps the colony's palette as well.
+              context.fillStyle = `rgba(${zoneColor.r}, ${zoneColor.g}, ${zoneColor.b}, .16)`
+              context.fillRect(px, py, cellSize, cellSize)
+            }
             // ONI's ground textures are intentionally subdued below the black contour.
             context.fillStyle = 'rgba(0, 0, 0, .2)'
             context.fillRect(px, py, cellSize, cellSize)
@@ -2253,6 +2260,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
           const element = elementForHash(cell.elementHash)
           const px = originX + x * cellSize
           const py = originY + canvasY * cellSize
+          const zoneColor = visibleLayers.biome ? zoneColorForType(worldZones[y * size.width + x] ?? 7) : undefined
           const fluidContactPath = element.state !== 'solid' && visibleLayers.ground && (
             solidAt(x - 1, y) || solidAt(x + 1, y) || solidAt(x, y - 1) || solidAt(x, y + 1)
           )
@@ -2314,6 +2322,10 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
               }
               context.fillStyle = patterns.get(fillElement.texture ?? '') ?? fillElement.color
               context.fillRect(px, py, cellSize, cellSize)
+              if (zoneColor) {
+                context.fillStyle = `rgba(${zoneColor.r}, ${zoneColor.g}, ${zoneColor.b}, .16)`
+                context.fillRect(px, py, cellSize, cellSize)
+              }
               context.fillStyle = 'rgba(0, 0, 0, .2)'
               context.fillRect(px, py, cellSize, cellSize)
               context.restore()
