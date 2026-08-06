@@ -1491,6 +1491,9 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
   const fluidCanvasRef = useRef<HTMLCanvasElement>(null)
   const overlayRef = useRef<HTMLCanvasElement>(null)
   const canvasLayerRef = useRef<HTMLDivElement>(null)
+  const selectionDraftOverlayRef = useRef<HTMLDivElement>(null)
+  const selectionDraftTitleRef = useRef<HTMLElement>(null)
+  const selectionDraftCountRef = useRef<HTMLElement>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
   const renderCacheRef = useRef<{ bytes: Uint8Array | null; cells: Map<number, SimCell | undefined>; paths: Map<string, Path2D>; zoneBytes: Uint8Array | null; zones: Uint8Array | null }>({ bytes: null, cells: new Map(), paths: new Map(), zoneBytes: null, zones: null })
   const pointerRef = useRef<{ mode: 'pan' | 'select' | 'brush' | 'shape' | 'point'; startX: number; startY: number; panX: number; panY: number; moved: boolean; lastCell: { x: number; y: number } | null; startCell: { x: number; y: number } | null } | null>(null)
@@ -1507,7 +1510,8 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
   const [isPanning, setIsPanning] = useState(false)
   const [spacePan, setSpacePan] = useState(false)
   const [brushCell, setBrushCell] = useState<{ x: number; y: number } | null>(null)
-  const [selectionDraft, setSelectionDraft] = useState<MapSelection | null>(null)
+  const selectionDraftRef = useRef<MapSelection | null>(null)
+  const [isSelecting, setIsSelecting] = useState(false)
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 })
   const size = worldSize(save)
   const fitCellSize = viewportSize.width > 0 && viewportSize.height > 0
@@ -2063,11 +2067,11 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
         drawFluidSurfaceRuns(context, surfaceRuns, timeSeconds, true)
         drawFluidRegionAnimation(context, regions, timeSeconds)
       }
-      if (!reduceMotion && fluidCells.length > 0) frame = requestAnimationFrame(draw)
+      if (!reduceMotion && !isSelecting && fluidCells.length > 0) frame = requestAnimationFrame(draw)
     }
     draw(0)
     return () => cancelAnimationFrame(frame)
-  }, [fluidCanvasRef, originX, originY, overlay, renderCellSize, save, size.height, size.width, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers.gas, visibleLayers.ground, visibleLayers.liquid])
+  }, [fluidCanvasRef, isSelecting, originX, originY, overlay, renderCellSize, save, size.height, size.width, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers.gas, visibleLayers.ground, visibleLayers.liquid])
 
   useEffect(() => {
     const canvas = overlayRef.current
@@ -2576,19 +2580,33 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
     }
   }
 
-  const activeSelection = selectionDraft ?? selection
-  const activeSelectionBounds = activeSelection ? normalizedSelection(activeSelection) : undefined
-  const updateSelectionDraft = (start: { x: number; y: number }, end: { x: number; y: number }) => {
-    setSelectionDraft((current) => {
-      if (current?.start.x === start.x && current?.start.y === start.y && current.end.x === end.x && current.end.y === end.y) return current
-      return { start, end }
-    })
+  const activeSelectionBounds = selection ? normalizedSelection(selection) : undefined
+  const updateSelectionDraftOverlay = (draft: MapSelection | null) => {
+    const node = selectionDraftOverlayRef.current
+    if (!node) return
+    if (!draft) {
+      node.hidden = true
+      return
+    }
+    const bounds = normalizedSelection(draft)
+    node.hidden = false
+    node.style.left = `${originX / devicePixelRatio + bounds.minX * displayCellSize}px`
+    node.style.top = `${originY / devicePixelRatio + (size.height - 1 - bounds.maxY) * displayCellSize}px`
+    node.style.width = `${bounds.width * displayCellSize}px`
+    node.style.height = `${bounds.height * displayCellSize}px`
+    const showLabel = bounds.width * displayCellSize >= 52 && bounds.height * displayCellSize >= 34
+    const label = node.querySelector<HTMLElement>('.map-selection-label')
+    if (label) label.hidden = !showLabel
+    if (showLabel) {
+      if (selectionDraftTitleRef.current) selectionDraftTitleRef.current.textContent = `${bounds.width}×${bounds.height}`
+      if (selectionDraftCountRef.current) selectionDraftCountRef.current.textContent = `${bounds.cells.toLocaleString()}格`
+    }
   }
 
   return <div
     ref={viewportRef}
     style={mapBackgroundStyle}
-    className={`canvas-frame canvas-viewport ${isPanning ? 'is-panning' : ''} ${spacePan ? 'is-space-pan' : ''} ${tool === 'inspect' ? 'is-select-mode' : ''} ${tool !== 'inspect' && tool !== 'move' ? 'is-brush-mode' : ''}`}
+    className={`canvas-frame canvas-viewport ${isPanning ? 'is-panning' : ''} ${isSelecting ? 'is-selecting' : ''} ${spacePan ? 'is-space-pan' : ''} ${tool === 'inspect' ? 'is-select-mode' : ''} ${tool !== 'inspect' && tool !== 'move' ? 'is-brush-mode' : ''}`}
     onWheel={(event) => { event.preventDefault(); event.stopPropagation(); setZoomPercentAround(zoomPercent + (event.deltaY < 0 ? 5 : -5), event.clientX, event.clientY) }}
     onPointerDown={(event) => {
       if (event.button !== 0 && event.button !== 1) return
@@ -2615,8 +2633,15 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
         if (startCell) onCell(startCell.x, startCell.y)
       } else if (mode === 'select') {
         onSelectionChange(null)
-        if (startCell) updateSelectionDraft(startCell, startCell)
-        else setSelectionDraft(null)
+        if (startCell) {
+          selectionDraftRef.current = { start: startCell, end: startCell }
+          updateSelectionDraftOverlay(selectionDraftRef.current)
+          setIsSelecting(true)
+        } else {
+          selectionDraftRef.current = null
+          updateSelectionDraftOverlay(null)
+          setIsSelecting(false)
+        }
       } else {
         if (canvasLayerRef.current) canvasLayerRef.current.style.transform = 'translate3d(0, 0, 0)'
         setIsPanning(true)
@@ -2650,7 +2675,13 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
         const dx = event.clientX - pointer.startX
         const dy = event.clientY - pointer.startY
         if (Math.abs(dx) > 4 || Math.abs(dy) > 4) pointer.moved = true
-        if (pointer.moved && pointer.startCell && cell) updateSelectionDraft(pointer.startCell, cell)
+        if (pointer.moved && pointer.startCell && cell) {
+          const currentDraft = selectionDraftRef.current
+          if (currentDraft?.start.x !== pointer.startCell.x || currentDraft.start.y !== pointer.startCell.y || currentDraft.end.x !== cell.x || currentDraft.end.y !== cell.y) {
+            selectionDraftRef.current = { start: pointer.startCell, end: cell }
+            updateSelectionDraftOverlay(selectionDraftRef.current)
+          }
+        }
         return
       }
       if (pointer.mode === 'point') return
@@ -2664,14 +2695,16 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
     onPointerUp={(event) => {
       const pointer = pointerRef.current
       if (pointer?.mode === 'select') {
-        const endCell = pointToCell(event.clientX, event.clientY) ?? selectionDraft?.end ?? pointer.startCell
+        const endCell = pointToCell(event.clientX, event.clientY) ?? selectionDraftRef.current?.end ?? pointer.startCell
         if (!pointer.moved && pointer.startCell) {
           onSelectionChange(null)
           onCell(pointer.startCell.x, pointer.startCell.y)
         } else if (pointer.moved && pointer.startCell && endCell) {
           onSelectionChange({ start: pointer.startCell, end: endCell })
         }
-        setSelectionDraft(null)
+        selectionDraftRef.current = null
+        updateSelectionDraftOverlay(null)
+        setIsSelecting(false)
       }
       if (pointer?.mode === 'brush' || pointer?.mode === 'shape') onStrokeEnd()
       if (pointer?.mode === 'pan' && pointer.moved) {
@@ -2686,7 +2719,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
       if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
     }}
     onPointerLeave={() => { if (!pointerRef.current) updateBrushCell(null) }}
-    onPointerCancel={() => { if (pointerRef.current?.mode === 'brush' || pointerRef.current?.mode === 'shape') onStrokeEnd(); if (canvasLayerRef.current) canvasLayerRef.current.style.transform = 'translate3d(0, 0, 0)'; pointerRef.current = null; visitedBrushCellsRef.current.clear(); updateBrushCell(null); setSelectionDraft(null); setIsPanning(false) }}
+    onPointerCancel={() => { if (pointerRef.current?.mode === 'brush' || pointerRef.current?.mode === 'shape') onStrokeEnd(); if (canvasLayerRef.current) canvasLayerRef.current.style.transform = 'translate3d(0, 0, 0)'; pointerRef.current = null; selectionDraftRef.current = null; visitedBrushCellsRef.current.clear(); updateBrushCell(null); updateSelectionDraftOverlay(null); setIsSelecting(false); setIsPanning(false) }}
   >
     <div ref={canvasLayerRef} className="canvas-layer">
       <canvas
@@ -2696,7 +2729,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
       <canvas ref={fluidCanvasRef} className="canvas-fluid" style={canvasStyle} aria-hidden="true" />
       <canvas ref={overlayRef} className="canvas-overlay" style={canvasStyle} aria-hidden="true" />
       {activeSelectionBounds && <div
-        className={`map-selection-overlay ${selectionDraft ? 'is-draft' : ''}`}
+        className="map-selection-overlay"
         style={{
           left: `${originX / devicePixelRatio + activeSelectionBounds.minX * displayCellSize}px`,
           top: `${originY / devicePixelRatio + (size.height - 1 - activeSelectionBounds.maxY) * displayCellSize}px`,
@@ -2706,6 +2739,9 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
       >
         {activeSelectionBounds.width * displayCellSize >= 52 && activeSelectionBounds.height * displayCellSize >= 34 && <span className="map-selection-label"><strong>{activeSelectionBounds.width}×{activeSelectionBounds.height}</strong><small>{activeSelectionBounds.cells.toLocaleString()}格</small></span>}
       </div>}
+      <div ref={selectionDraftOverlayRef} className="map-selection-overlay is-draft" hidden aria-hidden="true">
+        <span className="map-selection-label" hidden><strong ref={selectionDraftTitleRef} /><small ref={selectionDraftCountRef} /></span>
+      </div>
     </div>
     <div className="canvas-controls" onPointerDown={(event) => event.stopPropagation()}>
       <button type="button" title="缩小地图" aria-label="缩小地图" onClick={() => setZoomPercentAround(zoomPercent - 10)}><Minus size={15} /></button>

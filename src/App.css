@@ -186,6 +186,7 @@ h2 { color: var(--ink); font-size: 15px; font-weight: 650; letter-spacing: 0; }
 .map-selection-label strong { font: 600 12px/1.2 var(--mono); }
 .map-selection-label small { margin-top: 2px; color: rgba(255, 244, 214, .72); font: 10px/1.2 var(--mono); }
 .canvas-viewport { cursor: grab; overscroll-behavior: contain; }
+.canvas-viewport.is-selecting::before { animation-play-state: paused; }
 .canvas-viewport.is-select-mode, .canvas-viewport.is-select-mode canvas { cursor: crosshair; }
 .canvas-viewport.is-brush-mode, .canvas-viewport.is-brush-mode canvas { cursor: crosshair; }
 .canvas-viewport.is-space-pan, .canvas-viewport.is-space-pan canvas { cursor: grab; }
