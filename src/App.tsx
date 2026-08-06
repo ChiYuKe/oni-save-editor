@@ -343,7 +343,7 @@ const DEFAULT_MAP_LAYER_VISIBILITY: MapLayerVisibility = {
   gas: true,
   liquid: true,
   ground: true,
-  backwall: true,
+  backwall: false,
 }
 type SaveFileHandle = {
   getFile: () => Promise<File>
