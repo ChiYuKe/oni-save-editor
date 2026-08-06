@@ -1714,7 +1714,9 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
         if (!isSolid) {
           // Every cell must set its own fill style. Otherwise vacuum and unknown
           // elements inherit the previous cell's texture from the canvas state.
-          const showElement = element.state === 'vacuum' || element.state === 'special' || elementLayerVisible
+          // Vacuum is transparent in the game; the space scene must remain
+          // visible underneath it. Special void cells still keep their fill.
+          const showElement = element.state === 'special' || elementLayerVisible
           if (showElement && (element.state === 'liquid' || element.state === 'gas') && element.fluidMaterial) {
             fluidCells.push({
               x,
@@ -2278,7 +2280,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
             || element.state === 'liquid' && visibleLayers.liquid
             || element.state === 'gas' && visibleLayers.gas
           if (!isSolid) {
-            const showElement = element.state === 'vacuum' || element.state === 'special' || elementLayerVisible
+            const showElement = element.state === 'special' || elementLayerVisible
             if (showElement && (element.state === 'liquid' || element.state === 'gas') && element.fluidMaterial) {
               fluidCells.push({
                 x,
