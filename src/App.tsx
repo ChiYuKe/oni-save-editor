@@ -894,7 +894,6 @@ function MapView({ save, updateSave }: { save: ParsedSave; updateSave: (update: 
     const cells: MapCellUpdate[] = []
     for (let offsetY = -radius; offsetY <= radius; offsetY++) {
       for (let offsetX = -radius; offsetX <= radius; offsetX++) {
-        if (radius > 0 && offsetX * offsetX + offsetY * offsetY > radius * radius + .5) continue
         const cellX = x + offsetX
         const cellY = y + offsetY
         if (cellX < 0 || cellY < 0 || cellX >= size.width || cellY >= size.height) continue
@@ -1095,7 +1094,6 @@ function lineCells(start: { x: number; y: number }, end: { x: number; y: number 
     const centerY = Math.round(start.y + (end.y - start.y) * progress)
     for (let offsetY = -radius; offsetY <= radius; offsetY++) {
       for (let offsetX = -radius; offsetX <= radius; offsetX++) {
-        if (radius > 0 && offsetX * offsetX + offsetY * offsetY > radius * radius + .5) continue
         const x = centerX + offsetX
         const y = centerY + offsetY
         if (x >= 0 && y >= 0 && x < width && y < height) cells.set(`${x}:${y}`, { x, y })
@@ -2195,16 +2193,15 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
     }
     const brushTool = tool === 'paint' || tool === 'erase' || tool === 'line'
     if (brushTool && !spacePan && brushCell) {
-      const centerX = originX + (brushCell.x + .5) * cellSize
-      const centerY = originY + (size.height - .5 - brushCell.y) * cellSize
-      const radius = brushSize * cellSize / 2
+      const radius = Math.floor(brushSize / 2)
+      const left = originX + (brushCell.x - radius) * cellSize
+      const top = originY + (size.height - 1 - brushCell.y - radius) * cellSize
+      const brushPixels = brushSize * cellSize
       context.fillStyle = tool === 'erase' ? 'rgba(255, 226, 196, .16)' : 'rgba(240, 208, 141, .18)'
       context.strokeStyle = tool === 'erase' ? '#f3c59e' : '#f0d08d'
-      context.lineWidth = Math.max(1, Math.ceil(cellSize / 4))
-      context.beginPath()
-      context.arc(centerX, centerY, Math.max(1, radius - context.lineWidth / 2), 0, Math.PI * 2)
-      context.fill()
-      context.stroke()
+      context.lineWidth = Math.max(1, Math.min(3, cellSize * .08))
+      context.fillRect(left, top, brushPixels, brushPixels)
+      context.strokeRect(left + context.lineWidth / 2, top + context.lineWidth / 2, brushPixels - context.lineWidth, brushPixels - context.lineWidth)
     }
   }, [brushCell, brushSize, displayCellSize, originX, originY, pan.x, pan.y, previewCells, previewVersion, renderCellSize, save, selectedCell, size.height, size.width, spacePan, textures, tool, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers.grid, visibleLayers.ground])
 
