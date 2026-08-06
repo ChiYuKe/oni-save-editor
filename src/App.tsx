@@ -104,11 +104,82 @@ const WORLD_ZONE_COLORS: Record<number, ZoneColor> = {
  24: { r: 201, g: 152, b: 181 },
  25: { r: 63, g: 28, b: 6 },
  26: { r: 142, g: 192, b: 57 },
- 27: { r: 192, g: 100, b: 16 }, // Current DLC zone
+  27: { r: 192, g: 100, b: 16 }, // Current DLC zone
 }
+
+// The game samples these layers from the bgarray Texture2DArray. The values
+// match SubworldZoneRenderData.zoneTextureArrayIndices in the game source.
+const ZONE_TEXTURE_ARRAY_INDICES = [
+  0, 1, 2, 3, 4, 5, 5, 3, 6, 7,
+  8, 9, 10, 11, 12, 7, 3, 13, 0, 0,
+  0, 14, 15, 16, 4, 6, 18, 17,
+]
+const BIOME_BACKGROUND_WORLD_CELLS = 20
 
 function zoneColorForType(zoneType: number): ZoneColor | undefined {
   return WORLD_ZONE_COLORS[zoneType]
+}
+
+function zoneTextureIndexForType(zoneType: number): number | undefined {
+  if (zoneType === 7 || zoneType === 255) return undefined
+  return ZONE_TEXTURE_ARRAY_INDICES[zoneType] ?? 0
+}
+
+function biomeBackgroundAsset(textureIndex: number): string {
+  return `/assets/background/biomes/slice-${textureIndex.toString().padStart(2, '0')}.png`
+}
+
+function drawBiomeBackground(
+  context: CanvasRenderingContext2D,
+  worldZones: Uint8Array,
+  width: number,
+  height: number,
+  cellSize: number,
+  originX: number,
+  originY: number,
+  range: { minX: number; maxX: number; minRow: number; maxRow: number },
+  backgrounds: Record<number, HTMLImageElement>,
+): void {
+  const paths = new Map<number, Path2D>()
+  const fallbackColors = new Map<number, ZoneColor>()
+  for (let canvasY = range.minRow; canvasY <= range.maxRow; canvasY++) {
+    const y = height - 1 - canvasY
+    for (let x = range.minX; x <= range.maxX; x++) {
+      const zoneType = worldZones[y * width + x] ?? 7
+      const textureIndex = zoneTextureIndexForType(zoneType)
+      if (textureIndex === undefined) continue
+      const path = paths.get(textureIndex) ?? new Path2D()
+      path.rect(originX + x * cellSize, originY + canvasY * cellSize, cellSize + .25, cellSize + .25)
+      paths.set(textureIndex, path)
+      if (!fallbackColors.has(textureIndex)) {
+        const color = zoneColorForType(zoneType)
+        if (color) fallbackColors.set(textureIndex, color)
+      }
+    }
+  }
+
+  context.save()
+  context.globalAlpha = .84
+  context.imageSmoothingEnabled = true
+  for (const [textureIndex, path] of paths) {
+    const image = backgrounds[textureIndex]
+    if (image?.naturalWidth && image.naturalHeight) {
+      const scale = (cellSize * BIOME_BACKGROUND_WORLD_CELLS) / image.naturalWidth
+      const pattern = context.createPattern(image, 'repeat')
+      if (pattern) {
+        // Anchor the pattern to the map origin so panning moves the texture
+        // with the world instead of making it slide under the cursor.
+        pattern.setTransform(new DOMMatrix([scale, 0, 0, scale, originX, originY]))
+        context.fillStyle = pattern
+        context.fill(path)
+        continue
+      }
+    }
+    const fallback = fallbackColors.get(textureIndex) ?? { r: 36, g: 43, b: 48 }
+    context.fillStyle = `rgb(${fallback.r}, ${fallback.g}, ${fallback.b})`
+    context.fill(path)
+  }
+  context.restore()
 }
 
 function pointInPolygon(x: number, y: number, vertices: Array<{ x: number; y: number }>): boolean {
@@ -1375,6 +1446,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
   const brushCellRef = useRef<{ x: number; y: number } | null>(null)
   const spacePanRef = useRef(false)
   const [textures, setTextures] = useState<Record<string, HTMLImageElement>>({})
+  const [biomeBackgrounds, setBiomeBackgrounds] = useState<Record<number, HTMLImageElement>>({})
   const [geyserTextures, setGeyserTextures] = useState<Record<string, HTMLImageElement>>({})
   const [buildingTextures, setBuildingTextures] = useState<Record<string, HTMLImageElement>>({})
   const [zoomPercent, setZoomPercent] = useState(50)
@@ -1544,6 +1616,26 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
 
   useEffect(() => {
     let active = true
+    const loads = Array.from({ length: 19 }, (_, textureIndex) => new Promise<{ textureIndex: number; image: HTMLImageElement } | null>((resolve) => {
+      const image = new Image()
+      image.decoding = 'async'
+      image.onload = () => resolve({ textureIndex, image })
+      image.onerror = () => resolve(null)
+      image.src = assetPath(biomeBackgroundAsset(textureIndex))
+    }))
+    void Promise.all(loads).then((entries) => {
+      if (!active) return
+      const next: Record<number, HTMLImageElement> = {}
+      entries.forEach((entry) => {
+        if (entry) next[entry.textureIndex] = entry.image
+      })
+      setBiomeBackgrounds(next)
+    })
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    let active = true
     const paths = new Set(Object.values(GEYSER_TEXTURES).map((definition) => definition.path))
     paths.forEach((path) => {
       const image = new Image()
@@ -1576,6 +1668,10 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
     const range = visibleMapRange(size.width, size.height, cellSize, originX, originY, canvas.width, canvas.height)
     const fluidCells: FluidRenderCell[] = []
 
+    if (visibleLayers.biome) {
+      drawBiomeBackground(context, worldZones, size.width, size.height, cellSize, originX, originY, range, biomeBackgrounds)
+    }
+
     const cellAt = (x: number, y: number) => cachedSimCell(sim, view, x + 1, y + 1)
     const sameLiquidAt = (cell: SimCell, x: number, y: number) => {
       const neighbour = cellAt(x, y)
@@ -1598,11 +1694,6 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
         const element = elementForHash(cell.elementHash)
         const px = originX + x * cellSize
         const py = originY + canvasY * cellSize
-        const zoneColor = visibleLayers.biome ? zoneColorForType(worldZones[y * size.width + x]) : undefined
-        if (zoneColor) {
-          context.fillStyle = `rgba(${zoneColor.r}, ${zoneColor.g}, ${zoneColor.b}, .16)`
-          context.fillRect(px, py, cellSize, cellSize)
-        }
         const fluidContactPath = element.state !== 'solid' && visibleLayers.ground && (
           solidAt(x - 1, y) || solidAt(x + 1, y) || solidAt(x, y - 1) || solidAt(x, y + 1)
         )
@@ -1683,10 +1774,6 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
             }
             context.fillStyle = patterns.get(fillElement.texture ?? '') ?? fillElement.color
             context.fillRect(px, py, cellSize, cellSize)
-            if (zoneColor) {
-              context.fillStyle = `rgba(${zoneColor.r}, ${zoneColor.g}, ${zoneColor.b}, .1)`
-              context.fillRect(px, py, cellSize, cellSize)
-            }
             // ONI's ground textures are intentionally subdued below the black contour.
             context.fillStyle = 'rgba(0, 0, 0, .2)'
             context.fillRect(px, py, cellSize, cellSize)
@@ -1840,7 +1927,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
       }
     }
     context.restore()
-  }, [buildingTextures, cachedWorldZoneMap, displayCellSize, geyserTextures, originX, originY, overlay, pan.x, pan.y, renderCellSize, save, size.height, size.width, textures, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers])
+  }, [biomeBackgrounds, buildingTextures, cachedWorldZoneMap, displayCellSize, geyserTextures, originX, originY, overlay, pan.x, pan.y, renderCellSize, save, size.height, size.width, textures, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers])
 
   useEffect(() => {
     const canvas = fluidCanvasRef.current
@@ -2109,17 +2196,33 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
     if (!context) return
 
     try {
-      const [spaceBackground, starfield] = await Promise.all([
+      const [spaceBackground, starfield, ...loadedBiomeBackgrounds] = await Promise.all([
         loadMapImage('/assets/background/space_bg.png'),
         loadMapImage('/assets/background/starfield.png'),
+        ...Array.from({ length: 19 }, (_, textureIndex) => loadMapImage(biomeBackgroundAsset(textureIndex))),
       ])
       paintMapBackground(context, exportWidth, exportHeight, spaceBackground, starfield)
 
       const view = new DataView(sim.bytes.buffer, sim.bytes.byteOffset, sim.bytes.byteLength)
       const worldZones = cachedWorldZoneMap(sim)
+      const exportBiomeBackgrounds: Record<number, HTMLImageElement> = { ...biomeBackgrounds }
+      loadedBiomeBackgrounds.forEach((image, textureIndex) => { exportBiomeBackgrounds[textureIndex] = image })
       const originX = 0
       const originY = 0
       const cellSize = exportCellSize
+      if (visibleLayers.biome) {
+        drawBiomeBackground(
+          context,
+          worldZones,
+          size.width,
+          size.height,
+          cellSize,
+          originX,
+          originY,
+          { minX: 0, maxX: size.width - 1, minRow: 0, maxRow: size.height - 1 },
+          exportBiomeBackgrounds,
+        )
+      }
       const patterns = createElementPatterns(context, textures, cellSize, originX, originY + size.height * cellSize)
       const visibleGrid = worldGrid(save, 'GridVisible')?.bytes
       const spawnableGrid = worldGrid(save, 'GridSpawnable')?.bytes
@@ -2150,11 +2253,6 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
           const element = elementForHash(cell.elementHash)
           const px = originX + x * cellSize
           const py = originY + canvasY * cellSize
-          const zoneColor = visibleLayers.biome ? zoneColorForType(worldZones[y * size.width + x]) : undefined
-          if (zoneColor) {
-            context.fillStyle = `rgba(${zoneColor.r}, ${zoneColor.g}, ${zoneColor.b}, .16)`
-            context.fillRect(px, py, cellSize, cellSize)
-          }
           const fluidContactPath = element.state !== 'solid' && visibleLayers.ground && (
             solidAt(x - 1, y) || solidAt(x + 1, y) || solidAt(x, y - 1) || solidAt(x, y + 1)
           )
@@ -2216,10 +2314,6 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
               }
               context.fillStyle = patterns.get(fillElement.texture ?? '') ?? fillElement.color
               context.fillRect(px, py, cellSize, cellSize)
-              if (zoneColor) {
-                context.fillStyle = `rgba(${zoneColor.r}, ${zoneColor.g}, ${zoneColor.b}, .1)`
-                context.fillRect(px, py, cellSize, cellSize)
-              }
               context.fillStyle = 'rgba(0, 0, 0, .2)'
               context.fillRect(px, py, cellSize, cellSize)
               context.restore()
