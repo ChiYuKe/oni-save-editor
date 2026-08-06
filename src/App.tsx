@@ -1434,6 +1434,41 @@ function terrainMaterialOrder(hash: number | undefined): number {
   return element.terrainOrder ?? element.hash
 }
 
+function floodFillCoordinates(
+  sim: NonNullable<ParsedSave['simData']>,
+  width: number,
+  height: number,
+  startX: number,
+  startY: number,
+): Array<{ x: number; y: number }> {
+  if (startX < 0 || startY < 0 || startX >= width || startY >= height) return []
+  const view = new DataView(sim.bytes.buffer, sim.bytes.byteOffset, sim.bytes.byteLength)
+  const start = readSimCell(sim, view, startX + 1, startY + 1)
+  if (!start) return []
+  const targetHash = start.elementHash
+  const visited = new Uint8Array(width * height)
+  const queue: Array<{ x: number; y: number }> = [{ x: startX, y: startY }]
+  const cells: Array<{ x: number; y: number }> = []
+  let cursor = 0
+  while (cursor < queue.length) {
+    const current = queue[cursor++]
+    if (current.x < 0 || current.y < 0 || current.x >= width || current.y >= height) continue
+    const index = current.y * width + current.x
+    if (visited[index]) continue
+    visited[index] = 1
+    const cell = readSimCell(sim, view, current.x + 1, current.y + 1)
+    if (!cell || cell.elementHash !== targetHash) continue
+    cells.push(current)
+    queue.push(
+      { x: current.x - 1, y: current.y },
+      { x: current.x + 1, y: current.y },
+      { x: current.x, y: current.y - 1 },
+      { x: current.x, y: current.y + 1 },
+    )
+  }
+  return cells
+}
+
 function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell, previewCells, previewVersion, onCell, onShape, onStrokeStart, onStrokeEnd }: { save: ParsedSave; visibleLayers: MapLayerVisibility; overlay: MapOverlay; tool: MapTool; brushSize: number; selectedCell: { x: number; y: number } | null; previewCells: Map<string, MapPreviewCell>; previewVersion: number; onCell: (x: number, y: number) => void; onShape: (start: { x: number; y: number }, end: { x: number; y: number }) => void; onStrokeStart: () => void; onStrokeEnd: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fluidCanvasRef = useRef<HTMLCanvasElement>(null)
@@ -1444,6 +1479,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
   const pointerRef = useRef<{ mode: 'pan' | 'brush' | 'shape' | 'point'; startX: number; startY: number; panX: number; panY: number; moved: boolean; selectable: boolean; lastCell: { x: number; y: number } | null; startCell: { x: number; y: number } | null } | null>(null)
   const visitedBrushCellsRef = useRef(new Set<string>())
   const brushCellRef = useRef<{ x: number; y: number } | null>(null)
+  const fillRegionCacheRef = useRef<{ bytes: Uint8Array | null; regions: Map<number, Array<{ x: number; y: number }>> }>({ bytes: null, regions: new Map() })
   const spacePanRef = useRef(false)
   const [textures, setTextures] = useState<Record<string, HTMLImageElement>>({})
   const [biomeBackgrounds, setBiomeBackgrounds] = useState<Record<number, HTMLImageElement>>({})
@@ -2100,6 +2136,58 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
     drawFluidRegionBase(context, fluidRegions(previewFluidCells))
     drawFluidBoundaryGlow(context, fluidBoundaryCells(previewFluidCells), false)
     drawFluidSurfaceRuns(context, fluidSurfaceRuns(previewFluidCells), 0, false)
+    if (tool === 'fill' && !spacePan && brushCell && sim) {
+      const fillCache = fillRegionCacheRef.current
+      if (fillCache.bytes !== sim.bytes) {
+        fillCache.bytes = sim.bytes
+        fillCache.regions.clear()
+      }
+      const startIndex = brushCell.y * size.width + brushCell.x
+      let fillCells = fillCache.regions.get(startIndex)
+      if (!fillCells) {
+        fillCells = floodFillCoordinates(sim, size.width, size.height, brushCell.x, brushCell.y)
+        fillCells.forEach((cell) => fillCache.regions.set(cell.y * size.width + cell.x, fillCells!))
+      }
+      if (fillCells.length > 0) {
+        const fillSet = new Set(fillCells.map((cell) => `${cell.x}:${cell.y}`))
+        const fillPath = new Path2D()
+        const boundaryPath = new Path2D()
+        const inViewport = (cell: { x: number; y: number }) => {
+          const canvasY = size.height - 1 - cell.y
+          return cell.x >= range.minX && cell.x <= range.maxX && canvasY >= range.minRow && canvasY <= range.maxRow
+        }
+        fillCells.forEach((cell) => {
+          if (!inViewport(cell)) return
+          const px = originX + cell.x * cellSize
+          const py = originY + (size.height - 1 - cell.y) * cellSize
+          fillPath.rect(px, py, cellSize + .25, cellSize + .25)
+          if (!fillSet.has(`${cell.x - 1}:${cell.y}`)) {
+            boundaryPath.moveTo(px, py)
+            boundaryPath.lineTo(px, py + cellSize)
+          }
+          if (!fillSet.has(`${cell.x + 1}:${cell.y}`)) {
+            boundaryPath.moveTo(px + cellSize, py)
+            boundaryPath.lineTo(px + cellSize, py + cellSize)
+          }
+          if (!fillSet.has(`${cell.x}:${cell.y - 1}`)) {
+            boundaryPath.moveTo(px, py + cellSize)
+            boundaryPath.lineTo(px + cellSize, py + cellSize)
+          }
+          if (!fillSet.has(`${cell.x}:${cell.y + 1}`)) {
+            boundaryPath.moveTo(px, py)
+            boundaryPath.lineTo(px + cellSize, py)
+          }
+        })
+        context.save()
+        context.fillStyle = 'rgba(240, 208, 141, .2)'
+        context.fill(fillPath)
+        context.strokeStyle = 'rgba(240, 208, 141, .9)'
+        context.lineWidth = Math.max(1, Math.min(3, cellSize * .06))
+        context.lineJoin = 'round'
+        context.stroke(boundaryPath)
+        context.restore()
+      }
+    }
     if (selectedCell) {
       context.strokeStyle = '#f0d08d'
       context.lineWidth = Math.max(1, Math.ceil(cellSize / 4))
@@ -2508,7 +2596,8 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
       const pointer = pointerRef.current
       const cell = pointToCell(event.clientX, event.clientY) ?? null
       const brushTool = tool === 'paint' || tool === 'erase' || tool === 'line'
-      if (brushTool && !spacePanRef.current && pointer?.mode !== 'pan') updateBrushCell(cell)
+      const previewTool = brushTool || tool === 'fill'
+      if (previewTool && !spacePanRef.current && pointer?.mode !== 'pan') updateBrushCell(cell)
       else updateBrushCell(null)
       if (!pointer) return
       if (pointer.mode === 'brush') {
