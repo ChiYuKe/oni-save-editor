@@ -49,6 +49,7 @@ import {
   setValueFromText,
   topGroups,
   worldGrid,
+  worldCoordinate,
   worldSeed,
   worldSize,
 } from './lib/editor'
@@ -1530,6 +1531,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
   const viewportPixelWidth = Math.max(1, Math.ceil(viewportSize.width * devicePixelRatio))
   const viewportPixelHeight = Math.max(1, Math.ceil(viewportSize.height * devicePixelRatio))
   const mapSeed = worldSeed(save)
+  const mapCoordinate = worldCoordinate(save)
 
   const cachedSimCell = (sim: NonNullable<ParsedSave['simData']>, view: DataView, x: number, y: number): SimCell | undefined => {
     const cache = renderCacheRef.current
@@ -2273,7 +2275,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
     const padding = 14 * scale
     const lineHeight = 14 * scale
     const title = '缺氧存档编辑器'
-    const seed = `地图种子 ${mapSeed === undefined ? '未知' : mapSeed}`
+    const seed = `地图种子 ${mapCoordinate ?? (mapSeed === undefined ? '未知' : mapSeed)}`
     const textRight = width - padding - 12 * scale
     context.save()
     context.font = `600 ${12 * scale}px "Microsoft YaHei", sans-serif`

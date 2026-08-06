@@ -103,6 +103,201 @@ export function worldSeed(save: ParsedSave): number | undefined {
     ?? scalarNumber(member(worldDetail, 'globalTerrainSeed')?.value)
 }
 
+type CoordinateSetting = {
+  id: string
+  range: number
+  levels: Record<string, number>
+}
+
+const OTHER_COORDINATE_SETTINGS: CoordinateSetting[] = [
+  { id: 'ImmuneSystem', range: 8, levels: { Default: 0, Strong: 1, Invincible: 2, Weak: 3, Compromised: 4 } },
+  { id: 'CalorieBurn', range: 8, levels: { Default: 0, Easy: 1, Disabled: 2, Hard: 3, VeryHard: 4 } },
+  { id: 'Morale', range: 8, levels: { Default: 0, Easy: 1, Disabled: 2, Hard: 3, VeryHard: 4 } },
+  { id: 'Durability', range: 8, levels: { Default: 0, Reinforced: 1, Indestructible: 2, Flimsy: 3, Threadbare: 4 } },
+  { id: 'MeteorShowers', range: 8, levels: { Default: 0, Infrequent: 1, ClearSkies: 2, Intense: 3, Doomed: 4 } },
+  { id: 'Radiation', range: 8, levels: { Default: 0, Easier: 1, Easiest: 2, Harder: 3, Hardest: 4 } },
+  { id: 'Stress', range: 8, levels: { Default: 0, Optimistic: 1, Indomitable: 2, Pessimistic: 3, Doomed: 4 } },
+  { id: 'StressBreaks', range: 5, levels: { Default: 0, Disabled: 1 } },
+  { id: 'CarePackages', range: 5, levels: { Enabled: 0, Disabled: 1 } },
+  { id: 'Teleporters', range: 5, levels: { Enabled: 0, Disabled: 1 } },
+  { id: 'BionicWattage', range: 8, levels: { Default: 0, Easy: 1, VeryEasy: 2, Hard: 3, VeryHard: 4 } },
+  { id: 'DemoliorDifficulty', range: 8, levels: { Default: 0, Easy: 1, VeryEasy: 2, Off: 3, Hard: 4, VeryHard: 5 } },
+]
+
+const MIXING_COORDINATE_SETTINGS: CoordinateSetting[] = [
+  'DLC2_ID',
+  'IceCavesMixing',
+  'CarrotQuarryMixing',
+  'SugarWoodsMixing',
+  'CeresAsteroidMixing',
+  'DLC3_ID',
+  'DLC4_ID',
+  'GardenMixing',
+  'RaptorMixing',
+  'WetlandsMixing',
+  'PrehistoricAsteroidMixing',
+  'DLC5_ID',
+  'BeachMixing',
+  'ReefMixing',
+  'KelpForestMixing',
+  'AbyssMixing',
+  'AquaticAsteroidMixing',
+].map((id) => ({
+  id,
+  range: 5,
+  levels: id.endsWith('_ID')
+    ? ({ Disabled: 0, Enabled: 1 } as Record<string, number>)
+    : ({ Disabled: 0, TryMixing: 1, GuranteeMixing: 2, GuaranteeMixing: 2 } as Record<string, number>),
+}))
+
+const STORY_COORDINATE_SETTINGS: CoordinateSetting[] = [
+  'MegaBrainTank',
+  'CreatureManipulator',
+  'LonelyMinion',
+  'FossilHunt',
+  'MorbRoverMaker',
+  'HijackHeadquarters',
+].map((id) => ({ id, range: 3, levels: { Disabled: 0, Guaranteed: 1 } }))
+
+// Built-in cluster prefixes from the game's worldgen cluster YAML files.
+const CLUSTER_COORDINATE_PREFIXES: Record<string, string> = {
+  'worldgen::clusters/Badlands': 'BAD-A',
+  'worldgen::clusters/BigEmptyCluster': 'BIG-E-A',
+  'worldgen::clusters/ForestDefault': 'FRST-A',
+  'worldgen::clusters/ForestHot': 'HTFST-A',
+  'worldgen::clusters/ForestLush': 'LUSH-A',
+  'worldgen::clusters/KleiFest2023': 'KF23-A',
+  'worldgen::clusters/Oasis': 'OASIS-A',
+  'worldgen::clusters/Oceania': 'OCAN-A',
+  'worldgen::clusters/SandstoneDefault': 'SNDST-A',
+  'worldgen::clusters/SandstoneFrozen': 'S-FRZ',
+  'worldgen::clusters/TinyEmptyCluster': 'TNY-E-A',
+  'worldgen::clusters/TinySurface': 'TNY-SURF-A',
+  'worldgen::clusters/Volcanic': 'VOLCA',
+  'dlc2::clusters/CeresBaseGameCluster': 'CER-A',
+  'dlc2::clusters/CeresBaseGameShatteredCluster': 'CERS-A',
+  'dlc2::clusters/CeresClassicCluster': 'V-CER-C',
+  'dlc2::clusters/CeresClassicShatteredCluster': 'V-CERS-C',
+  'dlc2::clusters/CeresSpacedOutCluster': 'CER-C',
+  'dlc2::clusters/CeresSpacedOutShatteredCluster': 'M-CERS-C',
+  'dlc4::clusters/PrehistoricBaseGameCluster': 'PRE-A',
+  'dlc4::clusters/PrehistoricClassicCluster': 'V-PRE-C',
+  'dlc4::clusters/PrehistoricShatteredBaseGameCluster': 'PRES-A',
+  'dlc4::clusters/PrehistoricShatteredClassicCluster': 'V-PRES-C',
+  'dlc4::clusters/PrehistoricSpacedOutCluster': 'PRE-C',
+  'dlc5::clusters/AquaticBaseGameCluster': 'AQU-A',
+  'dlc5::clusters/AquaticClassicCluster': 'V-AQU-C',
+  'dlc5::clusters/AquaticSpacedOutCluster': 'AQU-C',
+  'expansion1::clusters/BigEmptyCluster': 'BIG-E-C',
+  'expansion1::clusters/ForestStartCluster': 'FRST-C',
+  'expansion1::clusters/KleiFest2023Cluster': 'KF23-C',
+  'expansion1::clusters/MiniClusterBadlandsStart': 'M-BAD-C',
+  'expansion1::clusters/MiniClusterFlippedStart': 'M-FLIP-C',
+  'expansion1::clusters/MiniClusterForestFrozenStart': 'M-FRZ-C',
+  'expansion1::clusters/MiniClusterMetallicSwampyStart': 'M-SWMP-C',
+  'expansion1::clusters/MiniClusterRadioactiveOceanStart': 'M-RAD-C',
+  'expansion1::clusters/SandstoneStartCluster': 'SNDST-C',
+  'expansion1::clusters/SwampStartCluster': 'SWMP-C',
+  'expansion1::clusters/TinyEmptyCluster': 'TNY-E-C',
+  'expansion1::clusters/TinyStartCluster': 'TNY-C',
+  'expansion1::clusters/TinySurfaceCluster': 'TNY-SURF-C',
+  'expansion1::clusters/TwoSmallWorlds': 'TWOWORLD',
+  'expansion1::clusters/VanillaArboriaCluster': 'V-FRST-C',
+  'expansion1::clusters/VanillaAridioCluster': 'V-HTFST-C',
+  'expansion1::clusters/VanillaBadlandsCluster': 'V-BAD-C',
+  'expansion1::clusters/VanillaForestCluster': 'V-LUSH-C',
+  'expansion1::clusters/VanillaOasisCluster': 'V-OASIS-C',
+  'expansion1::clusters/VanillaOceaniaCluster': 'V-OCAN-C',
+  'expansion1::clusters/VanillaSandstoneCluster': 'V-SNDST-C',
+  'expansion1::clusters/VanillaSandstoneFrozenCluster': 'V-SFRZ-C',
+  'expansion1::clusters/VanillaSwampCluster': 'V-SWMP-C',
+  'expansion1::clusters/VanillaVolcanicCluster': 'V-VOLCA-C',
+}
+
+function objectValue(object: ObjectValue | undefined, name: string): Value | undefined {
+  return member(object, name)?.value
+}
+
+function stringDictionary(object: ObjectValue | undefined, name: string): Map<string, string> {
+  const value = objectValue(object, name)
+  if (!value || value.kind !== 'dict') return new Map()
+  const entries = new Map<string, string>()
+  for (let index = 0; index < value.keys.length; index++) {
+    const key = scalarText(value.keys[index])
+    const item = scalarText(value.values[index])
+    if (key) entries.set(key, item)
+  }
+  return entries
+}
+
+function currentGameSettings(save: ParsedSave): ObjectValue | undefined {
+  const value = objectValue(save.gameData, 'customGameSettings')
+  return value?.kind === 'object' ? value : undefined
+}
+
+function coordinateValue(setting: CoordinateSetting, level: string | undefined): number {
+  return setting.levels[level ?? ''] ?? 0
+}
+
+function binaryToBase36(input: bigint): string {
+  if (input === 0n) return '0'
+  const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  let output = ''
+  for (let value = input; value > 0n; value /= 36n) {
+    output += chars[Number(value % 36n)]
+  }
+  return output
+}
+
+function encodeCoordinate(settings: CoordinateSetting[], levels: Map<string, string>): string {
+  let input = 0n
+  for (const setting of settings) {
+    input *= BigInt(setting.range)
+    input += BigInt(coordinateValue(setting, levels.get(setting.id)))
+  }
+  return binaryToBase36(input)
+}
+
+function storyLevels(save: ParsedSave): Map<string, string> {
+  const levels = new Map<string, string>()
+  const storySettings = objectValue(save.gameData, 'storySetings')
+  const stories = storySettings?.kind === 'object' ? objectValue(storySettings, '_stories') : undefined
+  if (!stories || stories.kind !== 'dict') return levels
+
+  for (const story of stories.values) {
+    if (story.kind !== 'object') continue
+    const storyId = scalarText(objectValue(story, 'storyId'))
+    const telemetry = objectValue(story, 'telemetry')
+    const retrofitted = telemetry?.kind === 'object' ? scalarNumber(objectValue(telemetry, 'Retrofitted')) : undefined
+    if (storyId && retrofitted !== undefined && retrofitted < 0) levels.set(storyId, 'Guaranteed')
+  }
+  return levels
+}
+
+function clusterCoordinatePrefix(clusterLayout: string): string | undefined {
+  return CLUSTER_COORDINATE_PREFIXES[clusterLayout]
+}
+
+/** Returns the same five-part coordinate shown by the game's seed UI. */
+export function worldCoordinate(save: ParsedSave): string | undefined {
+  const settings = currentGameSettings(save)
+  if (!settings) return undefined
+  const qualityLevels = stringDictionary(settings, 'CurrentQualityLevelsBySetting')
+  const mixingLevels = stringDictionary(settings, 'CurrentMixingLevelsBySetting')
+  const clusterLayout = qualityLevels.get('ClusterLayout')
+  const worldgenSeed = qualityLevels.get('WorldgenSeed')
+  const prefix = clusterLayout ? clusterCoordinatePrefix(clusterLayout) : undefined
+  if (!prefix || !worldgenSeed || !/^\d+$/.test(worldgenSeed)) return undefined
+
+  return [
+    prefix,
+    worldgenSeed,
+    encodeCoordinate(OTHER_COORDINATE_SETTINGS, qualityLevels),
+    encodeCoordinate(STORY_COORDINATE_SETTINGS, storyLevels(save)),
+    encodeCoordinate(MIXING_COORDINATE_SETTINGS, mixingLevels),
+  ].join('-')
+}
+
 export function worldGrid(save: ParsedSave, name: string): RawPodValue | undefined {
   const streamed = member(save.saveFileRoot, 'streamed')?.value
   if (!streamed || streamed.kind !== 'dict') return undefined
