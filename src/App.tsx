@@ -2211,40 +2211,6 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
       context.lineWidth = Math.max(1, Math.ceil(cellSize / 4))
       context.strokeRect(originX + selectedCell.x * cellSize + .5, originY + (size.height - 1 - selectedCell.y) * cellSize + .5, cellSize - 1, cellSize - 1)
     }
-    const activeSelection = selectionDraft ?? selection
-    if (activeSelection) {
-      const bounds = normalizedSelection(activeSelection)
-      const left = originX + bounds.minX * cellSize
-      const top = originY + (size.height - 1 - bounds.maxY) * cellSize
-      const selectionWidth = bounds.width * cellSize
-      const selectionHeight = bounds.height * cellSize
-      const pixelRatio = displayCellSize > 0 ? cellSize / displayCellSize : 1
-      context.save()
-      context.fillStyle = selectionDraft ? 'rgba(240, 208, 141, .24)' : 'rgba(240, 208, 141, .18)'
-      context.fillRect(left, top, selectionWidth, selectionHeight)
-      context.strokeStyle = 'rgba(240, 208, 141, .98)'
-      context.lineWidth = Math.max(1.5 * pixelRatio, Math.min(3 * pixelRatio, cellSize * .08))
-      context.strokeRect(left + context.lineWidth / 2, top + context.lineWidth / 2, selectionWidth - context.lineWidth, selectionHeight - context.lineWidth)
-      const labelFontSize = Math.max(8 * pixelRatio, Math.min(16 * pixelRatio, Math.min(selectionWidth / 4.5, selectionHeight / 3.8)))
-      if (selectionWidth >= 28 * pixelRatio && selectionHeight >= 24 * pixelRatio) {
-        context.font = `600 ${labelFontSize}px "Microsoft YaHei", sans-serif`
-        context.textAlign = 'center'
-        context.textBaseline = 'middle'
-        const title = `${bounds.width}×${bounds.height}`
-        const count = `${bounds.cells.toLocaleString()}格`
-        const labelWidth = Math.max(context.measureText(title).width, context.measureText(count).width) + 16 * pixelRatio
-        const labelHeight = labelFontSize * 2.7
-        const labelLeft = left + (selectionWidth - labelWidth) / 2
-        const labelTop = top + (selectionHeight - labelHeight) / 2
-        context.fillStyle = 'rgba(21, 25, 31, .78)'
-        context.fillRect(labelLeft, labelTop, labelWidth, labelHeight)
-        context.fillStyle = '#fff4d6'
-        context.fillText(title, left + selectionWidth / 2, labelTop + labelFontSize * .78)
-        context.fillStyle = 'rgba(255, 244, 214, .7)'
-        context.fillText(count, left + selectionWidth / 2, labelTop + labelFontSize * 1.92)
-      }
-      context.restore()
-    }
     const brushTool = tool === 'paint' || tool === 'erase' || tool === 'line'
     if (brushTool && !spacePan && brushCell) {
       const radius = Math.floor(brushSize / 2)
@@ -2257,7 +2223,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
       context.fillRect(left, top, brushPixels, brushPixels)
       context.strokeRect(left + context.lineWidth / 2, top + context.lineWidth / 2, brushPixels - context.lineWidth, brushPixels - context.lineWidth)
     }
-  }, [brushCell, brushSize, displayCellSize, originX, originY, pan.x, pan.y, previewCells, previewVersion, renderCellSize, save, selectedCell, selection, selectionDraft, size.height, size.width, spacePan, textures, tool, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers.grid, visibleLayers.ground])
+  }, [brushCell, brushSize, displayCellSize, originX, originY, pan.x, pan.y, previewCells, previewVersion, renderCellSize, save, selectedCell, size.height, size.width, spacePan, textures, tool, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers.grid, visibleLayers.ground])
 
   const canvasStyle = {
     width: '100%',
@@ -2610,6 +2576,15 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
     }
   }
 
+  const activeSelection = selectionDraft ?? selection
+  const activeSelectionBounds = activeSelection ? normalizedSelection(activeSelection) : undefined
+  const updateSelectionDraft = (start: { x: number; y: number }, end: { x: number; y: number }) => {
+    setSelectionDraft((current) => {
+      if (current?.start.x === start.x && current?.start.y === start.y && current.end.x === end.x && current.end.y === end.y) return current
+      return { start, end }
+    })
+  }
+
   return <div
     ref={viewportRef}
     style={mapBackgroundStyle}
@@ -2640,7 +2615,8 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
         if (startCell) onCell(startCell.x, startCell.y)
       } else if (mode === 'select') {
         onSelectionChange(null)
-        setSelectionDraft(startCell ? { start: startCell, end: startCell } : null)
+        if (startCell) updateSelectionDraft(startCell, startCell)
+        else setSelectionDraft(null)
       } else {
         if (canvasLayerRef.current) canvasLayerRef.current.style.transform = 'translate3d(0, 0, 0)'
         setIsPanning(true)
@@ -2674,7 +2650,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
         const dx = event.clientX - pointer.startX
         const dy = event.clientY - pointer.startY
         if (Math.abs(dx) > 4 || Math.abs(dy) > 4) pointer.moved = true
-        if (pointer.moved && pointer.startCell && cell) setSelectionDraft({ start: pointer.startCell, end: cell })
+        if (pointer.moved && pointer.startCell && cell) updateSelectionDraft(pointer.startCell, cell)
         return
       }
       if (pointer.mode === 'point') return
@@ -2719,6 +2695,17 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
       />
       <canvas ref={fluidCanvasRef} className="canvas-fluid" style={canvasStyle} aria-hidden="true" />
       <canvas ref={overlayRef} className="canvas-overlay" style={canvasStyle} aria-hidden="true" />
+      {activeSelectionBounds && <div
+        className={`map-selection-overlay ${selectionDraft ? 'is-draft' : ''}`}
+        style={{
+          left: `${originX / devicePixelRatio + activeSelectionBounds.minX * displayCellSize}px`,
+          top: `${originY / devicePixelRatio + (size.height - 1 - activeSelectionBounds.maxY) * displayCellSize}px`,
+          width: `${activeSelectionBounds.width * displayCellSize}px`,
+          height: `${activeSelectionBounds.height * displayCellSize}px`,
+        }}
+      >
+        {activeSelectionBounds.width * displayCellSize >= 52 && activeSelectionBounds.height * displayCellSize >= 34 && <span className="map-selection-label"><strong>{activeSelectionBounds.width}×{activeSelectionBounds.height}</strong><small>{activeSelectionBounds.cells.toLocaleString()}格</small></span>}
+      </div>}
     </div>
     <div className="canvas-controls" onPointerDown={(event) => event.stopPropagation()}>
       <button type="button" title="缩小地图" aria-label="缩小地图" onClick={() => setZoomPercentAround(zoomPercent - 10)}><Minus size={15} /></button>
