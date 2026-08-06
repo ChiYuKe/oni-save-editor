@@ -61,6 +61,7 @@ type MapOverlay = 'none' | 'temperature' | 'mass' | 'disease' | 'visibility' | '
 type MapLayerVisibility = Record<MapLayer, boolean>
 type MapEdit = { x: number; y: number; before: SimCell; after: SimCell }
 type MapPreviewCell = { x: number; y: number; elementHash: number }
+type MapSelection = { start: { x: number; y: number }; end: { x: number; y: number } }
 type MapTool = 'inspect' | 'move' | 'paint' | 'erase' | 'eyedropper' | 'fill' | 'rectangle' | 'line'
 type MapCellUpdate = { x: number; y: number; patch: Partial<SimCell> }
 const MAP_CELL_PIXELS = 4
@@ -769,6 +770,7 @@ function MapView({ save, updateSave }: { save: ParsedSave; updateSave: (update: 
   const [tool, setTool] = useState<MapTool>('inspect')
   const [brushSize, setBrushSize] = useState(1)
   const [lastCell, setLastCell] = useState<{ x: number; y: number } | null>(null)
+  const [selection, setSelection] = useState<MapSelection | null>(null)
   const [selectedElement, setSelectedElement] = useState(0x0307)
   const undoStackRef = useRef<MapEdit[][]>([])
   const redoStackRef = useRef<MapEdit[][]>([])
@@ -1004,6 +1006,7 @@ function MapView({ save, updateSave }: { save: ParsedSave; updateSave: (update: 
   }
 
   const selectedElementList = elementOptions(selectedCell?.elementHash ?? selectedElement)
+  const selectionBounds = selection ? normalizedSelection(selection) : undefined
 
   return (
     <div className="map-workbench">
@@ -1031,7 +1034,7 @@ function MapView({ save, updateSave }: { save: ParsedSave; updateSave: (update: 
           <div className="map-readout"><span className="status-dot" />{size.width} × {size.height}<span className="muted">{sim ? `SIM v${sim.version}` : '无模拟区'}</span></div>
         </div>
         <div className="map-canvas-panel">
-          <MapCanvas save={save} visibleLayers={visibleLayers} overlay={overlay} tool={tool} brushSize={brushSize} selectedCell={lastCell} previewCells={previewCellsRef.current} previewVersion={previewVersion} onCell={handleCell} onShape={previewShape} onStrokeStart={beginStroke} onStrokeEnd={endStroke} />
+          <MapCanvas save={save} visibleLayers={visibleLayers} overlay={overlay} tool={tool} brushSize={brushSize} selectedCell={lastCell} selection={selection} previewCells={previewCellsRef.current} previewVersion={previewVersion} onCell={handleCell} onSelectionChange={(next) => { setSelection(next); if (next) setLastCell(null) }} onShape={previewShape} onStrokeStart={beginStroke} onStrokeEnd={endStroke} />
           <div className="map-legend"><span><i className="legend-visible" />独立图层</span><span><i className="legend-entity" />{overlay === 'none' ? '无分析覆盖' : `${overlayLabel}覆盖`}</span><span><i className="legend-damage" />选中单元</span><span className="legend-help">SIM 网格含四周边界层</span></div>
         </div>
       </section>
@@ -1057,8 +1060,13 @@ function MapView({ save, updateSave }: { save: ParsedSave; updateSave: (update: 
             <div className="history-buttons tool-history"><button type="button" title="撤销上一次编辑" aria-label="撤销上一次编辑" disabled={undoStackRef.current.length === 0} onClick={undo}><Undo2 size={16} /></button><button type="button" title="重做上一次编辑" aria-label="重做上一次编辑" disabled={redoStackRef.current.length === 0} onClick={redo}><Redo2 size={16} /></button></div>
           </section>
           <div className="map-section-divider" />
-          <SectionHeading icon={<Settings2 size={16} />} title="单元检查" action={selectedCell ? formatHash(selectedCell.elementHash) : 'SIM'} />
+          <SectionHeading icon={<Settings2 size={16} />} title={selectionBounds ? '区域选择' : '单元检查'} action={selectionBounds ? `${selectionBounds.width}×${selectionBounds.height}` : selectedCell ? formatHash(selectedCell.elementHash) : 'SIM'} />
           <div className="map-info-copy">直接读取存档中的 SIM cell。元素替换、温度和质量会随着导出写回原始二进制结构。</div>
+          {selectionBounds ? <>
+            <div className="coordinate-box selection-coordinate-box"><span>当前选区</span><strong>{selectionBounds.width}×{selectionBounds.height}</strong><small>{selectionBounds.cells} 格 · {selectionBounds.minX}, {selectionBounds.minY} 至 {selectionBounds.maxX}, {selectionBounds.maxY}</small></div>
+            <div className="map-stat"><span>覆盖格子</span><strong>{selectionBounds.cells.toLocaleString()} 格</strong></div>
+            <div className="inspector-empty map-empty selection-empty"><Square size={18} /><span>可继续使用其他工具编辑选区</span></div>
+          </> : <>
           <div className="coordinate-box"><span>当前单元</span><strong>{lastCell ? `${lastCell.x}, ${lastCell.y}` : '—'}</strong><small>{lastCell ? `world index ${lastCell.y * size.width + lastCell.x}` : '点击地图查看坐标'}</small></div>
           {selectedCell && lastCell ? <>
             <label className="sim-field"><span>元素</span><select value={selectedCell.elementHash} onChange={(event) => patchCell(lastCell, elementPatch(Number(event.target.value), selectedCell))}>
@@ -1070,6 +1078,7 @@ function MapView({ save, updateSave }: { save: ParsedSave; updateSave: (update: 
             <div className="map-stat"><span>属性字节</span><strong>{formatHash(selectedCell.properties)}</strong></div>
             <div className="map-stat"><span>绝缘 / 强度</span><strong>{selectedCell.insulation} / {selectedCell.strengthInfo}</strong></div>
           </> : <div className="inspector-empty map-empty"><Search size={18} /><span>选择一个单元查看数据</span></div>}
+          </>}
           <div className="map-stat"><span>模拟网格</span><strong>{sim ? `${sim.width} × ${sim.height}` : '—'}</strong></div>
       </aside>
     </div>
@@ -1082,6 +1091,16 @@ function rectangleCells(start: { x: number; y: number }, end: { x: number; y: nu
     for (let x = Math.min(start.x, end.x); x <= Math.max(start.x, end.x); x++) cells.push({ x, y })
   }
   return cells
+}
+
+function normalizedSelection(selection: MapSelection): { minX: number; maxX: number; minY: number; maxY: number; width: number; height: number; cells: number } {
+  const minX = Math.min(selection.start.x, selection.end.x)
+  const maxX = Math.max(selection.start.x, selection.end.x)
+  const minY = Math.min(selection.start.y, selection.end.y)
+  const maxY = Math.max(selection.start.y, selection.end.y)
+  const width = maxX - minX + 1
+  const height = maxY - minY + 1
+  return { minX, maxX, minY, maxY, width, height, cells: width * height }
 }
 
 function lineCells(start: { x: number; y: number }, end: { x: number; y: number }, brushSize: number, width: number, height: number): Array<{ x: number; y: number }> {
@@ -1467,14 +1486,14 @@ function floodFillCoordinates(
   return cells
 }
 
-function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell, previewCells, previewVersion, onCell, onShape, onStrokeStart, onStrokeEnd }: { save: ParsedSave; visibleLayers: MapLayerVisibility; overlay: MapOverlay; tool: MapTool; brushSize: number; selectedCell: { x: number; y: number } | null; previewCells: Map<string, MapPreviewCell>; previewVersion: number; onCell: (x: number, y: number) => void; onShape: (start: { x: number; y: number }, end: { x: number; y: number }) => void; onStrokeStart: () => void; onStrokeEnd: () => void }) {
+function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell, selection, previewCells, previewVersion, onCell, onSelectionChange, onShape, onStrokeStart, onStrokeEnd }: { save: ParsedSave; visibleLayers: MapLayerVisibility; overlay: MapOverlay; tool: MapTool; brushSize: number; selectedCell: { x: number; y: number } | null; selection: MapSelection | null; previewCells: Map<string, MapPreviewCell>; previewVersion: number; onCell: (x: number, y: number) => void; onSelectionChange: (selection: MapSelection | null) => void; onShape: (start: { x: number; y: number }, end: { x: number; y: number }) => void; onStrokeStart: () => void; onStrokeEnd: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fluidCanvasRef = useRef<HTMLCanvasElement>(null)
   const overlayRef = useRef<HTMLCanvasElement>(null)
   const canvasLayerRef = useRef<HTMLDivElement>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
   const renderCacheRef = useRef<{ bytes: Uint8Array | null; cells: Map<number, SimCell | undefined>; paths: Map<string, Path2D>; zoneBytes: Uint8Array | null; zones: Uint8Array | null }>({ bytes: null, cells: new Map(), paths: new Map(), zoneBytes: null, zones: null })
-  const pointerRef = useRef<{ mode: 'pan' | 'brush' | 'shape' | 'point'; startX: number; startY: number; panX: number; panY: number; moved: boolean; selectable: boolean; lastCell: { x: number; y: number } | null; startCell: { x: number; y: number } | null } | null>(null)
+  const pointerRef = useRef<{ mode: 'pan' | 'select' | 'brush' | 'shape' | 'point'; startX: number; startY: number; panX: number; panY: number; moved: boolean; lastCell: { x: number; y: number } | null; startCell: { x: number; y: number } | null } | null>(null)
   const visitedBrushCellsRef = useRef(new Set<string>())
   const brushCellRef = useRef<{ x: number; y: number } | null>(null)
   const fillRegionCacheRef = useRef<{ bytes: Uint8Array | null; regions: Map<number, Array<{ x: number; y: number }>> }>({ bytes: null, regions: new Map() })
@@ -1488,6 +1507,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
   const [isPanning, setIsPanning] = useState(false)
   const [spacePan, setSpacePan] = useState(false)
   const [brushCell, setBrushCell] = useState<{ x: number; y: number } | null>(null)
+  const [selectionDraft, setSelectionDraft] = useState<MapSelection | null>(null)
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 })
   const size = worldSize(save)
   const fitCellSize = viewportSize.width > 0 && viewportSize.height > 0
@@ -2191,6 +2211,40 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
       context.lineWidth = Math.max(1, Math.ceil(cellSize / 4))
       context.strokeRect(originX + selectedCell.x * cellSize + .5, originY + (size.height - 1 - selectedCell.y) * cellSize + .5, cellSize - 1, cellSize - 1)
     }
+    const activeSelection = selectionDraft ?? selection
+    if (activeSelection) {
+      const bounds = normalizedSelection(activeSelection)
+      const left = originX + bounds.minX * cellSize
+      const top = originY + (size.height - 1 - bounds.maxY) * cellSize
+      const selectionWidth = bounds.width * cellSize
+      const selectionHeight = bounds.height * cellSize
+      const pixelRatio = displayCellSize > 0 ? cellSize / displayCellSize : 1
+      context.save()
+      context.fillStyle = selectionDraft ? 'rgba(240, 208, 141, .24)' : 'rgba(240, 208, 141, .18)'
+      context.fillRect(left, top, selectionWidth, selectionHeight)
+      context.strokeStyle = 'rgba(240, 208, 141, .98)'
+      context.lineWidth = Math.max(1.5 * pixelRatio, Math.min(3 * pixelRatio, cellSize * .08))
+      context.strokeRect(left + context.lineWidth / 2, top + context.lineWidth / 2, selectionWidth - context.lineWidth, selectionHeight - context.lineWidth)
+      const labelFontSize = Math.max(8 * pixelRatio, Math.min(16 * pixelRatio, Math.min(selectionWidth / 4.5, selectionHeight / 3.8)))
+      if (selectionWidth >= 28 * pixelRatio && selectionHeight >= 24 * pixelRatio) {
+        context.font = `600 ${labelFontSize}px "Microsoft YaHei", sans-serif`
+        context.textAlign = 'center'
+        context.textBaseline = 'middle'
+        const title = `${bounds.width}×${bounds.height}`
+        const count = `${bounds.cells.toLocaleString()}格`
+        const labelWidth = Math.max(context.measureText(title).width, context.measureText(count).width) + 16 * pixelRatio
+        const labelHeight = labelFontSize * 2.7
+        const labelLeft = left + (selectionWidth - labelWidth) / 2
+        const labelTop = top + (selectionHeight - labelHeight) / 2
+        context.fillStyle = 'rgba(21, 25, 31, .78)'
+        context.fillRect(labelLeft, labelTop, labelWidth, labelHeight)
+        context.fillStyle = '#fff4d6'
+        context.fillText(title, left + selectionWidth / 2, labelTop + labelFontSize * .78)
+        context.fillStyle = 'rgba(255, 244, 214, .7)'
+        context.fillText(count, left + selectionWidth / 2, labelTop + labelFontSize * 1.92)
+      }
+      context.restore()
+    }
     const brushTool = tool === 'paint' || tool === 'erase' || tool === 'line'
     if (brushTool && !spacePan && brushCell) {
       const radius = Math.floor(brushSize / 2)
@@ -2203,7 +2257,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
       context.fillRect(left, top, brushPixels, brushPixels)
       context.strokeRect(left + context.lineWidth / 2, top + context.lineWidth / 2, brushPixels - context.lineWidth, brushPixels - context.lineWidth)
     }
-  }, [brushCell, brushSize, displayCellSize, originX, originY, pan.x, pan.y, previewCells, previewVersion, renderCellSize, save, selectedCell, size.height, size.width, spacePan, textures, tool, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers.grid, visibleLayers.ground])
+  }, [brushCell, brushSize, displayCellSize, originX, originY, pan.x, pan.y, previewCells, previewVersion, renderCellSize, save, selectedCell, selection, selectionDraft, size.height, size.width, spacePan, textures, tool, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers.grid, visibleLayers.ground])
 
   const canvasStyle = {
     width: '100%',
@@ -2559,16 +2613,16 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
   return <div
     ref={viewportRef}
     style={mapBackgroundStyle}
-    className={`canvas-frame canvas-viewport ${isPanning ? 'is-panning' : ''} ${spacePan ? 'is-space-pan' : ''} ${tool !== 'inspect' && tool !== 'move' ? 'is-brush-mode' : ''}`}
+    className={`canvas-frame canvas-viewport ${isPanning ? 'is-panning' : ''} ${spacePan ? 'is-space-pan' : ''} ${tool === 'inspect' ? 'is-select-mode' : ''} ${tool !== 'inspect' && tool !== 'move' ? 'is-brush-mode' : ''}`}
     onWheel={(event) => { event.preventDefault(); event.stopPropagation(); setZoomPercentAround(zoomPercent + (event.deltaY < 0 ? 5 : -5), event.clientX, event.clientY) }}
     onPointerDown={(event) => {
       if (event.button !== 0 && event.button !== 1) return
       if (event.button === 1) event.preventDefault()
       event.currentTarget.setPointerCapture(event.pointerId)
       const temporaryPan = event.button === 1 || spacePanRef.current
-      const mode = temporaryPan || tool === 'inspect' || tool === 'move' ? 'pan' : tool === 'paint' || tool === 'erase' ? 'brush' : tool === 'rectangle' || tool === 'line' ? 'shape' : 'point'
+      const mode = temporaryPan || tool === 'move' ? 'pan' : tool === 'inspect' ? 'select' : tool === 'paint' || tool === 'erase' ? 'brush' : tool === 'rectangle' || tool === 'line' ? 'shape' : 'point'
       const startCell = pointToCell(event.clientX, event.clientY) ?? null
-      pointerRef.current = { mode, startX: event.clientX, startY: event.clientY, panX: pan.x, panY: pan.y, moved: false, selectable: mode === 'pan' && tool === 'inspect' && !temporaryPan && event.button === 0, lastCell: null, startCell }
+      pointerRef.current = { mode, startX: event.clientX, startY: event.clientY, panX: pan.x, panY: pan.y, moved: false, lastCell: null, startCell }
       if (mode === 'brush') {
         visitedBrushCellsRef.current.clear()
         onStrokeStart()
@@ -2584,6 +2638,9 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
         if (startCell) onShape(startCell, startCell)
       } else if (mode === 'point') {
         if (startCell) onCell(startCell.x, startCell.y)
+      } else if (mode === 'select') {
+        onSelectionChange(null)
+        setSelectionDraft(startCell ? { start: startCell, end: startCell } : null)
       } else {
         if (canvasLayerRef.current) canvasLayerRef.current.style.transform = 'translate3d(0, 0, 0)'
         setIsPanning(true)
@@ -2613,6 +2670,13 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
         if (cell && pointer.startCell) onShape(pointer.startCell, cell)
         return
       }
+      if (pointer.mode === 'select') {
+        const dx = event.clientX - pointer.startX
+        const dy = event.clientY - pointer.startY
+        if (Math.abs(dx) > 4 || Math.abs(dy) > 4) pointer.moved = true
+        if (pointer.moved && pointer.startCell && cell) setSelectionDraft({ start: pointer.startCell, end: cell })
+        return
+      }
       if (pointer.mode === 'point') return
       const dx = event.clientX - pointer.startX
       const dy = event.clientY - pointer.startY
@@ -2623,8 +2687,15 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
     }}
     onPointerUp={(event) => {
       const pointer = pointerRef.current
-      if (pointer?.selectable && !pointer.moved && pointer.startCell) {
-        onCell(pointer.startCell.x, pointer.startCell.y)
+      if (pointer?.mode === 'select') {
+        const endCell = pointToCell(event.clientX, event.clientY) ?? selectionDraft?.end ?? pointer.startCell
+        if (!pointer.moved && pointer.startCell) {
+          onSelectionChange(null)
+          onCell(pointer.startCell.x, pointer.startCell.y)
+        } else if (pointer.moved && pointer.startCell && endCell) {
+          onSelectionChange({ start: pointer.startCell, end: endCell })
+        }
+        setSelectionDraft(null)
       }
       if (pointer?.mode === 'brush' || pointer?.mode === 'shape') onStrokeEnd()
       if (pointer?.mode === 'pan' && pointer.moved) {
@@ -2639,7 +2710,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
       if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
     }}
     onPointerLeave={() => { if (!pointerRef.current) updateBrushCell(null) }}
-    onPointerCancel={() => { if (pointerRef.current?.mode === 'brush' || pointerRef.current?.mode === 'shape') onStrokeEnd(); if (canvasLayerRef.current) canvasLayerRef.current.style.transform = 'translate3d(0, 0, 0)'; pointerRef.current = null; visitedBrushCellsRef.current.clear(); updateBrushCell(null); setIsPanning(false) }}
+    onPointerCancel={() => { if (pointerRef.current?.mode === 'brush' || pointerRef.current?.mode === 'shape') onStrokeEnd(); if (canvasLayerRef.current) canvasLayerRef.current.style.transform = 'translate3d(0, 0, 0)'; pointerRef.current = null; visitedBrushCellsRef.current.clear(); updateBrushCell(null); setSelectionDraft(null); setIsPanning(false) }}
   >
     <div ref={canvasLayerRef} className="canvas-layer">
       <canvas
