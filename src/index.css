@@ -1,0 +1,3 @@
+html { background: #fbfbfa; }
+body { margin: 0; min-width: 320px; font-family: "Noto Sans SC", "Segoe UI", "Microsoft YaHei UI", sans-serif; -webkit-font-smoothing: antialiased; }
+button, input { font-family: inherit; }
