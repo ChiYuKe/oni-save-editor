@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import {
   AlertTriangle,
   Archive,
@@ -72,6 +72,11 @@ const DEFAULT_ELEMENT_WORLD_UV_SCALE = 8
 type GeyserTextureDefinition = { path: string; widthCells: number }
 type BuildingTextureDefinition = { path: string; widthCells: number }
 type ZoneColor = { r: number; g: number; b: number }
+
+function assetPath(path: string): string {
+  if (!path.startsWith('/')) return path
+  return `${import.meta.env.BASE_URL.replace(/\/$/, '')}${path}`
+}
 
 // SubworldZoneRenderData.zoneColours from the game build used by the bridge.
 // Zone 7 is Space in the game and intentionally has no foreground tint here.
@@ -1495,7 +1500,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
     paths.forEach((path) => {
       const image = new Image()
       image.onload = () => { if (active) setBuildingTextures((current) => ({ ...current, [path]: image })) }
-      image.src = path
+      image.src = assetPath(path)
     })
     return () => { active = false }
   }, [])
@@ -1532,7 +1537,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
     ELEMENTS.filter((element) => element.texture).forEach((element) => {
       const image = new Image()
       image.onload = () => { if (active) setTextures((current) => ({ ...current, [element.texture!]: image })) }
-      image.src = element.texture!
+      image.src = assetPath(element.texture!)
     })
     return () => { active = false }
   }, [])
@@ -1543,7 +1548,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
     paths.forEach((path) => {
       const image = new Image()
       image.onload = () => { if (active) setGeyserTextures((current) => ({ ...current, [path]: image })) }
-      image.src = path
+      image.src = assetPath(path)
     })
     return () => { active = false }
   }, [])
@@ -2023,12 +2028,16 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
     width: '100%',
     height: '100%',
   }
+  const mapBackgroundStyle = {
+    '--map-space-background': `url("${assetPath('/assets/background/space_bg.png')}")`,
+    '--map-starfield-background': `url("${assetPath('/assets/background/starfield.png')}")`,
+  } as CSSProperties
 
   const loadMapImage = (path: string) => new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image()
     image.onload = () => resolve(image)
     image.onerror = () => reject(new Error(`无法加载地图背景：${path}`))
-    image.src = path
+    image.src = assetPath(path)
   })
 
   const paintMapBackground = (context: CanvasRenderingContext2D, width: number, height: number, spaceBackground: HTMLImageElement, starfield: HTMLImageElement) => {
@@ -2356,6 +2365,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
 
   return <div
     ref={viewportRef}
+    style={mapBackgroundStyle}
     className={`canvas-frame canvas-viewport ${isPanning ? 'is-panning' : ''} ${spacePan ? 'is-space-pan' : ''} ${tool !== 'inspect' && tool !== 'move' ? 'is-brush-mode' : ''}`}
     onWheel={(event) => { event.preventDefault(); event.stopPropagation(); setZoomPercentAround(zoomPercent + (event.deltaY < 0 ? 5 : -5), event.clientX, event.clientY) }}
     onPointerDown={(event) => {

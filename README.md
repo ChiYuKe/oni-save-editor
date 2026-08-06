@@ -2,6 +2,8 @@
 
 一个在浏览器本地运行的《缺氧》存档编辑器。存档不会上传服务器，解析和导出都在当前浏览器完成。
 
+在线地址：https://chiyuke.github.io/oni-save-editor/
+
 ## 当前功能
 
 - 读取和导出 ONI `.sav` 文件，保留 KSerialization 模板目录与未知组件的原始字节。
@@ -23,6 +25,8 @@ npm run dev
 npm run build
 npm run lint
 ```
+
+推送到 `main` 分支后，GitHub Actions 会自动构建并发布到 GitHub Pages。
 
 ## 存档兼容性
 
