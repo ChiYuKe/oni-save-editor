@@ -49,6 +49,7 @@ import {
   setValueFromText,
   topGroups,
   worldGrid,
+  worldSeed,
   worldSize,
 } from './lib/editor'
 import type { SavedObjectInstance, Value } from './lib/model'
@@ -70,6 +71,7 @@ const MAP_ZOOM_MAX = 16
 // Keep export cells on whole pixels so scaled terrain masks and textures stay crisp.
 const PANORAMA_CELL_PIXELS = 11
 const DEFAULT_ELEMENT_WORLD_UV_SCALE = 8
+const MAP_EDITOR_URL = 'https://chiyuke.github.io/oni-save-editor/'
 type GeyserTextureDefinition = { path: string; widthCells: number }
 type BuildingTextureDefinition = { path: string; widthCells: number }
 type ZoneColor = { r: number; g: number; b: number }
@@ -1527,6 +1529,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
   const originY = ((viewportSize.height - size.height * displayCellSize) / 2 + pan.y) * devicePixelRatio
   const viewportPixelWidth = Math.max(1, Math.ceil(viewportSize.width * devicePixelRatio))
   const viewportPixelHeight = Math.max(1, Math.ceil(viewportSize.height * devicePixelRatio))
+  const mapSeed = worldSeed(save)
 
   const cachedSimCell = (sim: NonNullable<ParsedSave['simData']>, view: DataView, x: number, y: number): SimCell | undefined => {
     const cache = renderCacheRef.current
@@ -2265,6 +2268,41 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
     context.imageSmoothingEnabled = false
   }
 
+  const drawMapWatermark = (context: CanvasRenderingContext2D, width: number, height: number) => {
+    const scale = Math.max(1, Math.min(3, Math.max(width, height) / 1600))
+    const padding = 14 * scale
+    const lineHeight = 14 * scale
+    const title = '缺氧存档编辑器'
+    const seed = `地图种子 ${mapSeed === undefined ? '未知' : mapSeed}`
+    const textRight = width - padding - 12 * scale
+    context.save()
+    context.font = `600 ${12 * scale}px "Microsoft YaHei", sans-serif`
+    const titleWidth = context.measureText(title).width
+    context.font = `${9 * scale}px Consolas, monospace`
+    const linkWidth = context.measureText(MAP_EDITOR_URL).width
+    const seedWidth = context.measureText(seed).width
+    const boxWidth = Math.max(titleWidth, linkWidth, seedWidth) + 24 * scale
+    const boxHeight = 12 * scale + lineHeight * 3 + 12 * scale
+    const boxLeft = Math.max(8 * scale, width - boxWidth - padding)
+    const boxTop = Math.max(8 * scale, height - boxHeight - padding)
+    context.fillStyle = 'rgba(8, 12, 18, .78)'
+    context.fillRect(boxLeft, boxTop, boxWidth, boxHeight)
+    context.strokeStyle = 'rgba(240, 208, 141, .38)'
+    context.lineWidth = Math.max(1, scale)
+    context.strokeRect(boxLeft + context.lineWidth / 2, boxTop + context.lineWidth / 2, boxWidth - context.lineWidth, boxHeight - context.lineWidth)
+    context.textAlign = 'right'
+    context.textBaseline = 'middle'
+    context.font = `600 ${12 * scale}px "Microsoft YaHei", sans-serif`
+    context.fillStyle = '#fff4d6'
+    context.fillText(title, textRight, boxTop + 15 * scale)
+    context.font = `${9 * scale}px Consolas, monospace`
+    context.fillStyle = 'rgba(255, 244, 214, .72)'
+    context.fillText(MAP_EDITOR_URL, textRight, boxTop + 15 * scale + lineHeight)
+    context.fillStyle = 'rgba(255, 244, 214, .88)'
+    context.fillText(seed, textRight, boxTop + 15 * scale + lineHeight * 2)
+    context.restore()
+  }
+
   const downloadMapCanvas = async (canvas: HTMLCanvasElement, fileName: string) => {
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
     if (!blob) return
@@ -2295,6 +2333,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
       paintMapBackground(context, exportCanvas.width, exportCanvas.height, spaceBackground, starfield)
       context.drawImage(baseCanvas, 0, 0)
       context.drawImage(fluidCanvas, 0, 0)
+      drawMapWatermark(context, exportCanvas.width, exportCanvas.height)
       await downloadMapCanvas(exportCanvas, '缺氧地图-当前视图.png')
     } catch {
       return
@@ -2574,6 +2613,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
         }
       }
       context.restore()
+      drawMapWatermark(context, exportWidth, exportHeight)
       await downloadMapCanvas(exportCanvas, `缺氧地图-全景-${exportCellSize}px.png`)
     } catch {
       return

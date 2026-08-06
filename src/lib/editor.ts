@@ -95,6 +95,14 @@ export function worldSize(save: ParsedSave): WorldSize {
   return { width, height }
 }
 
+export function worldSeed(save: ParsedSave): number | undefined {
+  const worldDetail = member(save.gameData, 'worldDetail')?.value
+  if (!worldDetail || worldDetail.kind !== 'object') return undefined
+  return scalarNumber(member(worldDetail, 'globalWorldSeed')?.value)
+    ?? scalarNumber(member(worldDetail, 'globalWorldLayoutSeed')?.value)
+    ?? scalarNumber(member(worldDetail, 'globalTerrainSeed')?.value)
+}
+
 export function worldGrid(save: ParsedSave, name: string): RawPodValue | undefined {
   const streamed = member(save.saveFileRoot, 'streamed')?.value
   if (!streamed || streamed.kind !== 'dict') return undefined
