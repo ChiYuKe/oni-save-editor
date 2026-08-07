@@ -55,10 +55,22 @@ import {
 } from './lib/editor'
 import type { SavedObjectInstance, Value } from './lib/model'
 import { SIM_DISEASE_SIZE, getSimElementProfile, getWorldCell, readSimCell, setWorldCells, type SimCell } from './lib/sim'
+import { BLOCK_TILE_TEXTURES, blockTileCellKey, blockTileConnectionBits, blockTileTextureForTag, drawBlockTile } from './lib/blockTiles'
 import { createTerrainBoundaryPath, createTerrainCellPath } from './lib/terrainMasks'
+import {
+  UTILITY_DEFINITIONS,
+  drawUtilityTile,
+  utilityConnectionBits,
+  utilityFamilyForTag,
+  utilityNeighbourConnections,
+  utilityTextureForTag,
+  type UtilityCellMap,
+  type UtilityCellRecord,
+  type UtilityFamily,
+} from './lib/utilityTiles'
 
 type View = 'overview' | 'map' | 'dupes' | 'objects'
-type MapLayer = 'grid' | 'biome' | 'minions' | 'buildings' | 'gas' | 'liquid' | 'ground' | 'backwall'
+type MapLayer = 'grid' | 'biome' | 'minions' | 'buildings' | 'geysers' | 'power' | 'plumbing' | 'ventilation' | 'automation' | 'shipment' | 'gas' | 'liquid' | 'ground' | 'backwall'
 type MapOverlay = 'none' | 'temperature' | 'mass' | 'disease' | 'visibility' | 'spawnable' | 'damage'
 type MapLayerVisibility = Record<MapLayer, boolean>
 type MapEdit = { x: number; y: number; before: SimCell; after: SimCell }
@@ -330,6 +342,23 @@ const BUILDING_TEXTURES: Record<string, BuildingTextureDefinition> = {
   solidvent: { path: '/assets/buildings/conveyer_dropper_0_ui_False.png', widthCells: 1 },
   underwatervent: { path: '/assets/buildings/underwater_vent_0_ui_False.png', widthCells: 4 },
   underwaterventdrill: { path: '/assets/buildings/underwater_vent_drill_0_ui_False.png', widthCells: 4 },
+  wirebridge: { path: '/assets/buildings/utilities/utilityelectricbridge_0_ui_False.png', widthCells: 1 },
+  wirerefinedbridge: { path: '/assets/buildings/utilities/utilityelectricbridgeconductive_0_ui_False.png', widthCells: 1 },
+  wirerubberbridge: { path: '/assets/buildings/utilities/utilityelectricbridgerubber_0_ui_False.png', widthCells: 1 },
+  gasconduitbridge: { path: '/assets/buildings/utilities/utilitygasbridge_0_ui_False.png', widthCells: 1 },
+  liquidconduitbridge: { path: '/assets/buildings/utilities/utilityliquidbridge_0_ui_False.png', widthCells: 1 },
+  solidconduitbridge: { path: '/assets/buildings/utilities/utilities_conveyorbridge_0_ui_False.png', widthCells: 1 },
+  solidconduitinbox: { path: '/assets/buildings/utilities/conveyorin_0_ui_False.png', widthCells: 1 },
+  solidconduitoutbox: { path: '/assets/buildings/utilities/conveyorout_0_ui_False.png', widthCells: 1 },
+  logicwirebridge: { path: '/assets/buildings/utilities/logic_bridge_0_ui_False.png', widthCells: 1 },
+  warpconduitreceiver: { path: '/assets/buildings/utilities/warp_conduit_receiver_0_ui_False.png', widthCells: 1.25 },
+  warpconduitsender: { path: '/assets/buildings/utilities/warp_conduit_sender_0_ui_False.png', widthCells: 1.25 },
+  conduitportgasloader: { path: '/assets/buildings/utilities/conduit_port_gas_loader_0_ui_False.png', widthCells: 1 },
+  conduitportgasunloader: { path: '/assets/buildings/utilities/conduit_port_gas_unloader_0_ui_False.png', widthCells: 1 },
+  conduitportliquidloader: { path: '/assets/buildings/utilities/conduit_port_liquid_loader_0_ui_False.png', widthCells: 1 },
+  conduitportliquidunloader: { path: '/assets/buildings/utilities/conduit_port_liquid_unloader_0_ui_False.png', widthCells: 1 },
+  conduitportsolidloader: { path: '/assets/buildings/utilities/conduit_port_solid_loader_0_ui_False.png', widthCells: 1 },
+  conduitportsolidunloader: { path: '/assets/buildings/utilities/conduit_port_solid_unloader_0_ui_False.png', widthCells: 1 },
 }
 
 function buildingTextureForTag(tag: string): BuildingTextureDefinition | undefined {
@@ -350,11 +379,68 @@ function isGeyserInstance(groupTag: string, instance: SavedObjectInstance, textu
     || instance.components.some((item) => /(?:^|[.+])geyser(?:$|[.+])/i.test(item.typeName))
 }
 
+function buildUtilityCellMap(save: ParsedSave): UtilityCellMap {
+  const cells: UtilityCellMap = new Map()
+  for (const group of save.manager?.groups ?? []) {
+    const family = utilityFamilyForTag(group.tag)
+    if (!family) continue
+    const familyCells = cells.get(family) ?? new Map<string, UtilityCellRecord>()
+    for (const instance of group.instances) {
+      const x = Math.floor(instance.position.x)
+      const y = Math.floor(instance.position.y)
+      const key = blockTileCellKey(x, y)
+      const next: UtilityCellRecord = {
+        tag: group.tag,
+        bits: utilityConnectionBits(instance),
+        isPhysical: hasSimpleComponent(instance, 'BuildingComplete'),
+      }
+      const previous = familyCells.get(key)
+      // A completed object occupies the physical network layer; an unfinished
+      // replacement is only a visual node. Prefer the physical record when a
+      // save contains both at the same cell.
+      if (!previous
+        || (next.isPhysical && !previous.isPhysical)
+        || (next.bits !== undefined && previous.bits === undefined)) {
+        familyCells.set(key, next)
+      }
+    }
+    cells.set(family, familyCells)
+  }
+  return cells
+}
+
+function utilityMapLayerForFamily(family: UtilityFamily): Extract<MapLayer, 'power' | 'plumbing' | 'ventilation' | 'automation' | 'shipment'> {
+  switch (family) {
+    case 'electrical': return 'power'
+    case 'liquid': return 'plumbing'
+    case 'gas': return 'ventilation'
+    case 'logic': return 'automation'
+    case 'solid': return 'shipment'
+  }
+}
+
+function mapEntityLayerIsVisible(visibleLayers: MapLayerVisibility, isGeyser: boolean, utilityFamily: UtilityFamily | undefined): boolean {
+  if (isGeyser) return visibleLayers.geysers
+  if (utilityFamily) return visibleLayers[utilityMapLayerForFamily(utilityFamily)]
+  return visibleLayers.buildings
+}
+
+function mapEntityLayersAreVisible(visibleLayers: MapLayerVisibility): boolean {
+  return visibleLayers.buildings || visibleLayers.geysers || visibleLayers.power || visibleLayers.plumbing
+    || visibleLayers.ventilation || visibleLayers.automation || visibleLayers.shipment
+}
+
 const MAP_LAYERS: Array<{ id: MapLayer; label: string; detail: string }> = [
   { id: 'grid', label: '网格', detail: '编辑器辅助' },
   { id: 'biome', label: '群落色', detail: 'WorldZone.Tint' },
   { id: 'minions', label: '复制人', detail: 'SceneLayer.Creatures' },
-  { id: 'buildings', label: '建筑 / 喷泉', detail: 'SceneLayer.Building' },
+  { id: 'buildings', label: '建筑', detail: 'SceneLayer.Building' },
+  { id: 'geysers', label: '喷泉', detail: 'SceneLayer.Geyser' },
+  { id: 'power', label: '电力', detail: 'SceneLayer.Wires' },
+  { id: 'plumbing', label: '液体管道', detail: 'SceneLayer.LiquidConduits' },
+  { id: 'ventilation', label: '气体管道', detail: 'SceneLayer.GasConduits' },
+  { id: 'automation', label: '自动化线', detail: 'SceneLayer.LogicWires' },
+  { id: 'shipment', label: '运输管道', detail: 'SceneLayer.SolidConduits' },
   { id: 'gas', label: '气体', detail: 'SceneLayer.Gas' },
   { id: 'liquid', label: '液体', detail: 'SceneLayer.Liquid' },
   { id: 'ground', label: '地面 / 土块', detail: 'SceneLayer.Ground' },
@@ -374,6 +460,12 @@ const DEFAULT_MAP_LAYER_VISIBILITY: MapLayerVisibility = {
   biome: true,
   minions: true,
   buildings: true,
+  geysers: true,
+  power: true,
+  plumbing: true,
+  ventilation: true,
+  automation: true,
+  shipment: true,
   gas: true,
   liquid: true,
   ground: true,
@@ -799,6 +891,7 @@ function Overview({ save, onNavigate, updateSave }: { save: ParsedSave; onNaviga
 
 function MapView({ save, updateSave }: { save: ParsedSave; updateSave: (update: (save: ParsedSave) => void) => void }) {
   const [visibleLayers, setVisibleLayers] = useState<MapLayerVisibility>(DEFAULT_MAP_LAYER_VISIBILITY)
+  const [layersExpanded, setLayersExpanded] = useState(true)
   const [overlay, setOverlay] = useState<MapOverlay>('none')
   const [tool, setTool] = useState<MapTool>('inspect')
   const [brushSize, setBrushSize] = useState(1)
@@ -1067,23 +1160,30 @@ function MapView({ save, updateSave }: { save: ParsedSave; updateSave: (update: 
           <div className="map-readout"><span className="status-dot" />{size.width} × {size.height}<span className="muted">{sim ? `SIM v${sim.version}` : '无模拟区'}</span></div>
         </div>
         <div className="map-canvas-panel">
+          <section className={`map-layer-settings map-layer-floating ${layersExpanded ? 'is-expanded' : 'is-collapsed'}`}>
+            <button type="button" className="map-layer-toggle" aria-label={layersExpanded ? '收起图层' : '展开图层'} title={layersExpanded ? '收起图层' : '展开图层'} aria-expanded={layersExpanded} onClick={() => setLayersExpanded((expanded) => !expanded)}>
+              <span className="map-layer-toggle-expanded">
+                <span className="map-layer-toggle-main"><ChevronRight className="map-layer-toggle-chevron" size={15} /><span className="section-icon"><Layers3 size={16} /></span><strong>图层</strong></span>
+                <span className="map-layer-toggle-meta"><span>{Object.values(visibleLayers).filter(Boolean).length}/{MAP_LAYERS.length}</span></span>
+              </span>
+              <Eye className="map-layer-collapsed-eye" size={16} aria-hidden="true" />
+            </button>
+            <div className="map-layer-stack" aria-hidden={!layersExpanded}>
+              <div className="map-layer-stack-inner">
+                {MAP_LAYERS.map((item) => <button key={item.id} type="button" tabIndex={layersExpanded ? 0 : -1} className={`map-layer-row ${visibleLayers[item.id] ? 'visible' : 'hidden'}`} aria-pressed={visibleLayers[item.id]} onClick={() => toggleLayer(item.id)} title={`${visibleLayers[item.id] ? '隐藏' : '显示'}${item.label}`}>
+                  {visibleLayers[item.id] ? <Eye size={15} /> : <EyeOff size={15} />}
+                  <span className={`layer-swatch layer-swatch-${item.id}`} />
+                  <span className="map-layer-name">{item.label}</span>
+                  <small>{item.detail}</small>
+                </button>)}
+              </div>
+            </div>
+          </section>
           <MapCanvas save={save} visibleLayers={visibleLayers} overlay={overlay} tool={tool} brushSize={brushSize} selectedCell={lastCell} selection={selection} previewCells={previewCellsRef.current} previewVersion={previewVersion} onCell={handleCell} onSelectionChange={(next) => { setSelection(next); if (next) setLastCell(null) }} onShape={previewShape} onStrokeStart={beginStroke} onStrokeEnd={endStroke} />
           <div className="map-legend"><span><i className="legend-visible" />独立图层</span><span><i className="legend-entity" />{overlay === 'none' ? '无分析覆盖' : `${overlayLabel}覆盖`}</span><span><i className="legend-damage" />选中单元</span><span className="legend-help">SIM 网格含四周边界层</span></div>
         </div>
       </section>
       <aside className="map-parameter-rail map-info">
-          <section className="map-layer-settings">
-            <SectionHeading icon={<Layers3 size={16} />} title="图层" action="STACK" />
-            <div className="map-layer-stack">
-              {MAP_LAYERS.map((item) => <button key={item.id} type="button" className={`map-layer-row ${visibleLayers[item.id] ? 'visible' : 'hidden'}`} onClick={() => toggleLayer(item.id)} title={`${visibleLayers[item.id] ? '隐藏' : '显示'}${item.label}`}>
-                {visibleLayers[item.id] ? <Eye size={15} /> : <EyeOff size={15} />}
-                <span className={`layer-swatch layer-swatch-${item.id}`} />
-                <span className="map-layer-name">{item.label}</span>
-                <small>{item.detail}</small>
-              </button>)}
-            </div>
-          </section>
-          <div className="map-section-divider" />
           <section className="map-tool-settings">
             <SectionHeading icon={<SlidersHorizontal size={16} />} title="工具参数" action={tool.toUpperCase()} />
             <label className="rail-control"><span>元素</span><select value={selectedElement} onChange={(event) => setSelectedElement(Number(event.target.value))}>
@@ -1157,12 +1257,6 @@ function lineCells(start: { x: number; y: number }, end: { x: number; y: number 
 
 function isEditableTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && Boolean(target.closest('input, select, textarea, button, [contenteditable="true"]'))
-}
-
-function buildingLayerColor(tag: string): string {
-  let hash = 0
-  for (let index = 0; index < tag.length; index++) hash = (hash * 31 + tag.charCodeAt(index)) | 0
-  return ['#e4b067', '#8fb5c3', '#c98a78', '#a9a0ca'][Math.abs(hash) % 4]
 }
 
 function createElementPatterns(context: CanvasRenderingContext2D, textures: Record<string, HTMLImageElement>, cellSize: number, worldOriginX: number, worldBottomY: number): Map<string, CanvasPattern | null> {
@@ -1463,7 +1557,10 @@ function drawGeyserTexture(context: CanvasRenderingContext2D, image: HTMLImageEl
   const height = width * image.naturalHeight / image.naturalWidth
   context.save()
   context.globalAlpha = .98
-  context.imageSmoothingEnabled = false
+  // Building and geyser sprites are scaled between world-cell sizes; smooth
+  // interpolation keeps their transparent contours from turning stair-stepped.
+  context.imageSmoothingEnabled = true
+  context.imageSmoothingQuality = 'high'
   context.drawImage(image, centerX - width / 2, centerY - height / 2, width, height)
   context.restore()
 }
@@ -1474,6 +1571,13 @@ function visibleMapRange(width: number, height: number, cellSize: number, origin
     maxX: Math.min(width - 1, Math.ceil((viewportWidth - originX) / cellSize) + 1),
     minRow: Math.max(0, Math.floor(-originY / cellSize) - 1),
     maxRow: Math.min(height - 1, Math.ceil((viewportHeight - originY) / cellSize) + 1),
+  }
+}
+
+function mapObjectAnchor(x: number, y: number, height: number, cellSize: number, originX: number, originY: number): { x: number; y: number } {
+  return {
+    x: originX + x * cellSize,
+    y: originY + (height - y) * cellSize,
   }
 }
 
@@ -1661,7 +1765,11 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
 
   useEffect(() => {
     let active = true
-    const paths = new Set(Object.values(BUILDING_TEXTURES).map((definition) => definition.path))
+    const paths = new Set([
+      ...Object.values(BUILDING_TEXTURES).map((definition) => definition.path),
+      ...Object.values(BLOCK_TILE_TEXTURES).map((definition) => definition.path),
+      ...Object.values(UTILITY_DEFINITIONS).map((definition) => definition.path),
+    ])
     paths.forEach((path) => loadAssetImage(path, (image) => { if (active) setBuildingTextures((current) => ({ ...current, [path]: image })) }))
     return () => { active = false }
   }, [])
@@ -1853,6 +1961,8 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
         if (isNaturalSolid) {
           const drawTerrainElement = (fillElement: typeof element, paths: Path2D[]) => {
             context.save()
+            context.imageSmoothingEnabled = true
+            context.imageSmoothingQuality = 'high'
             if (paths.length > 0) {
               context.translate(px, py)
               context.scale(cellSize, cellSize)
@@ -1969,21 +2079,49 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
         }
       }
     }
-    if (visibleLayers.buildings) {
+    if (mapEntityLayersAreVisible(visibleLayers)) {
+      const utilityCells = buildUtilityCellMap(save)
       for (const group of save.manager?.groups ?? []) {
+        const blockTileTexture = blockTileTextureForTag(group.tag)
+        const blockTileCells = blockTileTexture
+          ? new Set(group.instances.map((item) => blockTileCellKey(Math.floor(item.position.x), Math.floor(item.position.y))))
+          : undefined
+        const utilityTexture = utilityTextureForTag(group.tag)
+        const utilityFamily = utilityFamilyForTag(group.tag)
         for (const instance of group.instances) {
           const isBuilding = hasSimpleComponent(instance, 'BuildingComplete')
           const geyserTexture = geyserTextureForTag(group.tag)
           const buildingTexture = buildingTextureForTag(group.tag)
           const isGeyser = isGeyserInstance(group.tag, instance, geyserTexture)
-          if (!isBuilding && !isGeyser && !buildingTexture) continue
+          if (!isBuilding && !isGeyser && !buildingTexture && !blockTileTexture && !utilityTexture) continue
+          if (!mapEntityLayerIsVisible(visibleLayers, isGeyser, utilityFamily)) continue
           const x = Math.floor(instance.position.x)
           const y = Math.floor(instance.position.y)
           const canvasY = size.height - 1 - y
           if (x < 0 || canvasY < 0 || x >= size.width || canvasY >= size.height) continue
+          const spriteMargin = Math.max(2, Math.ceil(isGeyser ? geyserTexture?.widthCells ?? 1 : buildingTexture?.widthCells ?? 1))
+          if (x < range.minX - spriteMargin || x > range.maxX + spriteMargin || canvasY < range.minRow - spriteMargin || canvasY > range.maxRow + spriteMargin) continue
           const px = originX + x * cellSize
           const py = originY + canvasY * cellSize
-          if (isGeyser && !buildingTexture) {
+          if (utilityTexture) {
+            const image = buildingTextures[utilityTexture.path]
+            if (image) {
+              const connections = utilityConnectionBits(instance)
+                ?? utilityNeighbourConnections(utilityCells, utilityFamily!, x, y)
+              const anchor = mapObjectAnchor(instance.position.x, instance.position.y, size.height, cellSize, originX, originY)
+              drawUtilityTile(context, image, utilityTexture, connections, anchor.x, anchor.y, cellSize)
+            }
+          } else if (blockTileTexture) {
+            const connectionBits = blockTileConnectionBits(
+              (neighbourX, neighbourY) => blockTileCells?.has(blockTileCellKey(neighbourX, neighbourY)) ?? false,
+              x,
+              y,
+            )
+            const image = buildingTextures[blockTileTexture.path]
+            if (image) {
+              drawBlockTile(context, image, connectionBits, px, py, cellSize)
+            }
+          } else if (isGeyser && !buildingTexture) {
             const centerX = originX + instance.position.x * cellSize
             const centerY = originY + (size.height - instance.position.y - .5) * cellSize
             const image = geyserTexture ? geyserTextures[geyserTexture.path] : undefined
@@ -2004,21 +2142,11 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
               context.fillRect(fallbackX - Math.max(1, cellSize * .08), fallbackY - Math.max(1, cellSize * .08), Math.max(2, cellSize * .16), Math.max(2, cellSize * .16))
             }
           } else if (buildingTexture) {
-            const centerX = px + cellSize / 2
-            const centerY = py + cellSize / 2
+            const anchor = mapObjectAnchor(instance.position.x, instance.position.y, size.height, cellSize, originX, originY)
             const image = buildingTextures[buildingTexture.path]
             if (image) {
-              drawGeyserTexture(context, image, buildingTexture, cellSize, centerX, centerY)
-            } else {
-              context.fillStyle = buildingLayerColor(group.tag)
-              context.fillRect(px + 1, py + 1, Math.max(1, cellSize - 2), Math.max(1, cellSize - 2))
+              drawGeyserTexture(context, image, buildingTexture, cellSize, anchor.x, anchor.y - cellSize / 2)
             }
-          } else {
-            context.fillStyle = buildingLayerColor(group.tag)
-            context.fillRect(px + 1, py + 1, Math.max(1, cellSize - 2), Math.max(1, cellSize - 2))
-            context.strokeStyle = 'rgba(248, 235, 200, .85)'
-            context.lineWidth = Math.max(1, Math.ceil(cellSize / 5))
-            context.strokeRect(px + .5, py + .5, cellSize - 1, cellSize - 1)
           }
         }
       }
@@ -2504,6 +2632,8 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
           if (isNaturalSolid) {
             const drawTerrainElement = (fillElement: typeof element, paths: Path2D[]) => {
               context.save()
+              context.imageSmoothingEnabled = true
+              context.imageSmoothingQuality = 'high'
               if (paths.length > 0) {
                 context.translate(px, py)
                 context.scale(cellSize, cellSize)
@@ -2603,21 +2733,47 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
           }
         }
       }
-      if (visibleLayers.buildings) {
+      if (mapEntityLayersAreVisible(visibleLayers)) {
+        const utilityCells = buildUtilityCellMap(save)
         for (const group of save.manager?.groups ?? []) {
+          const blockTileTexture = blockTileTextureForTag(group.tag)
+          const blockTileCells = blockTileTexture
+            ? new Set(group.instances.map((item) => blockTileCellKey(Math.floor(item.position.x), Math.floor(item.position.y))))
+            : undefined
+          const utilityTexture = utilityTextureForTag(group.tag)
+          const utilityFamily = utilityFamilyForTag(group.tag)
           for (const instance of group.instances) {
             const isBuilding = hasSimpleComponent(instance, 'BuildingComplete')
             const geyserTexture = geyserTextureForTag(group.tag)
             const buildingTexture = buildingTextureForTag(group.tag)
             const isGeyser = isGeyserInstance(group.tag, instance, geyserTexture)
-            if (!isBuilding && !isGeyser && !buildingTexture) continue
+            if (!isBuilding && !isGeyser && !buildingTexture && !blockTileTexture && !utilityTexture) continue
+            if (!mapEntityLayerIsVisible(visibleLayers, isGeyser, utilityFamily)) continue
             const x = Math.floor(instance.position.x)
             const y = Math.floor(instance.position.y)
             const canvasY = size.height - 1 - y
             if (x < 0 || canvasY < 0 || x >= size.width || canvasY >= size.height) continue
             const px = originX + x * cellSize
             const py = originY + canvasY * cellSize
-            if (isGeyser && !buildingTexture) {
+            if (utilityTexture) {
+            const image = buildingTextures[utilityTexture.path]
+            if (image) {
+              const connections = utilityConnectionBits(instance)
+                ?? utilityNeighbourConnections(utilityCells, utilityFamily!, x, y)
+              const anchor = mapObjectAnchor(instance.position.x, instance.position.y, size.height, cellSize, originX, originY)
+              drawUtilityTile(context, image, utilityTexture, connections, anchor.x, anchor.y, cellSize)
+              }
+            } else if (blockTileTexture) {
+              const connectionBits = blockTileConnectionBits(
+                (neighbourX, neighbourY) => blockTileCells?.has(blockTileCellKey(neighbourX, neighbourY)) ?? false,
+                x,
+                y,
+              )
+              const image = buildingTextures[blockTileTexture.path]
+              if (image) {
+                drawBlockTile(context, image, connectionBits, px, py, cellSize)
+              }
+            } else if (isGeyser && !buildingTexture) {
               const centerX = originX + instance.position.x * cellSize
               const centerY = originY + (size.height - instance.position.y - .5) * cellSize
               const image = geyserTexture ? geyserTextures[geyserTexture.path] : undefined
@@ -2640,17 +2796,9 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
             } else if (buildingTexture) {
               const image = buildingTextures[buildingTexture.path]
               if (image) {
-                drawGeyserTexture(context, image, buildingTexture, cellSize, px + cellSize / 2, py + cellSize / 2)
-              } else {
-                context.fillStyle = buildingLayerColor(group.tag)
-                context.fillRect(px + 1, py + 1, Math.max(1, cellSize - 2), Math.max(1, cellSize - 2))
+                const anchor = mapObjectAnchor(instance.position.x, instance.position.y, size.height, cellSize, originX, originY)
+                drawGeyserTexture(context, image, buildingTexture, cellSize, anchor.x, anchor.y - cellSize / 2)
               }
-            } else {
-              context.fillStyle = buildingLayerColor(group.tag)
-              context.fillRect(px + 1, py + 1, Math.max(1, cellSize - 2), Math.max(1, cellSize - 2))
-              context.strokeStyle = 'rgba(248, 235, 200, .85)'
-              context.lineWidth = Math.max(1, Math.ceil(cellSize / 5))
-              context.strokeRect(px + .5, py + .5, cellSize - 1, cellSize - 1)
             }
           }
         }
