@@ -2257,7 +2257,20 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
       context.fillRect(left, top, brushPixels, brushPixels)
       context.strokeRect(left + context.lineWidth / 2, top + context.lineWidth / 2, brushPixels - context.lineWidth, brushPixels - context.lineWidth)
     }
-  }, [brushCell, brushSize, displayCellSize, originX, originY, pan.x, pan.y, previewCells, previewVersion, renderCellSize, save, selectedCell, size.height, size.width, spacePan, textures, tool, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers.grid, visibleLayers.ground])
+    if (!brushTool && tool !== 'move' && !spacePan && !isSelecting && brushCell) {
+      const left = originX + brushCell.x * cellSize
+      const top = originY + (size.height - 1 - brushCell.y) * cellSize
+      const hoverColor = tool === 'eyedropper' ? '#8cebf1' : '#f0d08d'
+      context.save()
+      context.fillStyle = tool === 'eyedropper' ? 'rgba(140, 235, 241, .12)' : 'rgba(240, 208, 141, .1)'
+      context.strokeStyle = hoverColor
+      context.lineWidth = Math.max(1, Math.min(3, cellSize * .08))
+      context.setLineDash(tool === 'eyedropper' ? [Math.max(2, cellSize * .18), Math.max(2, cellSize * .12)] : [])
+      context.fillRect(left, top, cellSize, cellSize)
+      context.strokeRect(left + context.lineWidth / 2, top + context.lineWidth / 2, cellSize - context.lineWidth, cellSize - context.lineWidth)
+      context.restore()
+    }
+  }, [brushCell, brushSize, displayCellSize, isSelecting, originX, originY, pan.x, pan.y, previewCells, previewVersion, renderCellSize, save, selectedCell, size.height, size.width, spacePan, textures, tool, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers.grid, visibleLayers.ground])
 
   const canvasStyle = {
     width: '100%',
@@ -2720,9 +2733,8 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
     onPointerMove={(event) => {
       const pointer = pointerRef.current
       const cell = pointToCell(event.clientX, event.clientY) ?? null
-      const brushTool = tool === 'paint' || tool === 'erase' || tool === 'line'
-      const previewTool = brushTool || tool === 'fill'
-      if (previewTool && !spacePanRef.current && pointer?.mode !== 'pan') updateBrushCell(cell)
+      const cursorTool = tool !== 'move'
+      if (cursorTool && !spacePanRef.current && pointer?.mode !== 'pan') updateBrushCell(cell)
       else updateBrushCell(null)
       if (!pointer) return
       if (pointer.mode === 'brush') {
