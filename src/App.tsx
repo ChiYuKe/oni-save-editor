@@ -283,6 +283,7 @@ const GEYSER_TAG_ALIASES: Record<string, string> = {
   hot_hydrogen: 'gas_hydrogen_hot',
   hot_steam: 'gas_steam_hot',
   hot_water: 'liquid_water_hot',
+  murky_brine: 'liquid_murky_brine',
   methane: 'gas_methane',
   oil_drip: 'oil_cap',
   salt_water_cool_slush: 'liquid_salt_water_cool_slush',
@@ -295,7 +296,7 @@ const GEYSER_TAG_ALIASES: Record<string, string> = {
 }
 
 function geyserTextureForTag(tag: string): GeyserTextureDefinition | undefined {
-  const normalized = tag.toLowerCase()
+  const normalized = tag.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_')
   if (normalized === 'smallreefgeyser') return GEYSER_TEXTURES.reef
   if (normalized === 'geyser') return GEYSER_TEXTURES.side_steam
   if (normalized === 'chlorinegeyser') return GEYSER_TEXTURES.side_chlorine
@@ -305,6 +306,21 @@ function geyserTextureForTag(tag: string): GeyserTextureDefinition | undefined {
   if (normalized.includes('aquatic') || normalized.includes('brackene')) return GEYSER_TEXTURES.aquatic_brackene_fountain
   const key = normalized.replace(/^geysergeneric_/, '')
   return GEYSER_TEXTURES[GEYSER_TAG_ALIASES[key] ?? key]
+}
+
+function loadAssetImage(path: string, onLoad: (image: HTMLImageElement) => void): void {
+  const image = new Image()
+  let settled = false
+  const finish = () => {
+    if (settled || !image.naturalWidth || !image.naturalHeight) return
+    settled = true
+    onLoad(image)
+  }
+  image.decoding = 'async'
+  image.onload = finish
+  image.src = assetPath(path)
+  // Cached assets may already be complete before the load callback is attached.
+  if (image.complete) finish()
 }
 
 const BUILDING_TEXTURES: Record<string, BuildingTextureDefinition> = {
@@ -318,6 +334,20 @@ const BUILDING_TEXTURES: Record<string, BuildingTextureDefinition> = {
 
 function buildingTextureForTag(tag: string): BuildingTextureDefinition | undefined {
   return BUILDING_TEXTURES[tag.toLowerCase()]
+}
+
+function hasSimpleComponent(instance: SavedObjectInstance, typeName: string): boolean {
+  const expected = typeName.toLowerCase()
+  return instance.components.some((item) => {
+    const simpleName = item.typeName.split(/[.+]/).pop()?.toLowerCase()
+    return simpleName === expected
+  })
+}
+
+function isGeyserInstance(groupTag: string, instance: SavedObjectInstance, texture: GeyserTextureDefinition | undefined): boolean {
+  return Boolean(texture)
+    || /geyser|fountain/i.test(groupTag)
+    || instance.components.some((item) => /(?:^|[.+])geyser(?:$|[.+])/i.test(item.typeName))
 }
 
 const MAP_LAYERS: Array<{ id: MapLayer; label: string; detail: string }> = [
@@ -1632,11 +1662,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
   useEffect(() => {
     let active = true
     const paths = new Set(Object.values(BUILDING_TEXTURES).map((definition) => definition.path))
-    paths.forEach((path) => {
-      const image = new Image()
-      image.onload = () => { if (active) setBuildingTextures((current) => ({ ...current, [path]: image })) }
-      image.src = assetPath(path)
-    })
+    paths.forEach((path) => loadAssetImage(path, (image) => { if (active) setBuildingTextures((current) => ({ ...current, [path]: image })) }))
     return () => { active = false }
   }, [])
 
@@ -1700,11 +1726,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
   useEffect(() => {
     let active = true
     const paths = new Set(Object.values(GEYSER_TEXTURES).map((definition) => definition.path))
-    paths.forEach((path) => {
-      const image = new Image()
-      image.onload = () => { if (active) setGeyserTextures((current) => ({ ...current, [path]: image })) }
-      image.src = assetPath(path)
-    })
+    paths.forEach((path) => loadAssetImage(path, (image) => { if (active) setGeyserTextures((current) => ({ ...current, [path]: image })) }))
     return () => { active = false }
   }, [])
 
@@ -1934,6 +1956,9 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
     }
 
     context.save()
+    context.setTransform(1, 0, 0, 1, 0, 0)
+    context.globalAlpha = 1
+    context.globalCompositeOperation = 'source-over'
     context.fillStyle = '#e4b067'
     if (visibleLayers.minions) {
       for (const minion of groupByTag(save, 'Minion')?.instances ?? []) {
@@ -1947,10 +1972,10 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
     if (visibleLayers.buildings) {
       for (const group of save.manager?.groups ?? []) {
         for (const instance of group.instances) {
-          const isBuilding = Boolean(component(instance, 'BuildingComplete'))
+          const isBuilding = hasSimpleComponent(instance, 'BuildingComplete')
           const geyserTexture = geyserTextureForTag(group.tag)
           const buildingTexture = buildingTextureForTag(group.tag)
-          const isGeyser = Boolean(component(instance, 'Geyser')) || Boolean(geyserTexture) || /geyser|fountain/i.test(group.tag)
+          const isGeyser = isGeyserInstance(group.tag, instance, geyserTexture)
           if (!isBuilding && !isGeyser && !buildingTexture) continue
           const x = Math.floor(instance.position.x)
           const y = Math.floor(instance.position.y)
@@ -2552,6 +2577,9 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
       }
 
       context.save()
+      context.setTransform(1, 0, 0, 1, 0, 0)
+      context.globalAlpha = 1
+      context.globalCompositeOperation = 'source-over'
       context.fillStyle = '#e4b067'
       if (visibleLayers.minions) {
         for (const minion of groupByTag(save, 'Minion')?.instances ?? []) {
@@ -2565,10 +2593,10 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
       if (visibleLayers.buildings) {
         for (const group of save.manager?.groups ?? []) {
           for (const instance of group.instances) {
-            const isBuilding = Boolean(component(instance, 'BuildingComplete'))
+            const isBuilding = hasSimpleComponent(instance, 'BuildingComplete')
             const geyserTexture = geyserTextureForTag(group.tag)
             const buildingTexture = buildingTextureForTag(group.tag)
-            const isGeyser = Boolean(component(instance, 'Geyser')) || Boolean(geyserTexture) || /geyser|fountain/i.test(group.tag)
+            const isGeyser = isGeyserInstance(group.tag, instance, geyserTexture)
             if (!isBuilding && !isGeyser && !buildingTexture) continue
             const x = Math.floor(instance.position.x)
             const y = Math.floor(instance.position.y)
