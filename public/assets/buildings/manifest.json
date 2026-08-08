@@ -759,6 +759,26 @@
     "anchorOffsetYCells": -1.050854811668396,
     "source": "door_manual_kanim"
   },
+  "door_poi": {
+    "path": "/assets/buildings/sprites/door_poi.png",
+    "widthCells": 1.3440340572936111,
+    "heightCells": 2.34,
+    "pixelWidth": 273,
+    "pixelHeight": 472,
+    "anchorOffsetXCells": 0.035392012911179334,
+    "anchorOffsetYCells": -0.9961250305175782,
+    "source": "door_poi_kanim"
+  },
+  "door_poi_internal": {
+    "path": "/assets/buildings/sprites/door_poi_internal.png",
+    "widthCells": 1.26,
+    "heightCells": 2.34,
+    "pixelWidth": 256,
+    "pixelHeight": 472,
+    "anchorOffsetXCells": -0.006625015735626221,
+    "anchorOffsetYCells": -0.9961250305175782,
+    "source": "door_poi_internal_kanim"
+  },
   "door_wood": {
     "path": "/assets/buildings/sprites/door_wood.png",
     "widthCells": 1.235,

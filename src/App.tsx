@@ -70,7 +70,6 @@ import {
   type UtilityFamily,
 } from './lib/utilityTiles'
 import { parseYamlTemplate, templateVisualElementForName, type TemplateEntity, type YamlTemplate } from './lib/yamlTemplates'
-import { canvasPngBlob, collectKanimSources, loadKanimPackage, preferredKanimBank, renderKanimFrame, type KanimFileEntry, type KanimPackage, type KanimSource } from './lib/kanim'
 import { oniBuildingDefinitionForAnimation, oniBuildingDefinitionForTag } from './lib/oniBuildingDefs.generated'
 
 type View = 'overview' | 'map' | 'dupes' | 'objects'
@@ -476,15 +475,20 @@ function instanceOrientation(instance: SavedObjectInstance): number {
 }
 
 function rotatableVisualizerForTag(tag: string): RotatableVisualizer | undefined {
-  const key = tag.trim().toLowerCase()
-  // This mirrors Rotatable.SetSize for the door prefabs in the game DLL:
-  // regular doors are 1x2, while BunkerDoor is 4x1.
-  if (key === 'bunkerdoor' || key === 'door_bunker') {
-    return { pivotXCells: -.5, pivotYCells: .5, offsetXCells: .5, offsetYCells: 0 }
+  const definition = oniBuildingDefinitionForSaveTag(tag)
+  if (!definition) return undefined
+  // BuildingComplete.OnPrefabInit applies BuildingDef.GetVisualizerOffset()
+  // to every building. Rotatable.SetSize() applies the same horizontal rule:
+  // an even-width footprint is visualized half a cell to the right of its
+  // placement origin. The old tag-only BunkerDoor exception left every other
+  // even-width building half a cell too far left.
+  const evenWidth = definition.width % 2 === 0
+  return {
+    pivotXCells: evenWidth ? -.5 : 0,
+    pivotYCells: .5,
+    offsetXCells: evenWidth ? .5 : 0,
+    offsetYCells: 0,
   }
-  // Most rotatable building prefabs, including the 1x1 storage-network
-  // ports, use the odd-width default pivot. A neutral orientation is a no-op.
-  return { pivotXCells: 0, pivotYCells: .5, offsetXCells: 0, offsetYCells: 0 }
 }
 
 type MapObjectRenderEntry = {
@@ -520,6 +524,40 @@ function blockTileCellsByGroup(save: ParsedSave): Map<SavedObjectGroup, Set<stri
   return result
 }
 
+function rotatedBuildingOffset(x: number, y: number, orientation: number): { x: number; y: number } {
+  // Rotatable.GetRotatedCellOffset() from the game. Keep this separate from
+  // the canvas transform: these offsets describe occupied simulation cells.
+  switch (orientation) {
+    case 1: return { x: y, y: -x }
+    case 2: return { x: -x, y: -y }
+    case 3: return { x: -y, y: x }
+    case 5: return { x: -x, y }
+    case 6: return { x, y: -y }
+    default: return { x, y }
+  }
+}
+
+function buildingPlacementCells(instance: SavedObjectInstance, footprint: ReturnType<typeof oniBuildingDefinitionForSaveTag>): Array<{ x: number; y: number }> {
+  if (!footprint) return []
+  // BuildingDef.GenerateOffsets(width, height):
+  //   firstX = width / 2 - width + 1
+  // then every cell is OffsetCell(placementCell, rotatedOffset). Save
+  // transforms are Grid.CellToPosCBC(placementCell), so flooring them gives
+  // that exact placement cell back.
+  const startX = Math.floor(footprint.width / 2) - footprint.width + 1
+  const baseX = Math.floor(instance.position.x)
+  const baseY = Math.floor(instance.position.y)
+  const orientation = instanceOrientation(instance)
+  const cells: Array<{ x: number; y: number }> = []
+  for (let localY = 0; localY < footprint.height; localY++) {
+    for (let localX = 0; localX < footprint.width; localX++) {
+      const offset = rotatedBuildingOffset(startX + localX, localY, orientation)
+      cells.push({ x: baseX + offset.x, y: baseY + offset.y })
+    }
+  }
+  return cells
+}
+
 function terrainMaskedCellsByBuilding(save: ParsedSave): Set<string> {
   const cells = new Set<string>()
   for (const group of save.manager?.groups ?? []) {
@@ -527,17 +565,7 @@ function terrainMaskedCellsByBuilding(save: ParsedSave): Set<string> {
     if (!footprint) continue
     for (const instance of group.instances) {
       if (!hasSimpleComponent(instance, 'BuildingComplete')) continue
-      const orientation = instanceOrientation(instance)
-      const isSideways = orientation === 1 || orientation === 3
-      const width = isSideways ? footprint.height : footprint.width
-      const height = isSideways ? footprint.width : footprint.height
-      const startX = Math.floor(instance.position.x)
-      const startY = Math.floor(instance.position.y)
-      for (let offsetY = 0; offsetY < height; offsetY++) {
-        for (let offsetX = 0; offsetX < width; offsetX++) {
-          cells.add(blockTileCellKey(startX + offsetX, startY + offsetY))
-        }
-      }
+      for (const cell of buildingPlacementCells(instance, footprint)) cells.add(blockTileCellKey(cell.x, cell.y))
     }
   }
   return cells
@@ -722,9 +750,6 @@ function App() {
   const [yamlTemplate, setYamlTemplate] = useState<YamlTemplate | null>(null)
   const [yamlDocuments, setYamlDocuments] = useState<ImportedYamlTemplate[]>([])
   const [selectedYamlPath, setSelectedYamlPath] = useState('')
-  const [kanimSources, setKanimSources] = useState<KanimSource[]>([])
-  const [selectedKanimId, setSelectedKanimId] = useState('')
-  const [kanimPackage, setKanimPackage] = useState<KanimPackage | null>(null)
   const [fileName, setFileName] = useState('')
   const [view, setView] = useState<View>('overview')
   const [dirty, setDirty] = useState(false)
@@ -758,9 +783,6 @@ function App() {
       setYamlDocuments(parsed)
       setSelectedYamlPath(first.path)
       setYamlTemplate(first.template)
-      setKanimSources([])
-      setSelectedKanimId('')
-      setKanimPackage(null)
       setSave(null)
       setFileName(parsed.length === 1 ? first.path : `${first.path.split('/')[0]} · ${parsed.length} 个 YAML`)
       setSourceHandle(null)
@@ -798,9 +820,6 @@ function App() {
       setYamlDocuments([])
       setSelectedYamlPath('')
       setFileName(file.name)
-      setKanimSources([])
-      setSelectedKanimId('')
-      setKanimPackage(null)
       setSourceHandle(handle)
       setDirty(false)
       setView('overview')
@@ -817,49 +836,6 @@ function App() {
     }
   }, [])
 
-  const loadKanimSources = useCallback(async (entries: KanimFileEntry[]) => {
-    const sources = collectKanimSources(entries)
-    if (sources.length === 0) {
-      setError('拖入的内容中没有完整的 KAnim 建筑包。需要同目录下的 PNG、_build.bytes 和 _anim.bytes。')
-      return
-    }
-    const first = sources[0]
-    setKanimSources(sources)
-    setSelectedKanimId(first.id)
-    setSave(null)
-    setYamlTemplate(null)
-    setYamlDocuments([])
-    setSelectedYamlPath('')
-    setFileName(`${first.name} · ${sources.length} 个建筑动画`)
-    setSourceHandle(null)
-    setDirty(false)
-    setError('')
-    setLoading(true)
-    try {
-      setKanimPackage(await loadKanimPackage(first))
-    } catch (cause) {
-      setKanimPackage(null)
-      setError(cause instanceof Error ? cause.message : '无法读取这个 KAnim 建筑包。')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  const loadKanimSource = useCallback(async (source: KanimSource) => {
-    setSelectedKanimId(source.id)
-    setFileName(`${source.name} · ${kanimSources.length} 个建筑动画`)
-    setLoading(true)
-    setError('')
-    try {
-      setKanimPackage(await loadKanimPackage(source))
-    } catch (cause) {
-      setKanimPackage(null)
-      setError(cause instanceof Error ? cause.message : '无法读取这个 KAnim 建筑包。')
-    } finally {
-      setLoading(false)
-    }
-  }, [kanimSources.length])
-
   const updateSave = useCallback((update: (current: ParsedSave) => void) => {
     setSave((current) => {
       if (!current) return current
@@ -875,9 +851,6 @@ function App() {
     setYamlTemplate(null)
     setYamlDocuments([])
     setSelectedYamlPath('')
-    setKanimSources([])
-    setSelectedKanimId('')
-    setKanimPackage(null)
     setFileName('')
     setSourceHandle(null)
     setDirty(false)
@@ -960,18 +933,16 @@ function App() {
     event.preventDefault()
     setIsDragging(false)
     void droppedFilesFromTransfer(event.dataTransfer).then((droppedFiles) => {
-      const kanimSources = collectKanimSources(droppedFiles)
       const yamlFiles = droppedFiles.filter(({ file }) => /\.ya?ml$/i.test(file.name))
-      if (kanimSources.length > 0) void loadKanimSources(droppedFiles)
-      else if (yamlFiles.length > 0) void loadYamlSources(yamlFiles)
+      if (yamlFiles.length > 0) void loadYamlSources(yamlFiles)
       else if (droppedFiles[0]) void loadFile(droppedFiles[0].file)
     })
   }
 
-  const hasDocument = Boolean(save || yamlTemplate || kanimSources.length > 0)
+  const hasDocument = Boolean(save || yamlTemplate)
 
   return (
-    <div className={`app-shell ${save ? `saved-shell view-${view}` : yamlTemplate ? 'template-shell' : kanimSources.length > 0 ? 'kanim-shell' : 'landing-shell'}`}>
+    <div className={`app-shell ${save ? `saved-shell view-${view}` : yamlTemplate ? 'template-shell' : 'landing-shell'}`}>
       <input
         ref={fileInput}
         className="visually-hidden"
@@ -1025,8 +996,6 @@ function App() {
                 <div className="file-chip" title={fileName}><span className="status-dot template-dot" /><span>{fileName}</span></div>
                 <button className="button button-quiet" type="button" onClick={openPicker} title="打开另一个文件"><FileUp size={15} /> <span>打开</span></button>
               </>
-            ) : kanimSources.length > 0 ? (
-              <div className="file-chip" title={fileName}><span className="status-dot kanim-dot" /><span>{fileName}</span></div>
             ) : (
               <button className="button button-primary" type="button" onClick={openPicker}>
                 <Upload size={15} /> <span>打开文件</span>
@@ -1046,12 +1015,6 @@ function App() {
 
       {!hasDocument ? (
         <EmptyState loading={loading} isDragging={isDragging} onPick={openPicker} onDrop={handleDrop} onDragChange={setIsDragging} />
-      ) : kanimSources.length > 0 ? (
-        <div className="workspace">
-          <main className="main-content main-content-kanim">
-            <KanimWorkspace sources={kanimSources} selectedId={selectedKanimId} packageData={kanimPackage} loading={loading} onSelect={(source) => { void loadKanimSource(source) }} />
-          </main>
-        </div>
       ) : yamlTemplate ? (
         <div className="workspace">
           <main className="main-content main-content-template">
@@ -1125,11 +1088,11 @@ function EmptyState({ loading, isDragging, onPick, onDrop, onDragChange }: { loa
             <div className="upload-icon"><FileUp size={30} strokeWidth={1.8} /></div>
             <div className="upload-kicker">OPEN COLONY DATA</div>
             <h2>{isDragging ? (english ? 'Drop to open' : '松开即可载入') : (english ? 'Start with a save' : '从一个存档开始')}</h2>
-            <p>{isDragging ? (english ? 'Your file is ready. Release to continue.' : '文件已准备好，松开鼠标继续') : (english ? 'Drop a save, YAML, or KAnim folder here, or choose one from your device.' : '将存档、YAML 或 KAnim 文件夹拖到此处，也可以从本地选择。')}</p>
+            <p>{isDragging ? (english ? 'Your file is ready. Release to continue.' : '文件已准备好，松开鼠标继续') : (english ? 'Drop a save or YAML file here, or choose one from your device.' : '将存档或 YAML 文件拖到此处，也可以从本地选择。')}</p>
             <button className="button button-primary button-large" type="button" onClick={onPick} disabled={loading}>
               {loading ? <><span className="spinner" />{english ? 'Parsing...' : '解析中...'}</> : <><FileUp size={17} />{english ? 'Choose file' : '选择文件'}</>}
             </button>
-            <div className="upload-formats"><span>.SAV</span><span>.YAML</span><span>{english ? 'KANIM FOLDER' : 'KANIM 文件夹'}</span></div>
+            <div className="upload-formats"><span>.SAV</span><span>.YAML</span></div>
             <div className="upload-privacy"><Gauge size={14} /><span>{english ? 'Processed on this device. Nothing is uploaded.' : '数据只在当前设备处理，不会上传服务器'}</span></div>
           </section>
         </main>
@@ -1138,109 +1101,6 @@ function EmptyState({ loading, isDragging, onPick, onDrop, onDragChange }: { loa
       </div>
     </div>
   )
-}
-
-function KanimWorkspace({ sources, selectedId, packageData, loading, onSelect }: { sources: KanimSource[]; selectedId: string; packageData: KanimPackage | null; loading: boolean; onSelect: (source: KanimSource) => void }) {
-  const [query, setQuery] = useState('')
-  const [bankName, setBankName] = useState('')
-  const [frameIndex, setFrameIndex] = useState(0)
-  const [previewUrl, setPreviewUrl] = useState('')
-  const [renderedCanvas, setRenderedCanvas] = useState<HTMLCanvasElement | null>(null)
-  const [renderError, setRenderError] = useState('')
-  const selectedSource = sources.find((source) => source.id === selectedId) ?? sources[0]
-  const visibleSources = sources
-    .filter((source) => source.name.toLowerCase().includes(query.trim().toLowerCase()) || source.path.toLowerCase().includes(query.trim().toLowerCase()))
-    .slice(0, 400)
-  const bank = packageData?.banks.find((candidate) => candidate.name === bankName) ?? packageData?.banks[0]
-  const animationFrameCount = bank?.frames.length ?? 0
-
-  useEffect(() => {
-    if (!packageData) {
-      setBankName('')
-      setFrameIndex(0)
-      setRenderedCanvas(null)
-      setPreviewUrl('')
-      return
-    }
-    setBankName(preferredKanimBank(packageData))
-    setFrameIndex(0)
-  }, [packageData])
-
-  useEffect(() => {
-    if (!packageData || !bank) return
-    try {
-      const canvas = renderKanimFrame(packageData, bank.name, frameIndex)
-      setRenderedCanvas(canvas)
-      setPreviewUrl(canvas.toDataURL('image/png'))
-      setRenderError('')
-    } catch (cause) {
-      setRenderedCanvas(null)
-      setPreviewUrl('')
-      setRenderError(cause instanceof Error ? cause.message : '无法合成这个动画帧。')
-    }
-  }, [bank, frameIndex, packageData])
-
-  const exportFrame = async () => {
-    if (!renderedCanvas || !selectedSource || !bank) return
-    try {
-      const blob = await canvasPngBlob(renderedCanvas)
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `${selectedSource.name}-${bank.name}-${String(frameIndex + 1).padStart(2, '0')}.png`
-      link.click()
-      URL.revokeObjectURL(url)
-    } catch (cause) {
-      setRenderError(cause instanceof Error ? cause.message : '导出 PNG 失败。')
-    }
-  }
-
-  return <div className="kanim-workspace">
-    <div className="content-head content-head-kanim">
-      <div>
-        <div className="eyebrow">BUILDING ANIMATION EXPORT</div>
-        <h1>建筑贴图</h1>
-      </div>
-      <div className="head-meta"><span className="status-dot kanim-dot" />{sources.length.toLocaleString()} 个 KAnim 建筑<ChevronRight size={14} />拖入的本地资源</div>
-    </div>
-    <div className="kanim-layout">
-      <aside className="kanim-source-rail">
-        <div className="kanim-source-heading"><SectionHeading icon={<Boxes size={16} />} title="建筑资源" action={`${sources.length} PACKAGES`} /></div>
-        <label className="kanim-search"><Search size={14} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索建筑名称" aria-label="搜索建筑名称" /></label>
-        <div className="kanim-source-list">
-          {visibleSources.map((source) => <button key={source.id} type="button" className={`kanim-source-row ${source.id === selectedId ? 'selected' : ''}`} onClick={() => onSelect(source)}>
-            <span className="kanim-source-mark"><Boxes size={15} /></span>
-            <span><strong>{source.name}</strong><small>{source.path}</small></span>
-          </button>)}
-          {visibleSources.length === 0 && <div className="kanim-list-empty">没有匹配的建筑资源</div>}
-          {visibleSources.length < sources.filter((source) => source.name.toLowerCase().includes(query.trim().toLowerCase()) || source.path.toLowerCase().includes(query.trim().toLowerCase())).length && <div className="kanim-list-more">结果较多，请继续搜索</div>}
-        </div>
-      </aside>
-
-      <section className="kanim-preview-panel">
-        <div className="kanim-preview-toolbar"><span>{packageData ? `${packageData.name} / ${bank?.name ?? '未选择动画'}` : '等待读取建筑动画'}</span><span className="kanim-preview-size">{renderedCanvas ? `${renderedCanvas.width} × ${renderedCanvas.height} px` : '透明背景'}</span></div>
-        <div className="kanim-preview-stage">
-          {loading ? <div className="kanim-preview-empty"><span className="spinner" /><strong>正在读取 KAnim</strong><small>只读取当前建筑的 PNG、Build 和 Anim 数据</small></div> : previewUrl ? <img src={previewUrl} alt={`${selectedSource?.name ?? '建筑'} ${bank?.name ?? 'on'} 动画`} /> : <div className="kanim-preview-empty"><Boxes size={28} /><strong>{renderError || '选择一个建筑开始预览'}</strong><small>默认优先使用 on 状态的首帧</small></div>}
-        </div>
-        <div className="kanim-preview-foot"><span>游戏 KAnim 坐标合成</span><span>透明 PNG</span></div>
-      </section>
-
-      <aside className="kanim-parameter-rail">
-        <SectionHeading icon={<Settings2 size={16} />} title="导出参数" action="FRAME" />
-        <div className="kanim-selected-name">{selectedSource?.name ?? '未选择建筑'}</div>
-        <div className="kanim-selected-path">{selectedSource?.path ?? '拖入 ONI_Bridge 文件夹以开始'}</div>
-        <div className="kanim-stat-grid">
-          <div><span>动画</span><strong>{packageData?.banks.length ?? 0}</strong></div>
-          <div><span>当前帧</span><strong>{animationFrameCount ? `${frameIndex + 1} / ${animationFrameCount}` : '--'}</strong></div>
-        </div>
-        <div className="map-section-divider" />
-        <label className="kanim-field"><span>动画状态</span><select value={bank?.name ?? ''} onChange={(event) => { setBankName(event.target.value); setFrameIndex(0) }} disabled={!packageData}><option value="" disabled>选择动画</option>{packageData?.banks.filter((candidate) => candidate.frames.length > 0).map((candidate) => <option key={candidate.name} value={candidate.name}>{candidate.name}</option>)}</select></label>
-        <label className="kanim-field kanim-frame-field"><span>动画帧</span><input type="range" min="0" max={Math.max(0, animationFrameCount - 1)} value={Math.min(frameIndex, Math.max(0, animationFrameCount - 1))} onChange={(event) => setFrameIndex(Number(event.target.value))} disabled={!animationFrameCount} /><output>{animationFrameCount ? `${frameIndex + 1} / ${animationFrameCount}` : '--'}</output></label>
-        <button className="button button-primary kanim-export-button" type="button" onClick={() => void exportFrame()} disabled={!renderedCanvas || loading}><Download size={16} />导出拼合 PNG</button>
-        <div className="kanim-note"><Layers3 size={15} /><span>导出会按游戏的图层顺序、Pivot、UV 和变换矩阵合成，不是原始图集裁片。</span></div>
-      </aside>
-    </div>
-  </div>
 }
 
 function ColonyBackdrop() {

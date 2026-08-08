@@ -85,56 +85,6 @@ h2 { color: var(--ink); font-size: 15px; font-weight: 650; letter-spacing: 0; }
 .yaml-preview-main .template-canvas { min-height: 560px; flex: 1; }
 .yaml-preview-main .map-legend { padding: 0; }
 .yaml-preview-info { min-height: 0; padding: 30px 0 30px 28px; border-left: 1px solid var(--line); }
-.kanim-shell .topbar { padding-top: 16px; }
-.kanim-dot { background: #b48cda; box-shadow: 0 0 12px rgba(180, 140, 218, .34); }
-.main-content-kanim { width: min(100%, 1660px); padding-top: 48px; }
-.content-head-kanim { margin-bottom: 30px; }
-.kanim-workspace { min-width: 0; }
-.kanim-layout { min-width: 0; height: min(760px, calc(100vh - 190px)); min-height: 580px; display: grid; grid-template-columns: 276px minmax(0, 1fr) 300px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-.kanim-source-rail { min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 22px 16px 18px 0; border-right: 1px solid var(--line); }
-.kanim-source-heading { padding: 0 0 13px; }
-.kanim-source-heading .section-heading { margin-bottom: 0; }
-.kanim-search { height: 34px; display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding: 0 9px; color: var(--faint); border: 1px solid var(--line); background: var(--soft); }
-.kanim-search:focus-within { color: var(--accent); border-color: #f0a5a8; background: var(--white); }
-.kanim-search input { width: 100%; min-width: 0; color: var(--ink-soft); border: 0; outline: 0; background: transparent; font-size: 10px; }
-.kanim-search input::placeholder { color: var(--faint); }
-.kanim-source-list { min-height: 0; flex: 1; overflow: auto; scrollbar-width: thin; }
-.kanim-source-row { width: 100%; min-height: 48px; display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: center; gap: 8px; padding: 5px 7px; color: var(--muted); border: 1px solid transparent; background: transparent; text-align: left; }
-.kanim-source-row:hover { color: var(--ink-soft); background: var(--soft); }
-.kanim-source-row.selected { color: var(--ink); border-color: #f0a5a8; background: var(--accent-soft); box-shadow: inset 3px 0 var(--accent); }
-.kanim-source-mark { width: 27px; height: 27px; display: grid; place-items: center; color: #a683c9; background: rgba(180, 140, 218, .13); }
-.kanim-source-row > span:last-child { min-width: 0; display: grid; gap: 4px; }
-.kanim-source-row strong { overflow: hidden; color: inherit; font-size: 10px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-.kanim-source-row small { overflow: hidden; color: var(--faint); font: 8px var(--mono); text-overflow: ellipsis; white-space: nowrap; }
-.kanim-list-empty, .kanim-list-more { padding: 22px 8px; color: var(--faint); font-size: 10px; text-align: center; }
-.kanim-list-more { padding-top: 12px; font: 8px var(--mono); }
-.kanim-preview-panel { min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 0 20px; }
-.kanim-preview-toolbar, .kanim-preview-foot { min-height: 49px; display: flex; align-items: center; justify-content: space-between; gap: 15px; color: var(--muted); border-bottom: 1px solid var(--line); font: 10px var(--mono); }
-.kanim-preview-toolbar > span:first-child { overflow: hidden; color: var(--ink-soft); text-overflow: ellipsis; white-space: nowrap; }
-.kanim-preview-size, .kanim-preview-foot { color: var(--faint); }
-.kanim-preview-stage { min-height: 0; flex: 1; display: grid; place-items: center; overflow: hidden; background-color: #e5e5e2; background-image: linear-gradient(45deg, rgba(255,255,255,.7) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.7) 75%), linear-gradient(45deg, rgba(255,255,255,.7) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.7) 75%); background-position: 0 0, 12px 12px; background-size: 24px 24px; }
-.kanim-preview-stage img { display: block; max-width: 92%; max-height: 92%; object-fit: contain; image-rendering: auto; filter: drop-shadow(0 18px 24px rgba(28, 27, 34, .22)); }
-.kanim-preview-empty { display: grid; justify-items: center; gap: 10px; padding: 30px; color: var(--muted); text-align: center; }
-.kanim-preview-empty svg { color: #a683c9; }
-.kanim-preview-empty strong { color: var(--ink-soft); font-size: 13px; font-weight: 650; }
-.kanim-preview-empty small { max-width: 250px; color: var(--faint); font: 9px/1.6 var(--mono); }
-.kanim-preview-foot { min-height: 40px; border-top: 1px solid var(--line); border-bottom: 0; font-size: 8px; }
-.kanim-parameter-rail { min-width: 0; min-height: 0; overflow: auto; padding: 22px 0 22px 22px; border-left: 1px solid var(--line); }
-.kanim-selected-name { margin-top: 25px; color: var(--ink-soft); font-size: 20px; font-weight: 650; line-height: 1.2; }
-.kanim-selected-path { margin-top: 8px; overflow-wrap: anywhere; color: var(--faint); font: 9px/1.55 var(--mono); }
-.kanim-stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; margin-top: 23px; border: 1px solid var(--line); background: var(--line); }
-.kanim-stat-grid div { display: grid; gap: 6px; padding: 12px 10px; background: var(--soft); }
-.kanim-stat-grid span { color: var(--faint); font: 9px var(--mono); }
-.kanim-stat-grid strong { color: var(--ink-soft); font: 600 13px var(--mono); }
-.kanim-field { display: grid; gap: 8px; min-height: 64px; padding: 12px 0; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 10px; }
-.kanim-field select { width: 100%; height: 34px; padding: 0 8px; color: var(--ink-soft); border: 1px solid var(--line); border-radius: 6px; outline: 0; background: var(--soft); font: 10px var(--mono); }
-.kanim-field select:focus { border-color: var(--accent); background: var(--white); }
-.kanim-frame-field { grid-template-columns: 70px minmax(0, 1fr) 56px; align-items: center; min-height: 52px; }
-.kanim-frame-field input { min-width: 0; accent-color: var(--accent); }
-.kanim-frame-field output { color: var(--ink-soft); font: 9px var(--mono); text-align: right; }
-.kanim-export-button { width: 100%; margin-top: 25px; border-radius: 7px; }
-.kanim-note { display: flex; align-items: flex-start; gap: 8px; margin-top: 24px; padding-top: 17px; color: var(--faint); border-top: 1px solid var(--line); font: 9px/1.65 var(--mono); }
-.kanim-note svg { flex: 0 0 auto; color: #a683c9; }
 .yaml-source-picker { min-width: 260px; display: grid; gap: 6px; color: var(--faint); font: 9px var(--mono); }
 .yaml-source-picker select { min-width: 300px; height: 34px; padding: 0 9px; color: var(--ink-soft); border: 1px solid var(--line); border-radius: 7px; outline: 0; background: var(--soft); font: 10px var(--mono); }
 .yaml-source-picker select:focus { border-color: var(--accent); background: var(--white); }
