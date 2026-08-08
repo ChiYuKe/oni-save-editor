@@ -9,6 +9,7 @@ import {
   Eye,
   EyeOff,
   FileUp,
+  FileText,
   Gauge,
   Grid2x2,
   Hand,
@@ -53,7 +54,7 @@ import {
   worldSeed,
   worldSize,
 } from './lib/editor'
-import type { SavedObjectInstance, Value } from './lib/model'
+import type { SavedObjectGroup, SavedObjectInstance, Value } from './lib/model'
 import { SIM_DISEASE_SIZE, getSimElementProfile, getWorldCell, readSimCell, setWorldCells, type SimCell } from './lib/sim'
 import { BLOCK_TILE_TEXTURES, blockTileCellKey, blockTileConnectionBits, blockTileTextureForTag, drawBlockTile } from './lib/blockTiles'
 import { createTerrainBoundaryPath, createTerrainCellPath } from './lib/terrainMasks'
@@ -68,6 +69,9 @@ import {
   type UtilityCellRecord,
   type UtilityFamily,
 } from './lib/utilityTiles'
+import { parseYamlTemplate, templateVisualElementForName, type TemplateEntity, type YamlTemplate } from './lib/yamlTemplates'
+import { canvasPngBlob, collectKanimSources, loadKanimPackage, preferredKanimBank, renderKanimFrame, type KanimFileEntry, type KanimPackage, type KanimSource } from './lib/kanim'
+import { oniBuildingDefinitionForAnimation, oniBuildingDefinitionForTag } from './lib/oniBuildingDefs.generated'
 
 type View = 'overview' | 'map' | 'dupes' | 'objects'
 type MapLayer = 'grid' | 'biome' | 'minions' | 'buildings' | 'geysers' | 'power' | 'plumbing' | 'ventilation' | 'automation' | 'shipment' | 'gas' | 'liquid' | 'ground' | 'backwall'
@@ -85,8 +89,27 @@ const MAP_ZOOM_MAX = 16
 const PANORAMA_CELL_PIXELS = 11
 const DEFAULT_ELEMENT_WORLD_UV_SCALE = 8
 const MAP_EDITOR_URL = 'https://chiyuke.github.io/oni-save-editor/'
-type GeyserTextureDefinition = { path: string; widthCells: number }
-type BuildingTextureDefinition = { path: string; widthCells: number }
+type GeyserTextureDefinition = {
+  path: string
+  widthCells: number
+  heightCells?: number
+  verticalOffsetCells?: number
+  anchorOffsetXCells?: number
+  anchorOffsetYCells?: number
+}
+type BuildingTextureDefinition = {
+  path: string
+  widthCells: number
+  heightCells?: number
+  anchorOffsetXCells?: number
+  anchorOffsetYCells?: number
+}
+type RotatableVisualizer = {
+  pivotXCells: number
+  pivotYCells: number
+  offsetXCells: number
+  offsetYCells: number
+}
 type ZoneColor = { r: number; g: number; b: number }
 
 function assetPath(path: string): string {
@@ -246,7 +269,8 @@ function buildWorldZoneMap(save: ParsedSave, width: number, height: number): Uin
 }
 
 function geyserAsset(fileName: string, widthCells: number): GeyserTextureDefinition {
-  return { path: `/assets/geysers/${fileName}`, widthCells }
+  const isGasGeyser = fileName.startsWith('geyser_gas_') || /^geyser_side_(chlorine|methane|steam)_/.test(fileName)
+  return { path: `/assets/geysers/${fileName}`, widthCells, verticalOffsetCells: isGasGeyser ? 1 : undefined }
 }
 
 const GEYSER_TEXTURES: Record<string, GeyserTextureDefinition> = {
@@ -335,34 +359,100 @@ function loadAssetImage(path: string, onLoad: (image: HTMLImageElement) => void)
   if (image.complete) finish()
 }
 
-const BUILDING_TEXTURES: Record<string, BuildingTextureDefinition> = {
-  gasvent: { path: '/assets/buildings/ventgas_0_ui_False.png', widthCells: 1 },
-  gasventhighpressure: { path: '/assets/buildings/ventgas_powered_0_ui_False.png', widthCells: 1 },
-  liquidvent: { path: '/assets/buildings/ventliquid_0_ui_False.png', widthCells: 1 },
-  solidvent: { path: '/assets/buildings/conveyer_dropper_0_ui_False.png', widthCells: 1 },
-  underwatervent: { path: '/assets/buildings/underwater_vent_0_ui_False.png', widthCells: 4 },
-  underwaterventdrill: { path: '/assets/buildings/underwater_vent_drill_0_ui_False.png', widthCells: 4 },
-  wirebridge: { path: '/assets/buildings/utilities/utilityelectricbridge_0_ui_False.png', widthCells: 1 },
-  wirerefinedbridge: { path: '/assets/buildings/utilities/utilityelectricbridgeconductive_0_ui_False.png', widthCells: 1 },
-  wirerubberbridge: { path: '/assets/buildings/utilities/utilityelectricbridgerubber_0_ui_False.png', widthCells: 1 },
-  gasconduitbridge: { path: '/assets/buildings/utilities/utilitygasbridge_0_ui_False.png', widthCells: 1 },
-  liquidconduitbridge: { path: '/assets/buildings/utilities/utilityliquidbridge_0_ui_False.png', widthCells: 1 },
-  solidconduitbridge: { path: '/assets/buildings/utilities/utilities_conveyorbridge_0_ui_False.png', widthCells: 1 },
-  solidconduitinbox: { path: '/assets/buildings/utilities/conveyorin_0_ui_False.png', widthCells: 1 },
-  solidconduitoutbox: { path: '/assets/buildings/utilities/conveyorout_0_ui_False.png', widthCells: 1 },
-  logicwirebridge: { path: '/assets/buildings/utilities/logic_bridge_0_ui_False.png', widthCells: 1 },
-  warpconduitreceiver: { path: '/assets/buildings/utilities/warp_conduit_receiver_0_ui_False.png', widthCells: 1.25 },
-  warpconduitsender: { path: '/assets/buildings/utilities/warp_conduit_sender_0_ui_False.png', widthCells: 1.25 },
-  conduitportgasloader: { path: '/assets/buildings/utilities/conduit_port_gas_loader_0_ui_False.png', widthCells: 1 },
-  conduitportgasunloader: { path: '/assets/buildings/utilities/conduit_port_gas_unloader_0_ui_False.png', widthCells: 1 },
-  conduitportliquidloader: { path: '/assets/buildings/utilities/conduit_port_liquid_loader_0_ui_False.png', widthCells: 1 },
-  conduitportliquidunloader: { path: '/assets/buildings/utilities/conduit_port_liquid_unloader_0_ui_False.png', widthCells: 1 },
-  conduitportsolidloader: { path: '/assets/buildings/utilities/conduit_port_solid_loader_0_ui_False.png', widthCells: 1 },
-  conduitportsolidunloader: { path: '/assets/buildings/utilities/conduit_port_solid_unloader_0_ui_False.png', widthCells: 1 },
+function loadAssetImages(paths: Iterable<string>): Promise<Record<string, HTMLImageElement>> {
+  return Promise.all(Array.from(new Set(paths), (path) => new Promise<{ path: string; image: HTMLImageElement } | null>((resolve) => {
+    const image = new Image()
+    image.decoding = 'async'
+    image.onload = () => resolve({ path, image })
+    image.onerror = () => resolve(null)
+    image.src = assetPath(path)
+  }))).then((entries) => {
+    const images: Record<string, HTMLImageElement> = {}
+    entries.forEach((entry) => { if (entry) images[entry.path] = entry.image })
+    return images
+  })
 }
 
-function buildingTextureForTag(tag: string): BuildingTextureDefinition | undefined {
-  return BUILDING_TEXTURES[tag.toLowerCase()]
+const BUILDING_TEXTURES: Record<string, BuildingTextureDefinition> = {
+  gasvent: { path: '/assets/buildings/sprites/ventgas.png', widthCells: 1 },
+  gasventhighpressure: { path: '/assets/buildings/sprites/ventgas_powered.png', widthCells: 1 },
+  liquidvent: { path: '/assets/buildings/sprites/ventliquid.png', widthCells: 1 },
+  solidvent: {
+    path: '/assets/buildings/sprites/conveyer_dropper.png',
+    widthCells: 1.26,
+    heightCells: 1.38,
+    anchorOffsetXCells: -.00975,
+    anchorOffsetYCells: -.418625,
+  },
+  underwatervent: { path: '/assets/buildings/sprites/underwater_vent.png', widthCells: 4 },
+  underwaterventdrill: { path: '/assets/buildings/sprites/underwater_vent_drill.png', widthCells: 4 },
+  wirebridge: { path: '/assets/buildings/sprites/utilityelectricbridge.png', widthCells: 1 },
+  wirerefinedbridge: { path: '/assets/buildings/sprites/utilityelectricbridgeconductive.png', widthCells: 1 },
+  wirerubberbridge: { path: '/assets/buildings/sprites/utilityelectricbridgerubber.png', widthCells: 1 },
+  gasconduitbridge: { path: '/assets/buildings/sprites/utilitygasbridge.png', widthCells: 1 },
+  liquidconduitbridge: { path: '/assets/buildings/sprites/utilityliquidbridge.png', widthCells: 1 },
+  solidconduitbridge: { path: '/assets/buildings/sprites/utilities_conveyorbridge.png', widthCells: 1 },
+  solidconduitinbox: { path: '/assets/buildings/sprites/conveyorin.png', widthCells: 1.23, heightCells: 2.27, anchorOffsetXCells: -.008375, anchorOffsetYCells: -1.006875 },
+  solidconduitoutbox: { path: '/assets/buildings/sprites/conveyorout.png', widthCells: 1.230125, heightCells: 2.21675, anchorOffsetXCells: -.018688, anchorOffsetYCells: -.967875 },
+  logicwirebridge: { path: '/assets/buildings/sprites/logic_bridge.png', widthCells: 1 },
+  warpconduitreceiver: { path: '/assets/buildings/sprites/warp_conduit_receiver.png', widthCells: 4.097, heightCells: 2.6855, anchorOffsetXCells: -.00463, anchorOffsetYCells: -1.26625 },
+  warpconduitsender: { path: '/assets/buildings/sprites/warp_conduit_sender.png', widthCells: 4.1547, heightCells: 2.790875, anchorOffsetXCells: .01197, anchorOffsetYCells: -1.318938 },
+  conduitportgasloader: { path: '/assets/buildings/sprites/conduit_port_gas_loader.png', widthCells: 1 },
+  conduitportgasunloader: { path: '/assets/buildings/sprites/conduit_port_gas_unloader.png', widthCells: 1 },
+  conduitportliquidloader: { path: '/assets/buildings/sprites/conduit_port_liquid_loader.png', widthCells: 1 },
+  conduitportliquidunloader: { path: '/assets/buildings/sprites/conduit_port_liquid_unloader.png', widthCells: 1 },
+  conduitportsolidloader: { path: '/assets/buildings/sprites/conduit_port_solid_loader.png', widthCells: 1 },
+  conduitportsolidunloader: { path: '/assets/buildings/sprites/conduit_port_solid_unloader.png', widthCells: 1 },
+}
+
+// Some prefab tags use a different word order from their KAnim package name.
+// Keep these aliases at the lookup boundary so the save format remains intact.
+const BUILDING_TAG_ALIASES: Record<string, string> = {
+  flushtoilet: 'toiletflush',
+  toiletwall: 'toilet_wall',
+  washbasin: 'wash_sink',
+  liquidvent: 'ventliquid',
+  solidconduitinbox: 'conveyorin',
+  solidconduitoutbox: 'conveyorout',
+  warpconduitsender: 'warp_conduit_sender',
+  warpconduitreceiver: 'warp_conduit_receiver',
+  door: 'door_internal',
+  pneumaticdoor: 'door_internal',
+  manualairlock: 'door_manual',
+  manualpressuredoor: 'door_manual',
+  mechanizedairlock: 'door_external',
+  insulateddoor: 'door_insulated',
+  bunkerdoor: 'door_bunker',
+  woodendoor: 'door_wood',
+  facilitydoor: 'door_facility',
+  poibunkerexteriordoor: 'door_poi',
+  poidoorinternal: 'door_poi_internal',
+  gravitasdoor: 'gravitas_door_internal',
+  storagenetworkorderproductioncenter: 'storagenetwork_orderproductioncenter',
+}
+
+function oniBuildingDefinitionForSaveTag(tag: string) {
+  const key = tag.trim().toLowerCase()
+  const alias = BUILDING_TAG_ALIASES[key]
+  return oniBuildingDefinitionForTag(key) ?? (alias ? oniBuildingDefinitionForAnimation(alias) : undefined)
+}
+
+function buildingTextureLookupKeys(tag: string): string[] {
+  const key = tag.trim().toLowerCase()
+  const alias = BUILDING_TAG_ALIASES[key]
+  const definition = oniBuildingDefinitionForSaveTag(tag)
+  const animation = definition?.animation.replace(/_kanim$/i, '').toLowerCase()
+  return [...new Set([key, alias, definition?.id.toLowerCase(), animation].filter((candidate): candidate is string => Boolean(candidate)))]
+}
+
+function buildingTextureForTag(tag: string, generated: Record<string, BuildingTextureDefinition> = {}): BuildingTextureDefinition | undefined {
+  const keys = buildingTextureLookupKeys(tag)
+  // Prefer the full KAnim render even when a legacy UI entry exists for the
+  // prefab key. Without this ordering, aliases such as WarpConduitSender
+  // silently kept using the one-cell thumbnail.
+  const definition = keys.map((key) => generated[key]).find((candidate): candidate is BuildingTextureDefinition => candidate !== undefined)
+    ?? keys.map((key) => BUILDING_TEXTURES[key]).find((definition): definition is BuildingTextureDefinition => definition !== undefined)
+  return definition
 }
 
 function hasSimpleComponent(instance: SavedObjectInstance, typeName: string): boolean {
@@ -377,6 +467,80 @@ function isGeyserInstance(groupTag: string, instance: SavedObjectInstance, textu
   return Boolean(texture)
     || /geyser|fountain/i.test(groupTag)
     || instance.components.some((item) => /(?:^|[.+])geyser(?:$|[.+])/i.test(item.typeName))
+}
+
+function instanceOrientation(instance: SavedObjectInstance): number {
+  const component = instance.components.find((item) => item.typeName.split(/[.+]/).pop()?.toLowerCase() === 'rotatable')
+  const member = component?.value?.members.find((item) => item.name === 'orientation')
+  return member?.value.kind === 'enum' ? member.value.v : 0
+}
+
+function rotatableVisualizerForTag(tag: string): RotatableVisualizer | undefined {
+  const key = tag.trim().toLowerCase()
+  // This mirrors Rotatable.SetSize for the door prefabs in the game DLL:
+  // regular doors are 1x2, while BunkerDoor is 4x1.
+  if (key === 'bunkerdoor' || key === 'door_bunker') {
+    return { pivotXCells: -.5, pivotYCells: .5, offsetXCells: .5, offsetYCells: 0 }
+  }
+  // Most rotatable building prefabs, including the 1x1 storage-network
+  // ports, use the odd-width default pivot. A neutral orientation is a no-op.
+  return { pivotXCells: 0, pivotYCells: .5, offsetXCells: 0, offsetYCells: 0 }
+}
+
+type MapObjectRenderEntry = {
+  group: SavedObjectGroup
+  instance: SavedObjectInstance
+  order: number
+}
+
+/**
+ * Unity renders the game's orthographic scene from larger Z toward smaller Z.
+ * Grid.GetLayerZ makes higher/front SceneLayer values increasingly negative,
+ * so canvas must paint saved objects in descending Z order.
+ */
+function mapObjectsInRenderOrder(save: ParsedSave): MapObjectRenderEntry[] {
+  const entries: MapObjectRenderEntry[] = []
+  let order = 0
+  for (const group of save.manager?.groups ?? []) {
+    for (const instance of group.instances) entries.push({ group, instance, order: order++ })
+  }
+  return entries.sort((left, right) => {
+    const leftZ = Number.isFinite(left.instance.position.z) ? left.instance.position.z : 0
+    const rightZ = Number.isFinite(right.instance.position.z) ? right.instance.position.z : 0
+    return rightZ - leftZ || left.order - right.order
+  })
+}
+
+function blockTileCellsByGroup(save: ParsedSave): Map<SavedObjectGroup, Set<string>> {
+  const result = new Map<SavedObjectGroup, Set<string>>()
+  for (const group of save.manager?.groups ?? []) {
+    if (!blockTileTextureForTag(group.tag)) continue
+    result.set(group, new Set(group.instances.map((item) => blockTileCellKey(Math.floor(item.position.x), Math.floor(item.position.y)))))
+  }
+  return result
+}
+
+function terrainMaskedCellsByBuilding(save: ParsedSave): Set<string> {
+  const cells = new Set<string>()
+  for (const group of save.manager?.groups ?? []) {
+    const footprint = oniBuildingDefinitionForSaveTag(group.tag)
+    if (!footprint) continue
+    for (const instance of group.instances) {
+      if (!hasSimpleComponent(instance, 'BuildingComplete')) continue
+      const orientation = instanceOrientation(instance)
+      const isSideways = orientation === 1 || orientation === 3
+      const width = isSideways ? footprint.height : footprint.width
+      const height = isSideways ? footprint.width : footprint.height
+      const startX = Math.floor(instance.position.x)
+      const startY = Math.floor(instance.position.y)
+      for (let offsetY = 0; offsetY < height; offsetY++) {
+        for (let offsetX = 0; offsetX < width; offsetX++) {
+          cells.add(blockTileCellKey(startX + offsetX, startY + offsetY))
+        }
+      }
+    }
+  }
+  return cells
 }
 
 function buildUtilityCellMap(save: ParsedSave): UtilityCellMap {
@@ -395,13 +559,19 @@ function buildUtilityCellMap(save: ParsedSave): UtilityCellMap {
         isPhysical: hasSimpleComponent(instance, 'BuildingComplete'),
       }
       const previous = familyCells.get(key)
+      const physicalBits = next.isPhysical && next.bits !== undefined
+        ? ((previous?.physicalBits ?? 0) | next.bits)
+        : previous?.physicalBits
+      const candidate = physicalBits === undefined ? next : { ...next, physicalBits }
       // A completed object occupies the physical network layer; an unfinished
       // replacement is only a visual node. Prefer the physical record when a
       // save contains both at the same cell.
       if (!previous
         || (next.isPhysical && !previous.isPhysical)
         || (next.bits !== undefined && previous.bits === undefined)) {
-        familyCells.set(key, next)
+        familyCells.set(key, candidate)
+      } else if (physicalBits !== previous.physicalBits) {
+        familyCells.set(key, { ...previous, physicalBits })
       }
     }
     cells.set(family, familyCells)
@@ -482,10 +652,62 @@ type SavePickerOptions = {
 type SavePickerWindow = Window & {
   showOpenFilePicker?: (options: SavePickerOptions) => Promise<SaveFileHandle[]>
 }
+type ImportedYamlTemplate = { path: string; template: YamlTemplate }
+type DroppedFile = { file: File; path: string }
+type BrowserFileEntry = {
+  isFile: boolean
+  isDirectory: boolean
+  name: string
+  file?: (success: (file: File) => void, error?: (cause: unknown) => void) => void
+  createReader?: () => BrowserDirectoryReader
+}
+type BrowserDirectoryReader = { readEntries: (success: (entries: BrowserFileEntry[]) => void, error?: (cause: unknown) => void) => void }
+type DataTransferItemWithEntry = { webkitGetAsEntry?: () => BrowserFileEntry | null }
 
 const savePickerOptions: SavePickerOptions = {
   types: [{ description: 'Oxygen Not Included save', accept: { 'application/octet-stream': ['.sav'] } }],
   multiple: false,
+}
+
+const documentPickerOptions: SavePickerOptions = {
+  types: [{ description: 'Oxygen Not Included save or YAML template', accept: { 'application/octet-stream': ['.sav'], 'text/yaml': ['.yaml', '.yml'] } }],
+  multiple: false,
+}
+
+function readDroppedFileEntry(entry: BrowserFileEntry, parentPath: string): Promise<DroppedFile[]> {
+  if (entry.isFile && entry.file) {
+    return new Promise((resolve, reject) => {
+      entry.file?.((file) => resolve([{ file, path: `${parentPath}${entry.name}` }]), reject)
+    })
+  }
+  if (!entry.isDirectory || !entry.createReader) return Promise.resolve([])
+  const reader = entry.createReader()
+  const readAllEntries = async (): Promise<BrowserFileEntry[]> => {
+    const entries: BrowserFileEntry[] = []
+    while (true) {
+      const batch = await new Promise<BrowserFileEntry[]>((resolve, reject) => reader.readEntries(resolve, reject))
+      if (batch.length === 0) return entries
+      entries.push(...batch)
+    }
+  }
+  return readAllEntries().then(async (entries) => {
+    const children = await Promise.all(entries.map((child) => readDroppedFileEntry(child, `${parentPath}${entry.name}/`)))
+    return children.flat()
+  })
+}
+
+async function droppedFilesFromTransfer(dataTransfer: DataTransfer): Promise<DroppedFile[]> {
+  const entries = Array.from(dataTransfer.items)
+    .map((item) => (item as unknown as DataTransferItemWithEntry).webkitGetAsEntry?.() ?? null)
+    .filter((entry): entry is BrowserFileEntry => entry !== null)
+  if (entries.length > 0) {
+    const groups = await Promise.all(entries.map((entry) => readDroppedFileEntry(entry, '')))
+    return groups.flat()
+  }
+  return Array.from(dataTransfer.files).map((file) => ({
+    file,
+    path: (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name,
+  }))
 }
 
 const navItems: Array<{ id: View; label: string }> = [
@@ -497,6 +719,12 @@ const navItems: Array<{ id: View; label: string }> = [
 
 function App() {
   const [save, setSave] = useState<ParsedSave | null>(null)
+  const [yamlTemplate, setYamlTemplate] = useState<YamlTemplate | null>(null)
+  const [yamlDocuments, setYamlDocuments] = useState<ImportedYamlTemplate[]>([])
+  const [selectedYamlPath, setSelectedYamlPath] = useState('')
+  const [kanimSources, setKanimSources] = useState<KanimSource[]>([])
+  const [selectedKanimId, setSelectedKanimId] = useState('')
+  const [kanimPackage, setKanimPackage] = useState<KanimPackage | null>(null)
   const [fileName, setFileName] = useState('')
   const [view, setView] = useState<View>('overview')
   const [dirty, setDirty] = useState(false)
@@ -508,6 +736,54 @@ function App() {
   const [sourceHandle, setSourceHandle] = useState<SaveFileHandle | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
 
+  const loadYamlSources = useCallback(async (sources: DroppedFile[]) => {
+    const yamlSources = sources.filter(({ file }) => /\.ya?ml$/i.test(file.name))
+    if (yamlSources.length === 0) {
+      setError('拖入的内容中没有 YAML 文件。')
+      return
+    }
+    setLoading(true)
+    setError('')
+    try {
+      const results = await Promise.all(yamlSources.map(async ({ file, path }) => {
+        try {
+          return { path, template: parseYamlTemplate(await file.text(), path) }
+        } catch {
+          return null
+        }
+      }))
+      const parsed = results.filter((item): item is ImportedYamlTemplate => item !== null)
+      if (parsed.length === 0) throw new Error('无法解析拖入的 YAML 文件。')
+      const first = parsed[0]
+      setYamlDocuments(parsed)
+      setSelectedYamlPath(first.path)
+      setYamlTemplate(first.template)
+      setKanimSources([])
+      setSelectedKanimId('')
+      setKanimPackage(null)
+      setSave(null)
+      setFileName(parsed.length === 1 ? first.path : `${first.path.split('/')[0]} · ${parsed.length} 个 YAML`)
+      setSourceHandle(null)
+      setDirty(false)
+      if (parsed.length < yamlSources.length) setError(`有 ${yamlSources.length - parsed.length} 个 YAML 无法解析，已跳过。`)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '无法解析这个 YAML 文件。')
+      setYamlDocuments([])
+      setSelectedYamlPath('')
+      setYamlTemplate(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const loadYamlFile = useCallback(async (file: File) => {
+    if (!/\.ya?ml$/i.test(file.name)) {
+      setError('请选择 YAML 模板文件。')
+      return
+    }
+    await loadYamlSources([{ file, path: file.name }])
+  }, [loadYamlSources])
+
   const loadFile = useCallback(async (file: File, handle: SaveFileHandle | null = null) => {
     if (!file.name.toLowerCase().endsWith('.sav')) {
       setError('请选择 Oxygen Not Included 的 .sav 存档文件。')
@@ -518,7 +794,13 @@ function App() {
     try {
       const parsed = parseSave(new Uint8Array(await file.arrayBuffer()))
       setSave(parsed)
+      setYamlTemplate(null)
+      setYamlDocuments([])
+      setSelectedYamlPath('')
       setFileName(file.name)
+      setKanimSources([])
+      setSelectedKanimId('')
+      setKanimPackage(null)
       setSourceHandle(handle)
       setDirty(false)
       setView('overview')
@@ -527,10 +809,56 @@ function App() {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '无法解析这个存档文件。')
       setSave(null)
+      setYamlTemplate(null)
+      setYamlDocuments([])
+      setSelectedYamlPath('')
     } finally {
       setLoading(false)
     }
   }, [])
+
+  const loadKanimSources = useCallback(async (entries: KanimFileEntry[]) => {
+    const sources = collectKanimSources(entries)
+    if (sources.length === 0) {
+      setError('拖入的内容中没有完整的 KAnim 建筑包。需要同目录下的 PNG、_build.bytes 和 _anim.bytes。')
+      return
+    }
+    const first = sources[0]
+    setKanimSources(sources)
+    setSelectedKanimId(first.id)
+    setSave(null)
+    setYamlTemplate(null)
+    setYamlDocuments([])
+    setSelectedYamlPath('')
+    setFileName(`${first.name} · ${sources.length} 个建筑动画`)
+    setSourceHandle(null)
+    setDirty(false)
+    setError('')
+    setLoading(true)
+    try {
+      setKanimPackage(await loadKanimPackage(first))
+    } catch (cause) {
+      setKanimPackage(null)
+      setError(cause instanceof Error ? cause.message : '无法读取这个 KAnim 建筑包。')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const loadKanimSource = useCallback(async (source: KanimSource) => {
+    setSelectedKanimId(source.id)
+    setFileName(`${source.name} · ${kanimSources.length} 个建筑动画`)
+    setLoading(true)
+    setError('')
+    try {
+      setKanimPackage(await loadKanimPackage(source))
+    } catch (cause) {
+      setKanimPackage(null)
+      setError(cause instanceof Error ? cause.message : '无法读取这个 KAnim 建筑包。')
+    } finally {
+      setLoading(false)
+    }
+  }, [kanimSources.length])
 
   const updateSave = useCallback((update: (current: ParsedSave) => void) => {
     setSave((current) => {
@@ -540,6 +868,22 @@ function App() {
     })
     setDirty(true)
   }, [])
+
+  const returnHome = useCallback(() => {
+    if (dirty && !window.confirm('当前有未导出的修改，确定返回主界面吗？')) return
+    setSave(null)
+    setYamlTemplate(null)
+    setYamlDocuments([])
+    setSelectedYamlPath('')
+    setKanimSources([])
+    setSelectedKanimId('')
+    setKanimPackage(null)
+    setFileName('')
+    setSourceHandle(null)
+    setDirty(false)
+    setError('')
+    setView('overview')
+  }, [dirty])
 
   const downloadSave = useCallback(() => {
     if (!save) return
@@ -565,13 +909,17 @@ function App() {
       return
     }
     try {
-      const [handle] = await pickerWindow.showOpenFilePicker(savePickerOptions)
-      if (handle) await loadFile(await handle.getFile(), handle)
+      const [handle] = await pickerWindow.showOpenFilePicker(documentPickerOptions)
+      if (handle) {
+        const file = await handle.getFile()
+        if (/\.ya?ml$/i.test(file.name)) await loadYamlFile(file)
+        else await loadFile(file, handle)
+      }
     } catch (cause) {
       if (cause instanceof DOMException && cause.name === 'AbortError') return
       setError(cause instanceof Error ? cause.message : '无法打开存档文件。')
     }
-  }, [loadFile])
+  }, [loadFile, loadYamlFile])
 
   const replaceSave = useCallback(async () => {
     if (!save) return
@@ -611,33 +959,42 @@ function App() {
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault()
     setIsDragging(false)
-    const file = event.dataTransfer.files[0]
-    if (file) void loadFile(file)
+    void droppedFilesFromTransfer(event.dataTransfer).then((droppedFiles) => {
+      const kanimSources = collectKanimSources(droppedFiles)
+      const yamlFiles = droppedFiles.filter(({ file }) => /\.ya?ml$/i.test(file.name))
+      if (kanimSources.length > 0) void loadKanimSources(droppedFiles)
+      else if (yamlFiles.length > 0) void loadYamlSources(yamlFiles)
+      else if (droppedFiles[0]) void loadFile(droppedFiles[0].file)
+    })
   }
 
+  const hasDocument = Boolean(save || yamlTemplate || kanimSources.length > 0)
+
   return (
-    <div className={`app-shell ${save ? 'saved-shell' : 'landing-shell'}`}>
+    <div className={`app-shell ${save ? `saved-shell view-${view}` : yamlTemplate ? 'template-shell' : kanimSources.length > 0 ? 'kanim-shell' : 'landing-shell'}`}>
       <input
         ref={fileInput}
         className="visually-hidden"
         type="file"
-        accept=".sav,application/octet-stream"
+        accept=".sav,.yaml,.yml,application/octet-stream,text/yaml"
         onChange={(event) => {
           const file = event.target.files?.[0]
-          if (file) void loadFile(file)
+          if (file) {
+            if (/\.ya?ml$/i.test(file.name)) void loadYamlFile(file)
+            else void loadFile(file)
+          }
           event.target.value = ''
         }}
       />
       <header className="topbar">
-        {save && view === 'map' && <div className="map-global-title"><div className="eyebrow">MAP WORKSPACE</div><h1>地图</h1></div>}
-        <div className={`topbar-pill ${save ? 'is-loaded' : 'is-landing'}`}>
-          <div className="brand-lockup">
+        <div className={`topbar-pill ${hasDocument ? 'is-loaded' : 'is-landing'}`}>
+          <button type="button" className={`brand-lockup brand-home ${hasDocument ? 'is-clickable' : ''}`} onClick={() => { if (hasDocument) returnHome() }} aria-label={hasDocument ? '返回主界面' : '缺氧存档编辑器'} title={hasDocument ? '返回主界面' : undefined}>
             <div className="brand-mark"><Archive size={16} strokeWidth={2.5} /></div>
             <div>
               <div className="brand-name">缺氧存档编辑器</div>
               <div className="brand-caption">ONI SAVE EDITOR</div>
             </div>
-          </div>
+          </button>
           {save && (
             <nav className="topnav" aria-label="工作区">
               {navItems.map(({ id, label }) => (
@@ -663,9 +1020,16 @@ function App() {
                   <Download size={15} /> <span>导出</span>
                 </button>
               </>
+            ) : yamlTemplate ? (
+              <>
+                <div className="file-chip" title={fileName}><span className="status-dot template-dot" /><span>{fileName}</span></div>
+                <button className="button button-quiet" type="button" onClick={openPicker} title="打开另一个文件"><FileUp size={15} /> <span>打开</span></button>
+              </>
+            ) : kanimSources.length > 0 ? (
+              <div className="file-chip" title={fileName}><span className="status-dot kanim-dot" /><span>{fileName}</span></div>
             ) : (
               <button className="button button-primary" type="button" onClick={openPicker}>
-                <Upload size={15} /> <span>打开存档</span>
+                <Upload size={15} /> <span>打开文件</span>
               </button>
             )}
           </div>
@@ -680,9 +1044,26 @@ function App() {
         </div>
       )}
 
-      {!save ? (
+      {!hasDocument ? (
         <EmptyState loading={loading} isDragging={isDragging} onPick={openPicker} onDrop={handleDrop} onDragChange={setIsDragging} />
-      ) : (
+      ) : kanimSources.length > 0 ? (
+        <div className="workspace">
+          <main className="main-content main-content-kanim">
+            <KanimWorkspace sources={kanimSources} selectedId={selectedKanimId} packageData={kanimPackage} loading={loading} onSelect={(source) => { void loadKanimSource(source) }} />
+          </main>
+        </div>
+      ) : yamlTemplate ? (
+        <div className="workspace">
+          <main className="main-content main-content-template">
+            <YamlWorkspace template={yamlTemplate} fileName={fileName} documents={yamlDocuments} selectedPath={selectedYamlPath} onSelect={(path) => {
+              const selected = yamlDocuments.find((document) => document.path === path)
+              if (!selected) return
+              setSelectedYamlPath(path)
+              setYamlTemplate(selected.template)
+            }} />
+          </main>
+        </div>
+      ) : save ? (
         <div className="workspace">
           <main className={`main-content main-content-${view}`}>
             {view !== 'map' && <div className={`content-head content-head-${view}`}>
@@ -698,29 +1079,168 @@ function App() {
             {view === 'objects' && <ObjectsView save={save} selectedGroup={selectedGroup} selectedIndex={selectedIndex} onSelect={(tag, index) => { setSelectedGroup(tag); setSelectedIndex(index) }} updateSave={updateSave} />}
           </main>
         </div>
-      )}
+      ) : null}
     </div>
   )
 }
 
 function EmptyState({ loading, isDragging, onPick, onDrop, onDragChange }: { loading: boolean; isDragging: boolean; onPick: () => void; onDrop: (event: React.DragEvent<HTMLDivElement>) => void; onDragChange: (value: boolean) => void }) {
+  const [landingLanguage, setLandingLanguage] = useState<'zh' | 'en'>('zh')
+  const english = landingLanguage === 'en'
   return (
-    <div className={`empty-state ${isDragging ? 'is-dragging' : ''}`} onDrop={onDrop} onDragOver={(event) => { event.preventDefault(); onDragChange(true) }} onDragLeave={() => onDragChange(false)}>
+    <div className={`empty-state ${isDragging ? 'is-dragging' : ''}`} lang={english ? 'en' : 'zh-CN'} onDrop={onDrop} onDragOver={(event) => { event.preventDefault(); onDragChange(true) }} onDragLeave={() => onDragChange(false)}>
       <ColonyBackdrop />
-      <div className="hero-content">
-        <div className="hero-wordmark" aria-label="Oxygen Not Included">
-          <span>OXYGEN</span>
-          <strong>NOT INCLUDED</strong>
-        </div>
-        <div className="hero-rule" />
-        <h1>缺氧存档<br /><span>编辑器</span></h1>
-        <div className="hero-caption">LOCAL SAVE EDITOR</div>
-        <button className="button button-primary button-large" type="button" onClick={onPick} disabled={loading}>
-          {loading ? <><span className="spinner" />解析中...</> : <><FileUp size={17} />选择存档</>}
-        </button>
+      <div className="landing-frame">
+        <header className="landing-header">
+          <div className="landing-brand">
+            <span className="landing-brand-icon"><Archive size={20} strokeWidth={2.2} /></span>
+            <span><strong>{english ? 'ONI Save Editor' : '缺氧存档编辑器'}</strong><small>{english ? 'COLONY DATA WORKSPACE' : 'ONI SAVE EDITOR'}</small></span>
+          </div>
+          <div className="landing-header-actions">
+            <div className="landing-local"><span className="status-dot" />LOCAL WORKSPACE</div>
+            <button className="landing-language" type="button" onClick={() => setLandingLanguage(english ? 'zh' : 'en')} aria-label={english ? '切换到中文' : 'Switch to English'} title={english ? '切换到中文' : 'Switch to English'}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.2 2.45 3.35 5.45 3.35 9S14.2 18.55 12 21c-2.2-2.45-3.35-5.45-3.35-9S9.8 5.45 12 3Z" /></svg>
+              <span>{english ? '中' : 'EN'}</span>
+            </button>
+            <a className="landing-github" href="https://github.com/ChiYuKe/oni-save-editor" target="_blank" rel="noreferrer" aria-label="打开 GitHub 仓库" title="GitHub 仓库">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .7a11.3 11.3 0 0 0-3.57 22.02c.57.1.78-.25.78-.55v-2.19c-3.18.69-3.85-1.35-3.85-1.35-.52-1.32-1.27-1.67-1.27-1.67-1.04-.71.08-.7.08-.7 1.15.08 1.75 1.18 1.75 1.18 1.02 1.75 2.68 1.25 3.33.95.1-.74.4-1.25.73-1.54-2.54-.29-5.21-1.27-5.21-5.59 0-1.24.44-2.24 1.18-3.04-.12-.29-.51-1.45.11-3 0 0 .96-.31 3.11 1.16A10.8 10.8 0 0 1 12 6c.96 0 1.93.13 2.83.38 2.16-1.47 3.11-1.16 3.11-1.16.62 1.55.23 2.71.11 3 .74.8 1.18 1.8 1.18 3.04 0 4.33-2.68 5.29-5.23 5.57.41.35.78 1.05.78 2.12v3.22c0 .3.21.66.79.55A11.3 11.3 0 0 0 12 .7Z" /></svg>
+            </a>
+          </div>
+        </header>
+
+        <main className="landing-main">
+          <section className="landing-copy">
+            <div className="landing-eyebrow">COLONY DATA, CLEARLY PRESENTED</div>
+            {english ? <h1>Make complex<br /><span>colony data</span><br />clear.</h1> : <h1>把复杂的<br /><span>殖民地数据</span><br />变得清晰。</h1>}
+            <p>{english ? 'Open Oxygen Not Included saves and YAML templates, inspect the world visually, and safely edit duplicants and game objects.' : '读取《缺氧》存档与 YAML 模板，用可视化地图检查世界，并安全地编辑复制人和对象数据。'}</p>
+            <div className="landing-features">
+              <article><span><Layers3 size={20} /></span><div><strong>{english ? 'Visual map' : '地图可视化'}</strong><small>{english ? 'Restore the world by game layer' : '按游戏层级还原世界'}</small></div></article>
+              <article><span><Users size={20} /></span><div><strong>{english ? 'Duplicant data' : '复制人数据'}</strong><small>{english ? 'Review and adjust attributes' : '集中查看与调整属性'}</small></div></article>
+              <article><span><Boxes size={20} /></span><div><strong>{english ? 'Object editing' : '对象编辑'}</strong><small>{english ? 'Find save objects precisely' : '精确定位存档对象'}</small></div></article>
+            </div>
+          </section>
+
+          <section className="landing-upload">
+            <div className="upload-decoration" aria-hidden="true"><span /><span /><span /></div>
+            <div className="upload-icon"><FileUp size={30} strokeWidth={1.8} /></div>
+            <div className="upload-kicker">OPEN COLONY DATA</div>
+            <h2>{isDragging ? (english ? 'Drop to open' : '松开即可载入') : (english ? 'Start with a save' : '从一个存档开始')}</h2>
+            <p>{isDragging ? (english ? 'Your file is ready. Release to continue.' : '文件已准备好，松开鼠标继续') : (english ? 'Drop a save, YAML, or KAnim folder here, or choose one from your device.' : '将存档、YAML 或 KAnim 文件夹拖到此处，也可以从本地选择。')}</p>
+            <button className="button button-primary button-large" type="button" onClick={onPick} disabled={loading}>
+              {loading ? <><span className="spinner" />{english ? 'Parsing...' : '解析中...'}</> : <><FileUp size={17} />{english ? 'Choose file' : '选择文件'}</>}
+            </button>
+            <div className="upload-formats"><span>.SAV</span><span>.YAML</span><span>{english ? 'KANIM FOLDER' : 'KANIM 文件夹'}</span></div>
+            <div className="upload-privacy"><Gauge size={14} /><span>{english ? 'Processed on this device. Nothing is uploaded.' : '数据只在当前设备处理，不会上传服务器'}</span></div>
+          </section>
+        </main>
+
+        <footer className="landing-footer"><span>SIMULATION TOOLS / V1</span><span>{english ? 'DESIGNED FOR LOCAL WORKFLOWS' : '为本地工作流设计'}</span></footer>
       </div>
     </div>
   )
+}
+
+function KanimWorkspace({ sources, selectedId, packageData, loading, onSelect }: { sources: KanimSource[]; selectedId: string; packageData: KanimPackage | null; loading: boolean; onSelect: (source: KanimSource) => void }) {
+  const [query, setQuery] = useState('')
+  const [bankName, setBankName] = useState('')
+  const [frameIndex, setFrameIndex] = useState(0)
+  const [previewUrl, setPreviewUrl] = useState('')
+  const [renderedCanvas, setRenderedCanvas] = useState<HTMLCanvasElement | null>(null)
+  const [renderError, setRenderError] = useState('')
+  const selectedSource = sources.find((source) => source.id === selectedId) ?? sources[0]
+  const visibleSources = sources
+    .filter((source) => source.name.toLowerCase().includes(query.trim().toLowerCase()) || source.path.toLowerCase().includes(query.trim().toLowerCase()))
+    .slice(0, 400)
+  const bank = packageData?.banks.find((candidate) => candidate.name === bankName) ?? packageData?.banks[0]
+  const animationFrameCount = bank?.frames.length ?? 0
+
+  useEffect(() => {
+    if (!packageData) {
+      setBankName('')
+      setFrameIndex(0)
+      setRenderedCanvas(null)
+      setPreviewUrl('')
+      return
+    }
+    setBankName(preferredKanimBank(packageData))
+    setFrameIndex(0)
+  }, [packageData])
+
+  useEffect(() => {
+    if (!packageData || !bank) return
+    try {
+      const canvas = renderKanimFrame(packageData, bank.name, frameIndex)
+      setRenderedCanvas(canvas)
+      setPreviewUrl(canvas.toDataURL('image/png'))
+      setRenderError('')
+    } catch (cause) {
+      setRenderedCanvas(null)
+      setPreviewUrl('')
+      setRenderError(cause instanceof Error ? cause.message : '无法合成这个动画帧。')
+    }
+  }, [bank, frameIndex, packageData])
+
+  const exportFrame = async () => {
+    if (!renderedCanvas || !selectedSource || !bank) return
+    try {
+      const blob = await canvasPngBlob(renderedCanvas)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${selectedSource.name}-${bank.name}-${String(frameIndex + 1).padStart(2, '0')}.png`
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch (cause) {
+      setRenderError(cause instanceof Error ? cause.message : '导出 PNG 失败。')
+    }
+  }
+
+  return <div className="kanim-workspace">
+    <div className="content-head content-head-kanim">
+      <div>
+        <div className="eyebrow">BUILDING ANIMATION EXPORT</div>
+        <h1>建筑贴图</h1>
+      </div>
+      <div className="head-meta"><span className="status-dot kanim-dot" />{sources.length.toLocaleString()} 个 KAnim 建筑<ChevronRight size={14} />拖入的本地资源</div>
+    </div>
+    <div className="kanim-layout">
+      <aside className="kanim-source-rail">
+        <div className="kanim-source-heading"><SectionHeading icon={<Boxes size={16} />} title="建筑资源" action={`${sources.length} PACKAGES`} /></div>
+        <label className="kanim-search"><Search size={14} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索建筑名称" aria-label="搜索建筑名称" /></label>
+        <div className="kanim-source-list">
+          {visibleSources.map((source) => <button key={source.id} type="button" className={`kanim-source-row ${source.id === selectedId ? 'selected' : ''}`} onClick={() => onSelect(source)}>
+            <span className="kanim-source-mark"><Boxes size={15} /></span>
+            <span><strong>{source.name}</strong><small>{source.path}</small></span>
+          </button>)}
+          {visibleSources.length === 0 && <div className="kanim-list-empty">没有匹配的建筑资源</div>}
+          {visibleSources.length < sources.filter((source) => source.name.toLowerCase().includes(query.trim().toLowerCase()) || source.path.toLowerCase().includes(query.trim().toLowerCase())).length && <div className="kanim-list-more">结果较多，请继续搜索</div>}
+        </div>
+      </aside>
+
+      <section className="kanim-preview-panel">
+        <div className="kanim-preview-toolbar"><span>{packageData ? `${packageData.name} / ${bank?.name ?? '未选择动画'}` : '等待读取建筑动画'}</span><span className="kanim-preview-size">{renderedCanvas ? `${renderedCanvas.width} × ${renderedCanvas.height} px` : '透明背景'}</span></div>
+        <div className="kanim-preview-stage">
+          {loading ? <div className="kanim-preview-empty"><span className="spinner" /><strong>正在读取 KAnim</strong><small>只读取当前建筑的 PNG、Build 和 Anim 数据</small></div> : previewUrl ? <img src={previewUrl} alt={`${selectedSource?.name ?? '建筑'} ${bank?.name ?? 'on'} 动画`} /> : <div className="kanim-preview-empty"><Boxes size={28} /><strong>{renderError || '选择一个建筑开始预览'}</strong><small>默认优先使用 on 状态的首帧</small></div>}
+        </div>
+        <div className="kanim-preview-foot"><span>游戏 KAnim 坐标合成</span><span>透明 PNG</span></div>
+      </section>
+
+      <aside className="kanim-parameter-rail">
+        <SectionHeading icon={<Settings2 size={16} />} title="导出参数" action="FRAME" />
+        <div className="kanim-selected-name">{selectedSource?.name ?? '未选择建筑'}</div>
+        <div className="kanim-selected-path">{selectedSource?.path ?? '拖入 ONI_Bridge 文件夹以开始'}</div>
+        <div className="kanim-stat-grid">
+          <div><span>动画</span><strong>{packageData?.banks.length ?? 0}</strong></div>
+          <div><span>当前帧</span><strong>{animationFrameCount ? `${frameIndex + 1} / ${animationFrameCount}` : '--'}</strong></div>
+        </div>
+        <div className="map-section-divider" />
+        <label className="kanim-field"><span>动画状态</span><select value={bank?.name ?? ''} onChange={(event) => { setBankName(event.target.value); setFrameIndex(0) }} disabled={!packageData}><option value="" disabled>选择动画</option>{packageData?.banks.filter((candidate) => candidate.frames.length > 0).map((candidate) => <option key={candidate.name} value={candidate.name}>{candidate.name}</option>)}</select></label>
+        <label className="kanim-field kanim-frame-field"><span>动画帧</span><input type="range" min="0" max={Math.max(0, animationFrameCount - 1)} value={Math.min(frameIndex, Math.max(0, animationFrameCount - 1))} onChange={(event) => setFrameIndex(Number(event.target.value))} disabled={!animationFrameCount} /><output>{animationFrameCount ? `${frameIndex + 1} / ${animationFrameCount}` : '--'}</output></label>
+        <button className="button button-primary kanim-export-button" type="button" onClick={() => void exportFrame()} disabled={!renderedCanvas || loading}><Download size={16} />导出拼合 PNG</button>
+        <div className="kanim-note"><Layers3 size={15} /><span>导出会按游戏的图层顺序、Pivot、UV 和变换矩阵合成，不是原始图集裁片。</span></div>
+      </aside>
+    </div>
+  </div>
 }
 
 function ColonyBackdrop() {
@@ -891,7 +1411,7 @@ function Overview({ save, onNavigate, updateSave }: { save: ParsedSave; onNaviga
 
 function MapView({ save, updateSave }: { save: ParsedSave; updateSave: (update: (save: ParsedSave) => void) => void }) {
   const [visibleLayers, setVisibleLayers] = useState<MapLayerVisibility>(DEFAULT_MAP_LAYER_VISIBILITY)
-  const [layersExpanded, setLayersExpanded] = useState(true)
+  const [layersExpanded, setLayersExpanded] = useState(false)
   const [overlay, setOverlay] = useState<MapOverlay>('none')
   const [tool, setTool] = useState<MapTool>('inspect')
   const [brushSize, setBrushSize] = useState(1)
@@ -1184,7 +1704,7 @@ function MapView({ save, updateSave }: { save: ParsedSave; updateSave: (update: 
         </div>
       </section>
       <aside className="map-parameter-rail map-info">
-          <section className="map-tool-settings">
+        <section className="map-tool-settings">
             <SectionHeading icon={<SlidersHorizontal size={16} />} title="工具参数" action={tool.toUpperCase()} />
             <label className="rail-control"><span>元素</span><select value={selectedElement} onChange={(event) => setSelectedElement(Number(event.target.value))}>
               {elementOptions(selectedElement).map((element) => <option key={element.hash} value={element.hash}>{element.name}</option>)}
@@ -1216,6 +1736,259 @@ function MapView({ save, updateSave }: { save: ParsedSave; updateSave: (update: 
       </aside>
     </div>
   )
+}
+
+function YamlWorkspace({ template, fileName, documents, selectedPath, onSelect }: { template: YamlTemplate; fileName: string; documents: ImportedYamlTemplate[]; selectedPath: string; onSelect: (path: string) => void }) {
+  return <div className="yaml-workspace">
+    <div className="content-head content-head-template">
+      <div>
+        <div className="eyebrow">YAML TERRAIN</div>
+        <h1>地形预览</h1>
+      </div>
+      {documents.length > 1 ? <label className="yaml-source-picker"><span>已导入 {documents.length} 个 YAML</span><select value={selectedPath} onChange={(event) => onSelect(event.target.value)}>{documents.map((document) => <option key={document.path} value={document.path}>{document.path}</option>)}</select></label> : <div className="head-meta"><span className="status-dot template-dot" />已载入<ChevronRight size={14} />{fileName}</div>}
+    </div>
+    <div className="yaml-preview-layout">
+      <section className="yaml-preview-main">
+        <TemplateCanvas template={template} />
+        <div className="map-legend template-legend"><span><i className="legend-visible" />YAML 地形</span><span><i className="legend-entity" />建筑 / 对象位置</span><span className="legend-help">只读预览</span></div>
+      </section>
+      <aside className="map-parameter-rail map-info yaml-preview-info"><TemplateDetails template={template} loading={false} error="" /></aside>
+    </div>
+  </div>
+}
+
+function TemplateDetails({ template, loading, error }: { template: YamlTemplate | null; loading: boolean; error: string }) {
+  if (!template) {
+    return <div className="template-details-empty"><FileText size={21} /><strong>{loading ? '正在读取 YAML' : '尚未选择模板'}</strong><span>{error || '从上方选择一个模板文件'}</span></div>
+  }
+  const objectCount = template.buildings.length + template.pickupables.length + template.elementalOres.length + template.otherEntities.length
+  return <>
+    <section className="template-details">
+      <SectionHeading icon={<FileText size={16} />} title="YAML 模板" action={template.category} />
+      <h2 className="template-name">{template.name}</h2>
+      <div className="template-path">{template.path}</div>
+      <div className="template-stat-grid">
+        <div><span>尺寸</span><strong>{template.width} × {template.height}</strong></div>
+        <div><span>原点</span><strong>{template.minX}, {template.minY}</strong></div>
+        <div><span>地形格</span><strong>{template.cells.length.toLocaleString()}</strong></div>
+        <div><span>对象</span><strong>{objectCount.toLocaleString()}</strong></div>
+      </div>
+    </section>
+    <div className="map-section-divider" />
+    <SectionHeading icon={<Layers3 size={16} />} title="内容统计" action="CELLS" />
+    <div className="template-count-list">
+      <div><span className="template-count-dot solid" />固体地形<strong>{template.solidCount.toLocaleString()}</strong></div>
+      <div><span className="template-count-dot fluid" />气体 / 液体<strong>{template.fluidCount.toLocaleString()}</strong></div>
+      <div><span className="template-count-dot empty" />真空<strong>{template.vacuumCount.toLocaleString()}</strong></div>
+      {template.unknownCount > 0 && <div><span className="template-count-dot unknown" />通用样式元素<strong>{template.unknownCount.toLocaleString()}</strong></div>}
+    </div>
+    <div className="map-section-divider" />
+    <div className="map-info-copy">模板只读预览。地形使用 YAML 的 `location_x` / `location_y` 坐标绘制，建筑和其他对象以位置标记显示。</div>
+  </>
+}
+
+function TemplateCanvas({ template }: { template: YamlTemplate }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const pointerRef = useRef<{ startX: number; startY: number; panX: number; panY: number } | null>(null)
+  const [textures, setTextures] = useState<Record<string, HTMLImageElement>>({})
+  const [zoomPercent, setZoomPercent] = useState(50)
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [isPanning, setIsPanning] = useState(false)
+  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 })
+  const fitCellSize = viewportSize.width > 0 && viewportSize.height > 0
+    ? Math.min(18, viewportSize.width / template.width, viewportSize.height / template.height)
+    : 12
+  const zoom = .75 + 2.5 * zoomPercent / 100
+  const displayCellSize = Math.max(1, fitCellSize * zoom)
+  const devicePixelRatio = typeof window === 'undefined' ? 1 : Math.min(window.devicePixelRatio || 1, 2)
+  const renderCellSize = Math.max(1, displayCellSize * devicePixelRatio)
+  const originX = ((viewportSize.width - template.width * displayCellSize) / 2 + pan.x) * devicePixelRatio
+  const originY = ((viewportSize.height - template.height * displayCellSize) / 2 + pan.y) * devicePixelRatio
+  const viewportPixelWidth = Math.max(1, Math.ceil(viewportSize.width * devicePixelRatio))
+  const viewportPixelHeight = Math.max(1, Math.ceil(viewportSize.height * devicePixelRatio))
+
+  useEffect(() => {
+    const viewport = viewportRef.current
+    if (!viewport) return
+    const updateSize = () => setViewportSize({ width: viewport.clientWidth, height: viewport.clientHeight })
+    updateSize()
+    const observer = new ResizeObserver(updateSize)
+    observer.observe(viewport)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    const paths = new Set(template.cells.map((cell) => templateVisualElementForName(cell.element).texture).filter((path): path is string => Boolean(path)))
+    paths.forEach((path) => loadAssetImage(path, (image) => { if (active) setTextures((current) => ({ ...current, [path]: image })) }))
+    return () => { active = false }
+  }, [template])
+
+  const setZoomAround = (requestedPercent: number, clientX?: number, clientY?: number) => {
+    const nextPercent = Math.max(0, Math.min(100, Math.round(requestedPercent)))
+    if (nextPercent === zoomPercent) return
+    const nextZoom = .75 + 2.5 * nextPercent / 100
+    const viewport = viewportRef.current
+    if (!viewport || clientX === undefined || clientY === undefined) {
+      setZoomPercent(nextPercent)
+      return
+    }
+    const rect = viewport.getBoundingClientRect()
+    const anchorX = clientX - rect.left
+    const anchorY = clientY - rect.top
+    const currentOriginX = (viewport.clientWidth - template.width * displayCellSize) / 2 + pan.x
+    const currentOriginY = (viewport.clientHeight - template.height * displayCellSize) / 2 + pan.y
+    const worldX = (anchorX - currentOriginX) / displayCellSize
+    const worldY = (anchorY - currentOriginY) / displayCellSize
+    const nextCellSize = fitCellSize * nextZoom
+    const nextOriginX = (viewport.clientWidth - template.width * nextCellSize) / 2
+    const nextOriginY = (viewport.clientHeight - template.height * nextCellSize) / 2
+    setPan({ x: anchorX - nextOriginX - worldX * nextCellSize, y: anchorY - nextOriginY - worldY * nextCellSize })
+    setZoomPercent(nextPercent)
+  }
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || !viewportSize.width || !viewportSize.height) return
+    if (canvas.width !== viewportPixelWidth) canvas.width = viewportPixelWidth
+    if (canvas.height !== viewportPixelHeight) canvas.height = viewportPixelHeight
+    const context = canvas.getContext('2d')
+    if (!context) return
+    context.clearRect(0, 0, canvas.width, canvas.height)
+    context.fillStyle = '#0b1118'
+    context.fillRect(0, 0, canvas.width, canvas.height)
+    const patterns = createElementPatterns(context, textures, renderCellSize, originX, originY + template.height * renderCellSize)
+    const cells = new Map(template.cells.map((cell) => [`${cell.x}:${cell.y}`, cell]))
+    const minCellX = template.minX
+    const maxCellY = template.minY + template.height - 1
+    const minColumn = Math.max(0, Math.floor(-originX / renderCellSize) - 1)
+    const maxColumn = Math.min(template.width - 1, Math.ceil((canvas.width - originX) / renderCellSize) + 1)
+    const minRow = Math.max(0, Math.floor(-originY / renderCellSize) - 1)
+    const maxRow = Math.min(template.height - 1, Math.ceil((canvas.height - originY) / renderCellSize) + 1)
+    const cellAt = (x: number, y: number) => cells.get(`${x}:${y}`)
+    const solidElementAt = (x: number, y: number) => {
+      const cell = cellAt(x, y)
+      const element = cell ? templateVisualElementForName(cell.element) : undefined
+      return element?.state === 'solid' ? element : undefined
+    }
+    const materialOrder = (element: ReturnType<typeof templateVisualElementForName> | undefined) => element ? element.terrainOrder ?? element.hash : Number.NEGATIVE_INFINITY
+
+    for (let row = minRow; row <= maxRow; row++) {
+      const worldY = maxCellY - row
+      for (let column = minColumn; column <= maxColumn; column++) {
+        const worldX = minCellX + column
+        const cell = cellAt(worldX, worldY)
+        if (!cell) continue
+        const element = templateVisualElementForName(cell.element)
+        const px = originX + column * renderCellSize
+        const py = originY + row * renderCellSize
+        if (!element) {
+          context.fillStyle = '#3b4146'
+          context.fillRect(px, py, renderCellSize, renderCellSize)
+          continue
+        }
+        if (element.state === 'solid') {
+          const order = materialOrder(element)
+          const connected = (x: number, y: number) => {
+            const neighbour = solidElementAt(x, y)
+            return Boolean(neighbour && materialOrder(neighbour) >= order)
+          }
+          const boundary = !connected(worldX - 1, worldY) || !connected(worldX + 1, worldY) || !connected(worldX, worldY - 1) || !connected(worldX, worldY + 1)
+          const shape = createTerrainCellPath(connected, worldX, worldY)
+          context.save()
+          context.translate(px, py)
+          context.scale(renderCellSize, renderCellSize)
+          context.clip(shape)
+          context.setTransform(1, 0, 0, 1, 0, 0)
+          context.fillStyle = patterns.get(element.texture ?? '') ?? element.color
+          context.fillRect(px, py, renderCellSize, renderCellSize)
+          context.fillStyle = 'rgba(0, 0, 0, .16)'
+          context.fillRect(px, py, renderCellSize, renderCellSize)
+          context.restore()
+          if (boundary) {
+            const edge = createTerrainBoundaryPath(connected, worldX, worldY)
+            context.save()
+            context.translate(px, py)
+            context.scale(renderCellSize, renderCellSize)
+            context.strokeStyle = 'rgba(3, 6, 8, .9)'
+            context.lineWidth = Math.max(.8, Math.min(2.4, renderCellSize * .055)) / Math.max(1, renderCellSize)
+            context.lineJoin = 'round'
+            context.stroke(edge)
+            context.restore()
+          }
+        } else if (element.state !== 'vacuum') {
+          context.fillStyle = element.fluidMaterial?.gradientBottom ?? element.color
+          context.globalAlpha = element.state === 'gas' ? .26 : .5
+          context.fillRect(px, py, renderCellSize, renderCellSize)
+          context.globalAlpha = 1
+          if (element.state === 'liquid' && !cellAt(worldX, worldY + 1)) {
+            context.fillStyle = 'rgba(225, 255, 250, .48)'
+            context.fillRect(px, py, renderCellSize, Math.max(1, renderCellSize * .07))
+          }
+        }
+      }
+    }
+
+    const drawEntities = (entities: TemplateEntity[], color: string, shape: 'square' | 'circle') => {
+      context.save()
+      context.fillStyle = color
+      context.strokeStyle = 'rgba(4, 8, 12, .9)'
+      context.lineWidth = Math.max(1, renderCellSize * .06)
+      for (const entity of entities) {
+        const column = entity.x - minCellX
+        const row = maxCellY - entity.y
+        if (column < 0 || row < 0 || column >= template.width || row >= template.height) continue
+        const centerX = originX + (column + .5) * renderCellSize
+        const centerY = originY + (row + .5) * renderCellSize
+        const radius = Math.max(2, renderCellSize * .18)
+        context.beginPath()
+        if (shape === 'circle') context.arc(centerX, centerY, radius, 0, Math.PI * 2)
+        else context.rect(centerX - radius, centerY - radius, radius * 2, radius * 2)
+        context.fill()
+        context.stroke()
+      }
+      context.restore()
+    }
+    drawEntities(template.buildings, '#e0b86d', 'square')
+    drawEntities([...template.otherEntities, ...template.elementalOres], '#79d5de', 'circle')
+    drawEntities(template.pickupables, '#d891c5', 'circle')
+    context.strokeStyle = 'rgba(222, 190, 124, .35)'
+    context.lineWidth = Math.max(1, devicePixelRatio)
+    context.strokeRect(originX, originY, template.width * renderCellSize, template.height * renderCellSize)
+  }, [devicePixelRatio, originX, originY, renderCellSize, template, textures, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width])
+
+  return <div
+    ref={viewportRef}
+    className={`canvas-frame canvas-viewport template-canvas ${isPanning ? 'is-panning' : ''}`}
+    onWheel={(event) => { event.preventDefault(); event.stopPropagation(); setZoomAround(zoomPercent + (event.deltaY < 0 ? 5 : -5), event.clientX, event.clientY) }}
+    onPointerDown={(event) => {
+      if (event.button !== 0 && event.button !== 1) return
+      event.currentTarget.setPointerCapture(event.pointerId)
+      pointerRef.current = { startX: event.clientX, startY: event.clientY, panX: pan.x, panY: pan.y }
+      setIsPanning(true)
+    }}
+    onPointerMove={(event) => {
+      const pointer = pointerRef.current
+      if (!pointer) return
+      setPan({ x: pointer.panX + event.clientX - pointer.startX, y: pointer.panY + event.clientY - pointer.startY })
+    }}
+    onPointerUp={(event) => {
+      pointerRef.current = null
+      setIsPanning(false)
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    }}
+    onPointerCancel={() => { pointerRef.current = null; setIsPanning(false) }}
+  >
+    <canvas ref={canvasRef} className="template-canvas-layer" />
+    <div className="canvas-controls" onPointerDown={(event) => event.stopPropagation()}>
+      <button type="button" title="缩小模板" aria-label="缩小模板" onClick={() => setZoomAround(zoomPercent - 10)}><Minus size={15} /></button>
+      <input type="range" min="0" max="100" step="1" value={zoomPercent} aria-label="模板缩放" onChange={(event) => setZoomAround(Number(event.target.value))} />
+      <output>{zoomPercent}</output>
+      <button type="button" title="放大模板" aria-label="放大模板" onClick={() => setZoomAround(zoomPercent + 10)}><Plus size={15} /></button>
+      <button type="button" className="canvas-reset" title="重置模板视图" aria-label="重置模板视图" onClick={() => { setZoomPercent(50); setPan({ x: 0, y: 0 }) }}>50</button>
+    </div>
+  </div>
 }
 
 function rectangleCells(start: { x: number; y: number }, end: { x: number; y: number }): Array<{ x: number; y: number }> {
@@ -1551,17 +2324,44 @@ function drawFluidRegionAnimation(context: CanvasRenderingContext2D, regions: Fl
   }
 }
 
-function drawGeyserTexture(context: CanvasRenderingContext2D, image: HTMLImageElement, definition: GeyserTextureDefinition, cellSize: number, centerX: number, centerY: number): void {
+function drawGeyserTexture(context: CanvasRenderingContext2D, image: HTMLImageElement, definition: GeyserTextureDefinition, cellSize: number, centerX: number, centerY: number, orientation = 0, rotatable?: RotatableVisualizer): void {
   if (!image.naturalWidth || !image.naturalHeight) return
   const width = cellSize * definition.widthCells
-  const height = width * image.naturalHeight / image.naturalWidth
+  const height = cellSize * (definition.heightCells ?? definition.widthCells * image.naturalHeight / image.naturalWidth)
   context.save()
   context.globalAlpha = .98
   // Building and geyser sprites are scaled between world-cell sizes; smooth
   // interpolation keeps their transparent contours from turning stair-stepped.
   context.imageSmoothingEnabled = true
   context.imageSmoothingQuality = 'high'
-  context.drawImage(image, centerX - width / 2, centerY - height / 2, width, height)
+  // KAnim uses a world-space Y-up matrix, while this canvas is screen-space
+  // Y-down. Convert Rotatable's pivot/offset before applying its transform.
+  const visualizerOffsetX = orientation === 5 ? -(rotatable?.offsetXCells ?? 0) : rotatable?.offsetXCells ?? 0
+  const visualizerOffsetY = orientation === 6 ? -1 : -(rotatable?.offsetYCells ?? 0)
+  const pivotX = orientation === 5 ? -(rotatable?.pivotXCells ?? 0) : rotatable?.pivotXCells ?? 0
+  const pivotY = -(rotatable?.pivotYCells ?? 0)
+  context.translate(
+    centerX + visualizerOffsetX * cellSize,
+    centerY + visualizerOffsetY * cellSize - (definition.verticalOffsetCells ?? 0) * cellSize,
+  )
+  if (orientation >= 1 && orientation <= 3) {
+    context.translate(pivotX * cellSize, pivotY * cellSize)
+    context.rotate(orientation * Math.PI / 2)
+    context.translate(-pivotX * cellSize, -pivotY * cellSize)
+  }
+  if (orientation === 5) {
+    context.translate(pivotX * cellSize, pivotY * cellSize)
+    context.scale(-1, 1)
+    context.translate(-pivotX * cellSize, -pivotY * cellSize)
+  }
+  if (orientation === 6) {
+    context.translate(pivotX * cellSize, pivotY * cellSize)
+    context.scale(1, -1)
+    context.translate(-pivotX * cellSize, -pivotY * cellSize)
+  }
+  const offsetX = (definition.anchorOffsetXCells ?? 0) * cellSize
+  const offsetY = (definition.anchorOffsetYCells ?? 0) * cellSize
+  context.drawImage(image, offsetX - width / 2, offsetY - height / 2, width, height)
   context.restore()
 }
 
@@ -1576,9 +2376,25 @@ function visibleMapRange(width: number, height: number, cellSize: number, origin
 
 function mapObjectAnchor(x: number, y: number, height: number, cellSize: number, originX: number, originY: number): { x: number; y: number } {
   return {
+    // Save transforms already use Grid.CellToPosCBC coordinates: x is the
+    // cell centre (typically N + .5), while y is the cell bottom.
     x: originX + x * cellSize,
     y: originY + (height - y) * cellSize,
   }
+}
+
+function utilityDisplayConnections(
+  cells: UtilityCellMap,
+  family: UtilityFamily,
+  instance: SavedObjectInstance,
+  x: number,
+  y: number,
+): number {
+  const ownBits = utilityConnectionBits(instance)
+  const physicalBits = cells.get(family)?.get(blockTileCellKey(x, y))?.physicalBits ?? 0
+  const fallbackBits = ownBits === undefined ? utilityNeighbourConnections(cells, family, x, y) : ownBits
+  // UtilityNetworkManager.GetDisplayConnections() is visualGrid | physicalGrid.
+  return (fallbackBits | physicalBits) & 0xf
 }
 
 function terrainMaterialOrder(hash: number | undefined): number {
@@ -1626,12 +2442,15 @@ function floodFillCoordinates(
 function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell, selection, previewCells, previewVersion, onCell, onSelectionChange, onShape, onStrokeStart, onStrokeEnd }: { save: ParsedSave; visibleLayers: MapLayerVisibility; overlay: MapOverlay; tool: MapTool; brushSize: number; selectedCell: { x: number; y: number } | null; selection: MapSelection | null; previewCells: Map<string, MapPreviewCell>; previewVersion: number; onCell: (x: number, y: number) => void; onSelectionChange: (selection: MapSelection | null) => void; onShape: (start: { x: number; y: number }, end: { x: number; y: number }) => void; onStrokeStart: () => void; onStrokeEnd: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fluidCanvasRef = useRef<HTMLCanvasElement>(null)
+  const gridCanvasRef = useRef<HTMLCanvasElement>(null)
   const overlayRef = useRef<HTMLCanvasElement>(null)
   const canvasLayerRef = useRef<HTMLDivElement>(null)
   const selectionDraftOverlayRef = useRef<HTMLDivElement>(null)
   const selectionDraftTitleRef = useRef<HTMLElement>(null)
   const selectionDraftCountRef = useRef<HTMLElement>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
+  const wheelZoomRef = useRef<{ targetPercent: number; clientX: number; clientY: number; timer: number } | null>(null)
+  const initialGroupTagsRef = useRef((save.manager?.groups ?? []).map((group) => group.tag.trim().toLowerCase()))
   const renderCacheRef = useRef<{ bytes: Uint8Array | null; cells: Map<number, SimCell | undefined>; paths: Map<string, Path2D>; zoneBytes: Uint8Array | null; zones: Uint8Array | null }>({ bytes: null, cells: new Map(), paths: new Map(), zoneBytes: null, zones: null })
   const pointerRef = useRef<{ mode: 'pan' | 'select' | 'brush' | 'shape' | 'point'; startX: number; startY: number; panX: number; panY: number; moved: boolean; lastCell: { x: number; y: number } | null; startCell: { x: number; y: number } | null } | null>(null)
   const visitedBrushCellsRef = useRef(new Set<string>())
@@ -1642,6 +2461,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
   const [biomeBackgrounds, setBiomeBackgrounds] = useState<Record<number, HTMLImageElement>>({})
   const [geyserTextures, setGeyserTextures] = useState<Record<string, HTMLImageElement>>({})
   const [buildingTextures, setBuildingTextures] = useState<Record<string, HTMLImageElement>>({})
+  const [generatedBuildingDefinitions, setGeneratedBuildingDefinitions] = useState<Record<string, BuildingTextureDefinition>>({})
   const [zoomPercent, setZoomPercent] = useState(50)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [isPanning, setIsPanning] = useState(false)
@@ -1656,7 +2476,13 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
     : MAP_CELL_PIXELS
   const zoom = MAP_ZOOM_MIN + (MAP_ZOOM_MAX - MAP_ZOOM_MIN) * zoomPercent / 100
   const displayCellSize = fitCellSize * zoom
-  const devicePixelRatio = typeof window === 'undefined' ? 1 : Math.min(window.devicePixelRatio || 1, 2)
+  const nativePixelRatio = typeof window === 'undefined' ? 1 : Math.min(window.devicePixelRatio || 1, 2)
+  // Keep preview canvases within a fixed pixel budget. A full-screen DPR 2
+  // canvas has four times the fill cost; exports still use their requested
+  // resolution and are unaffected by this interactive preview cap.
+  const viewportArea = Math.max(1, viewportSize.width * viewportSize.height)
+  const previewPixelRatioBudget = Math.sqrt(2_400_000 / viewportArea)
+  const devicePixelRatio = Math.max(1, Math.min(nativePixelRatio, previewPixelRatioBudget))
   // Keep the physical cell size fractional. Rounding every cell independently
   // makes the rendered grid drift away from the CSS hit-test coordinates.
   const renderCellSize = Math.max(1, displayCellSize * devicePixelRatio)
@@ -1730,6 +2556,40 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
     setZoomPercent(nextPercent)
   }
 
+  const queueWheelZoom = (delta: number, clientX: number, clientY: number) => {
+    const previous = wheelZoomRef.current
+    const targetPercent = Math.max(0, Math.min(100, (previous?.targetPercent ?? zoomPercent) + delta))
+    if (targetPercent === (previous?.targetPercent ?? zoomPercent)) return
+    if (previous) window.clearTimeout(previous.timer)
+    const viewport = viewportRef.current
+    const layer = canvasLayerRef.current
+    if (viewport && layer) {
+      const rect = viewport.getBoundingClientRect()
+      const anchorX = clientX - rect.left - viewport.clientLeft
+      const anchorY = clientY - rect.top - viewport.clientTop
+      const currentZoom = MAP_ZOOM_MIN + (MAP_ZOOM_MAX - MAP_ZOOM_MIN) * zoomPercent / 100
+      const targetZoom = MAP_ZOOM_MIN + (MAP_ZOOM_MAX - MAP_ZOOM_MIN) * targetPercent / 100
+      layer.style.transformOrigin = `${anchorX}px ${anchorY}px`
+      layer.style.transform = `scale(${targetZoom / currentZoom})`
+    }
+    const timer = window.setTimeout(() => {
+      const pending = wheelZoomRef.current
+      if (!pending) return
+      wheelZoomRef.current = null
+      if (canvasLayerRef.current) {
+        canvasLayerRef.current.style.transform = 'translate3d(0, 0, 0)'
+        canvasLayerRef.current.style.transformOrigin = ''
+      }
+      setZoomPercentAround(pending.targetPercent, pending.clientX, pending.clientY)
+    }, 140)
+    wheelZoomRef.current = { targetPercent, clientX, clientY, timer }
+  }
+
+  useEffect(() => () => {
+    const pending = wheelZoomRef.current
+    if (pending) window.clearTimeout(pending.timer)
+  }, [])
+
   const pointToCell = (clientX: number, clientY: number): { x: number; y: number } | undefined => {
     const viewport = viewportRef.current
     if (!viewport || displayCellSize <= 0) return undefined
@@ -1770,7 +2630,31 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
       ...Object.values(BLOCK_TILE_TEXTURES).map((definition) => definition.path),
       ...Object.values(UTILITY_DEFINITIONS).map((definition) => definition.path),
     ])
-    paths.forEach((path) => loadAssetImage(path, (image) => { if (active) setBuildingTextures((current) => ({ ...current, [path]: image })) }))
+    void loadAssetImages(paths).then((images) => { if (active) setBuildingTextures((current) => ({ ...current, ...images })) })
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    const loadManifest = async (path: string): Promise<Record<string, BuildingTextureDefinition>> => {
+      const response = await fetch(assetPath(path))
+      return response.ok ? await response.json() as Record<string, BuildingTextureDefinition> : {}
+    }
+    loadManifest('/assets/buildings/manifest.json')
+      .then((bridgeManifest) => {
+        if (!active) return
+        const definitions: Record<string, BuildingTextureDefinition> = {}
+        // ONI_Bridge is the canonical exported KAnim source.  It deliberately
+        // supplies every building sprite from one game-derived texture source.
+        Object.entries(bridgeManifest).forEach(([tag, definition]) => { definitions[tag.toLowerCase()] = definition })
+        setGeneratedBuildingDefinitions(definitions)
+        const usedTags = new Set(initialGroupTagsRef.current.flatMap((tag) => buildingTextureLookupKeys(tag)))
+        const paths = Object.entries(definitions)
+          .filter(([tag]) => usedTags.has(tag))
+          .map(([, definition]) => definition.path)
+        void loadAssetImages(paths).then((images) => { if (active) setBuildingTextures((current) => ({ ...current, ...images })) })
+      })
+      .catch(() => { /* Older deployments can run with the legacy texture table. */ })
     return () => { active = false }
   }, [])
 
@@ -1803,11 +2687,8 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
 
   useEffect(() => {
     let active = true
-    ELEMENTS.filter((element) => element.texture).forEach((element) => {
-      const image = new Image()
-      image.onload = () => { if (active) setTextures((current) => ({ ...current, [element.texture!]: image })) }
-      image.src = assetPath(element.texture!)
-    })
+    const paths = ELEMENTS.map((element) => element.texture).filter((path): path is string => Boolean(path))
+    void loadAssetImages(paths).then((images) => { if (active) setTextures(images) })
     return () => { active = false }
   }, [])
 
@@ -1834,7 +2715,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
   useEffect(() => {
     let active = true
     const paths = new Set(Object.values(GEYSER_TEXTURES).map((definition) => definition.path))
-    paths.forEach((path) => loadAssetImage(path, (image) => { if (active) setGeyserTextures((current) => ({ ...current, [path]: image })) }))
+    void loadAssetImages(paths).then((images) => { if (active) setGeyserTextures(images) })
     return () => { active = false }
   }, [])
 
@@ -1843,8 +2724,8 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
     const sim = save.simData
     if (!canvas || !sim || !size.width || !size.height || !viewportSize.width || !viewportSize.height) return
     const cellSize = renderCellSize
-    canvas.width = viewportPixelWidth
-    canvas.height = viewportPixelHeight
+    if (canvas.width !== viewportPixelWidth) canvas.width = viewportPixelWidth
+    if (canvas.height !== viewportPixelHeight) canvas.height = viewportPixelHeight
     const context = canvas.getContext('2d')
     if (!context) return
     context.imageSmoothingEnabled = false
@@ -1860,6 +2741,12 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
     const damageGrid = worldGrid(save, 'GridDamage')?.bytes
     const range = visibleMapRange(size.width, size.height, cellSize, originX, originY, canvas.width, canvas.height)
     const fluidCells: FluidRenderCell[] = []
+    const blockTileCells = blockTileCellsByGroup(save)
+    const terrainMaskedCells = terrainMaskedCellsByBuilding(save)
+    for (const cells of blockTileCells.values()) {
+      for (const key of cells) terrainMaskedCells.add(key)
+    }
+    const isTerrainMaskedAt = (x: number, y: number) => terrainMaskedCells.has(blockTileCellKey(x, y))
 
     if (visibleLayers.biome) {
       drawBiomeBackground(context, worldZones, size.width, size.height, cellSize, originX, originY, range, biomeBackgrounds)
@@ -1934,10 +2821,15 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
             }
           }
         }
-        const isNaturalSolid = visibleLayers.ground && isSolid
+        // Completed tiles and door footprints retain their construction
+        // material in the SIM cell. It is not foreground terrain in-game.
+        const isNaturalSolid = visibleLayers.ground && isSolid && !isTerrainMaskedAt(x, y)
         const materialOrder = terrainMaterialOrder(cell.elementHash)
-        const terrainConnected = (neighbourX: number, neighbourY: number) => terrainMaterialOrder(cellAt(neighbourX, neighbourY)?.elementHash) >= materialOrder
-        const solidConnected = (neighbourX: number, neighbourY: number) => terrainMaterialOrder(cellAt(neighbourX, neighbourY)?.elementHash) > Number.NEGATIVE_INFINITY
+        const naturalTerrainOrderAt = (neighbourX: number, neighbourY: number) => isTerrainMaskedAt(neighbourX, neighbourY)
+          ? Number.NEGATIVE_INFINITY
+          : terrainMaterialOrder(cellAt(neighbourX, neighbourY)?.elementHash)
+        const terrainConnected = (neighbourX: number, neighbourY: number) => naturalTerrainOrderAt(neighbourX, neighbourY) >= materialOrder
+        const solidConnected = (neighbourX: number, neighbourY: number) => naturalTerrainOrderAt(neighbourX, neighbourY) > Number.NEGATIVE_INFINITY
         const terrainBoundary = isNaturalSolid && (!terrainConnected(x - 1, y)
           || !terrainConnected(x + 1, y)
           || !terrainConnected(x, y - 1)
@@ -1999,11 +2891,13 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
           let lowerElement = element
           if (terrainPath) {
             lowerElement = [
-              cellAt(x - 1, y),
-              cellAt(x + 1, y),
-              cellAt(x, y - 1),
-              cellAt(x, y + 1),
-            ].map((neighbour) => {
+              { x: x - 1, y },
+              { x: x + 1, y },
+              { x, y: y - 1 },
+              { x, y: y + 1 },
+            ].map((position) => {
+              if (isTerrainMaskedAt(position.x, position.y)) return undefined
+              const neighbour = cellAt(position.x, position.y)
               if (!neighbour) return undefined
               const neighbourElement = elementForHash(neighbour.elementHash)
               const neighbourOrder = terrainMaterialOrder(neighbour.elementHash)
@@ -2070,58 +2964,58 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
     context.globalAlpha = 1
     context.globalCompositeOperation = 'source-over'
     context.fillStyle = '#e4b067'
-    if (visibleLayers.minions) {
-      for (const minion of groupByTag(save, 'Minion')?.instances ?? []) {
-        const x = Math.round(minion.position.x)
-        const y = Math.round(size.height - 1 - minion.position.y)
-        if (x >= 0 && y >= 0 && x < size.width && y < size.height) {
-          context.fillRect(originX + x * cellSize + 1, originY + y * cellSize + 1, cellSize - 2, cellSize - 2)
-        }
-      }
-    }
-    if (mapEntityLayersAreVisible(visibleLayers)) {
+    if (visibleLayers.minions || mapEntityLayersAreVisible(visibleLayers)) {
       const utilityCells = buildUtilityCellMap(save)
-      for (const group of save.manager?.groups ?? []) {
+      for (const { group, instance } of mapObjectsInRenderOrder(save)) {
+        if (group.tag === 'Minion') {
+          if (!visibleLayers.minions) continue
+          const minionX = Math.round(instance.position.x)
+          const minionY = Math.round(size.height - 1 - instance.position.y)
+          if (minionX >= 0 && minionY >= 0 && minionX < size.width && minionY < size.height) {
+            context.fillRect(originX + minionX * cellSize + 1, originY + minionY * cellSize + 1, cellSize - 2, cellSize - 2)
+          }
+          continue
+        }
         const blockTileTexture = blockTileTextureForTag(group.tag)
-        const blockTileCells = blockTileTexture
-          ? new Set(group.instances.map((item) => blockTileCellKey(Math.floor(item.position.x), Math.floor(item.position.y))))
-          : undefined
+        const blockTileGroupCells = blockTileTexture ? blockTileCells.get(group) : undefined
         const utilityTexture = utilityTextureForTag(group.tag)
         const utilityFamily = utilityFamilyForTag(group.tag)
-        for (const instance of group.instances) {
-          const isBuilding = hasSimpleComponent(instance, 'BuildingComplete')
-          const geyserTexture = geyserTextureForTag(group.tag)
-          const buildingTexture = buildingTextureForTag(group.tag)
-          const isGeyser = isGeyserInstance(group.tag, instance, geyserTexture)
-          if (!isBuilding && !isGeyser && !buildingTexture && !blockTileTexture && !utilityTexture) continue
-          if (!mapEntityLayerIsVisible(visibleLayers, isGeyser, utilityFamily)) continue
-          const x = Math.floor(instance.position.x)
-          const y = Math.floor(instance.position.y)
-          const canvasY = size.height - 1 - y
-          if (x < 0 || canvasY < 0 || x >= size.width || canvasY >= size.height) continue
-          const spriteMargin = Math.max(2, Math.ceil(isGeyser ? geyserTexture?.widthCells ?? 1 : buildingTexture?.widthCells ?? 1))
-          if (x < range.minX - spriteMargin || x > range.maxX + spriteMargin || canvasY < range.minRow - spriteMargin || canvasY > range.maxRow + spriteMargin) continue
-          const px = originX + x * cellSize
-          const py = originY + canvasY * cellSize
-          if (utilityTexture) {
-            const image = buildingTextures[utilityTexture.path]
-            if (image) {
-              const connections = utilityConnectionBits(instance)
-                ?? utilityNeighbourConnections(utilityCells, utilityFamily!, x, y)
-              const anchor = mapObjectAnchor(instance.position.x, instance.position.y, size.height, cellSize, originX, originY)
-              drawUtilityTile(context, image, utilityTexture, connections, anchor.x, anchor.y, cellSize)
-            }
-          } else if (blockTileTexture) {
-            const connectionBits = blockTileConnectionBits(
-              (neighbourX, neighbourY) => blockTileCells?.has(blockTileCellKey(neighbourX, neighbourY)) ?? false,
-              x,
-              y,
-            )
-            const image = buildingTextures[blockTileTexture.path]
-            if (image) {
-              drawBlockTile(context, image, connectionBits, px, py, cellSize)
-            }
-          } else if (isGeyser && !buildingTexture) {
+        const isBuilding = hasSimpleComponent(instance, 'BuildingComplete')
+        const geyserTexture = geyserTextureForTag(group.tag)
+        const buildingTexture = buildingTextureForTag(group.tag, generatedBuildingDefinitions)
+        const isGeyser = isGeyserInstance(group.tag, instance, geyserTexture)
+        if (!isBuilding && !isGeyser && !buildingTexture && !blockTileTexture && !utilityTexture) continue
+        if (!mapEntityLayerIsVisible(visibleLayers, isGeyser, utilityFamily)) continue
+        const x = Math.floor(instance.position.x)
+        const y = Math.floor(instance.position.y)
+        const canvasY = size.height - 1 - y
+        if (x < 0 || canvasY < 0 || x >= size.width || canvasY >= size.height) continue
+        const spriteMargin = Math.max(2, Math.ceil(isGeyser
+          ? geyserTexture?.widthCells ?? 1
+          : buildingTexture
+            ? Math.max(buildingTexture.widthCells, buildingTexture.heightCells ?? buildingTexture.widthCells)
+            : 1))
+        if (x < range.minX - spriteMargin || x > range.maxX + spriteMargin || canvasY < range.minRow - spriteMargin || canvasY > range.maxRow + spriteMargin) continue
+        const px = originX + x * cellSize
+        const py = originY + canvasY * cellSize
+        if (utilityTexture) {
+          const image = buildingTextures[utilityTexture.path]
+          if (image) {
+            const connections = utilityDisplayConnections(utilityCells, utilityFamily!, instance, x, y)
+            const anchor = mapObjectAnchor(instance.position.x, instance.position.y, size.height, cellSize, originX, originY)
+            drawUtilityTile(context, image, utilityTexture, connections, anchor.x, anchor.y, cellSize)
+          }
+        } else if (blockTileTexture) {
+          const connectionBits = blockTileConnectionBits(
+            (neighbourX, neighbourY) => blockTileGroupCells?.has(blockTileCellKey(neighbourX, neighbourY)) ?? false,
+            x,
+            y,
+          )
+          const image = buildingTextures[blockTileTexture.path]
+          if (image) {
+            drawBlockTile(context, image, connectionBits, px, py, cellSize)
+          }
+        } else if (isGeyser && !buildingTexture) {
             const centerX = originX + instance.position.x * cellSize
             const centerY = originY + (size.height - instance.position.y - .5) * cellSize
             const image = geyserTexture ? geyserTextures[geyserTexture.path] : undefined
@@ -2141,25 +3035,24 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
               context.fillStyle = '#2a5965'
               context.fillRect(fallbackX - Math.max(1, cellSize * .08), fallbackY - Math.max(1, cellSize * .08), Math.max(2, cellSize * .16), Math.max(2, cellSize * .16))
             }
-          } else if (buildingTexture) {
-            const anchor = mapObjectAnchor(instance.position.x, instance.position.y, size.height, cellSize, originX, originY)
-            const image = buildingTextures[buildingTexture.path]
-            if (image) {
-              drawGeyserTexture(context, image, buildingTexture, cellSize, anchor.x, anchor.y - cellSize / 2)
-            }
+        } else if (buildingTexture) {
+          const anchor = mapObjectAnchor(instance.position.x, instance.position.y, size.height, cellSize, originX, originY)
+          const image = buildingTextures[buildingTexture.path]
+          if (image) {
+            drawGeyserTexture(context, image, buildingTexture, cellSize, anchor.x, anchor.y, instanceOrientation(instance), rotatableVisualizerForTag(group.tag))
           }
         }
       }
     }
     context.restore()
-  }, [biomeBackgrounds, buildingTextures, cachedWorldZoneMap, displayCellSize, geyserTextures, originX, originY, overlay, pan.x, pan.y, renderCellSize, save, size.height, size.width, textures, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers])
+  }, [biomeBackgrounds, buildingTextures, cachedWorldZoneMap, displayCellSize, generatedBuildingDefinitions, geyserTextures, originX, originY, overlay, pan.x, pan.y, renderCellSize, save, size.height, size.width, textures, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers])
 
   useEffect(() => {
     const canvas = fluidCanvasRef.current
     const sim = save.simData
     if (!canvas || !sim || !size.width || !size.height || !viewportSize.width || !viewportSize.height) return
-    canvas.width = viewportPixelWidth
-    canvas.height = viewportPixelHeight
+    if (canvas.width !== viewportPixelWidth) canvas.width = viewportPixelWidth
+    if (canvas.height !== viewportPixelHeight) canvas.height = viewportPixelHeight
     const context = canvas.getContext('2d')
     if (!context) return
     context.imageSmoothingEnabled = false
@@ -2214,7 +3107,8 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
     let frame = 0
     let lastFrameTime = -Infinity
     const draw = (time: number) => {
-      if (lastFrameTime > -Infinity && time - lastFrameTime < 32) {
+      const frameInterval = canvas.width * canvas.height > 1_800_000 ? 100 : 50
+      if (lastFrameTime > -Infinity && time - lastFrameTime < frameInterval) {
         frame = requestAnimationFrame(draw)
         return
       }
@@ -2232,33 +3126,43 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
   }, [fluidCanvasRef, isSelecting, originX, originY, overlay, renderCellSize, save, size.height, size.width, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers.gas, visibleLayers.ground, visibleLayers.liquid])
 
   useEffect(() => {
+    const canvas = gridCanvasRef.current
+    if (!canvas || !size.width || !size.height || !viewportSize.width || !viewportSize.height) return
+    if (canvas.width !== viewportPixelWidth) canvas.width = viewportPixelWidth
+    if (canvas.height !== viewportPixelHeight) canvas.height = viewportPixelHeight
+    const context = canvas.getContext('2d')
+    if (!context) return
+    context.clearRect(0, 0, canvas.width, canvas.height)
+    if (!visibleLayers.grid || displayCellSize < 3) return
+    const range = visibleMapRange(size.width, size.height, renderCellSize, originX, originY, canvas.width, canvas.height)
+    context.strokeStyle = 'rgba(237, 230, 207, .14)'
+    context.lineWidth = Math.max(1, Math.ceil(renderCellSize / displayCellSize))
+    context.beginPath()
+    for (let x = range.minX; x <= range.maxX + 1; x++) {
+      const position = originX + x * renderCellSize
+      context.moveTo(position, 0)
+      context.lineTo(position, canvas.height)
+    }
+    for (let y = range.minRow; y <= range.maxRow + 1; y++) {
+      const position = originY + y * renderCellSize
+      context.moveTo(0, position)
+      context.lineTo(canvas.width, position)
+    }
+    context.stroke()
+  }, [displayCellSize, originX, originY, renderCellSize, size.height, size.width, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers.grid])
+
+  useEffect(() => {
     const canvas = overlayRef.current
     if (!canvas || !size.width || !size.height || !viewportSize.width || !viewportSize.height) return
     const cellSize = renderCellSize
-    canvas.width = viewportPixelWidth
-    canvas.height = viewportPixelHeight
+    if (canvas.width !== viewportPixelWidth) canvas.width = viewportPixelWidth
+    if (canvas.height !== viewportPixelHeight) canvas.height = viewportPixelHeight
     const context = canvas.getContext('2d')
     if (!context) return
     context.imageSmoothingEnabled = false
     context.clearRect(0, 0, canvas.width, canvas.height)
-    const patterns = createElementPatterns(context, textures, cellSize, originX, originY + size.height * cellSize)
     const range = visibleMapRange(size.width, size.height, cellSize, originX, originY, canvas.width, canvas.height)
-    if (visibleLayers.grid && displayCellSize >= 3) {
-      context.strokeStyle = 'rgba(237, 230, 207, .14)'
-      context.lineWidth = Math.max(1, Math.ceil(renderCellSize / displayCellSize))
-      context.beginPath()
-      for (let x = range.minX; x <= range.maxX + 1; x++) {
-        const position = originX + x * cellSize
-        context.moveTo(position, 0)
-        context.lineTo(position, canvas.height)
-      }
-      for (let y = range.minRow; y <= range.maxRow + 1; y++) {
-        const position = originY + y * cellSize
-        context.moveTo(0, position)
-        context.lineTo(canvas.width, position)
-      }
-      context.stroke()
-    }
+    let patterns: ReturnType<typeof createElementPatterns> | undefined
     const sim = save.simData
     const previewFluidCells: FluidRenderCell[] = []
     const previewHashAt = (x: number, y: number): number | undefined => {
@@ -2306,6 +3210,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
         })
         drawFluidBase(context, element.fluidMaterial, previewCell, element.state, px, py, cellSize)
       } else {
+        patterns ??= createElementPatterns(context, textures, cellSize, originX, originY + size.height * cellSize)
         context.fillStyle = patterns.get(element.texture ?? '') ?? element.color
         context.fillRect(px, py, cellSize, cellSize)
         context.strokeStyle = 'rgba(240, 208, 141, .8)'
@@ -2398,7 +3303,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
       context.strokeRect(left + context.lineWidth / 2, top + context.lineWidth / 2, cellSize - context.lineWidth, cellSize - context.lineWidth)
       context.restore()
     }
-  }, [brushCell, brushSize, displayCellSize, isSelecting, originX, originY, pan.x, pan.y, previewCells, previewVersion, renderCellSize, save, selectedCell, size.height, size.width, spacePan, textures, tool, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers.grid, visibleLayers.ground])
+  }, [brushCell, brushSize, isSelecting, originX, originY, pan.x, pan.y, previewCells, previewVersion, renderCellSize, save, selectedCell, size.height, size.width, spacePan, textures, tool, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers.ground])
 
   const canvasStyle = {
     width: '100%',
@@ -2553,6 +3458,11 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
       const spawnableGrid = worldGrid(save, 'GridSpawnable')?.bytes
       const damageGrid = worldGrid(save, 'GridDamage')?.bytes
       const fluidCells: FluidRenderCell[] = []
+      const terrainMaskedCells = terrainMaskedCellsByBuilding(save)
+      for (const cells of blockTileCellsByGroup(save).values()) {
+        for (const key of cells) terrainMaskedCells.add(key)
+      }
+      const isTerrainMaskedAt = (x: number, y: number) => terrainMaskedCells.has(blockTileCellKey(x, y))
       const cellAt = (x: number, y: number) => cachedSimCell(sim, view, x + 1, y + 1)
       const sameLiquidAt = (cell: SimCell, x: number, y: number) => {
         const neighbour = cellAt(x, y)
@@ -2619,10 +3529,13 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
               context.fillRect(px, py, cellSize, cellSize)
             }
           }
-          const isNaturalSolid = visibleLayers.ground && isSolid
+          const isNaturalSolid = visibleLayers.ground && isSolid && !isTerrainMaskedAt(x, y)
           const materialOrder = terrainMaterialOrder(cell.elementHash)
-          const terrainConnected = (neighbourX: number, neighbourY: number) => terrainMaterialOrder(cellAt(neighbourX, neighbourY)?.elementHash) >= materialOrder
-          const solidConnected = (neighbourX: number, neighbourY: number) => terrainMaterialOrder(cellAt(neighbourX, neighbourY)?.elementHash) > Number.NEGATIVE_INFINITY
+          const naturalTerrainOrderAt = (neighbourX: number, neighbourY: number) => isTerrainMaskedAt(neighbourX, neighbourY)
+            ? Number.NEGATIVE_INFINITY
+            : terrainMaterialOrder(cellAt(neighbourX, neighbourY)?.elementHash)
+          const terrainConnected = (neighbourX: number, neighbourY: number) => naturalTerrainOrderAt(neighbourX, neighbourY) >= materialOrder
+          const solidConnected = (neighbourX: number, neighbourY: number) => naturalTerrainOrderAt(neighbourX, neighbourY) > Number.NEGATIVE_INFINITY
           const terrainBoundary = isNaturalSolid && (!terrainConnected(x - 1, y) || !terrainConnected(x + 1, y) || !terrainConnected(x, y - 1) || !terrainConnected(x, y + 1))
           const solidBoundary = isNaturalSolid && (!solidConnected(x - 1, y) || !solidConnected(x + 1, y) || !solidConnected(x, y - 1) || !solidConnected(x, y + 1))
           const terrainPath = terrainBoundary ? cachedTerrainPath(sim, `terrain:${x}:${y}`, () => createTerrainCellPath(terrainConnected, x, y)) : undefined
@@ -2665,8 +3578,10 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
             const terrainPaths = [solidPath, terrainPath].filter((path): path is Path2D => path !== undefined)
             let lowerElement = element
             if (terrainPath) {
-              lowerElement = [cellAt(x - 1, y), cellAt(x + 1, y), cellAt(x, y - 1), cellAt(x, y + 1)]
-                .map((neighbour) => {
+              lowerElement = [{ x: x - 1, y }, { x: x + 1, y }, { x, y: y - 1 }, { x, y: y + 1 }]
+                .map((position) => {
+                  if (isTerrainMaskedAt(position.x, position.y)) return undefined
+                  const neighbour = cellAt(position.x, position.y)
                   if (!neighbour) return undefined
                   const neighbourElement = elementForHash(neighbour.elementHash)
                   const neighbourOrder = terrainMaterialOrder(neighbour.elementHash)
@@ -2724,56 +3639,53 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
       context.globalAlpha = 1
       context.globalCompositeOperation = 'source-over'
       context.fillStyle = '#e4b067'
-      if (visibleLayers.minions) {
-        for (const minion of groupByTag(save, 'Minion')?.instances ?? []) {
-          const x = Math.round(minion.position.x)
-          const y = Math.round(size.height - 1 - minion.position.y)
-          if (x >= 0 && y >= 0 && x < size.width && y < size.height) {
-            context.fillRect(originX + x * cellSize + 1, originY + y * cellSize + 1, Math.max(1, cellSize - 2), Math.max(1, cellSize - 2))
-          }
-        }
-      }
-      if (mapEntityLayersAreVisible(visibleLayers)) {
+      if (visibleLayers.minions || mapEntityLayersAreVisible(visibleLayers)) {
         const utilityCells = buildUtilityCellMap(save)
-        for (const group of save.manager?.groups ?? []) {
+        const tileCells = blockTileCellsByGroup(save)
+        for (const { group, instance } of mapObjectsInRenderOrder(save)) {
+          if (group.tag === 'Minion') {
+            if (!visibleLayers.minions) continue
+            const minionX = Math.round(instance.position.x)
+            const minionY = Math.round(size.height - 1 - instance.position.y)
+            if (minionX >= 0 && minionY >= 0 && minionX < size.width && minionY < size.height) {
+              context.fillRect(originX + minionX * cellSize + 1, originY + minionY * cellSize + 1, Math.max(1, cellSize - 2), Math.max(1, cellSize - 2))
+            }
+            continue
+          }
           const blockTileTexture = blockTileTextureForTag(group.tag)
-          const blockTileCells = blockTileTexture
-            ? new Set(group.instances.map((item) => blockTileCellKey(Math.floor(item.position.x), Math.floor(item.position.y))))
-            : undefined
+          const blockTileCells = blockTileTexture ? tileCells.get(group) : undefined
           const utilityTexture = utilityTextureForTag(group.tag)
           const utilityFamily = utilityFamilyForTag(group.tag)
-          for (const instance of group.instances) {
-            const isBuilding = hasSimpleComponent(instance, 'BuildingComplete')
-            const geyserTexture = geyserTextureForTag(group.tag)
-            const buildingTexture = buildingTextureForTag(group.tag)
-            const isGeyser = isGeyserInstance(group.tag, instance, geyserTexture)
-            if (!isBuilding && !isGeyser && !buildingTexture && !blockTileTexture && !utilityTexture) continue
-            if (!mapEntityLayerIsVisible(visibleLayers, isGeyser, utilityFamily)) continue
-            const x = Math.floor(instance.position.x)
-            const y = Math.floor(instance.position.y)
-            const canvasY = size.height - 1 - y
-            if (x < 0 || canvasY < 0 || x >= size.width || canvasY >= size.height) continue
-            const px = originX + x * cellSize
-            const py = originY + canvasY * cellSize
-            if (utilityTexture) {
+          const isBuilding = hasSimpleComponent(instance, 'BuildingComplete')
+          const geyserTexture = geyserTextureForTag(group.tag)
+          const buildingTexture = buildingTextureForTag(group.tag, generatedBuildingDefinitions)
+          const isGeyser = isGeyserInstance(group.tag, instance, geyserTexture)
+          if (!isBuilding && !isGeyser && !buildingTexture && !blockTileTexture && !utilityTexture) continue
+          if (!mapEntityLayerIsVisible(visibleLayers, isGeyser, utilityFamily)) continue
+          const x = Math.floor(instance.position.x)
+          const y = Math.floor(instance.position.y)
+          const canvasY = size.height - 1 - y
+          if (x < 0 || canvasY < 0 || x >= size.width || canvasY >= size.height) continue
+          const px = originX + x * cellSize
+          const py = originY + canvasY * cellSize
+          if (utilityTexture) {
             const image = buildingTextures[utilityTexture.path]
             if (image) {
-              const connections = utilityConnectionBits(instance)
-                ?? utilityNeighbourConnections(utilityCells, utilityFamily!, x, y)
+              const connections = utilityDisplayConnections(utilityCells, utilityFamily!, instance, x, y)
               const anchor = mapObjectAnchor(instance.position.x, instance.position.y, size.height, cellSize, originX, originY)
               drawUtilityTile(context, image, utilityTexture, connections, anchor.x, anchor.y, cellSize)
-              }
-            } else if (blockTileTexture) {
-              const connectionBits = blockTileConnectionBits(
-                (neighbourX, neighbourY) => blockTileCells?.has(blockTileCellKey(neighbourX, neighbourY)) ?? false,
-                x,
-                y,
-              )
-              const image = buildingTextures[blockTileTexture.path]
-              if (image) {
-                drawBlockTile(context, image, connectionBits, px, py, cellSize)
-              }
-            } else if (isGeyser && !buildingTexture) {
+            }
+          } else if (blockTileTexture) {
+            const connectionBits = blockTileConnectionBits(
+              (neighbourX, neighbourY) => blockTileCells?.has(blockTileCellKey(neighbourX, neighbourY)) ?? false,
+              x,
+              y,
+            )
+            const image = buildingTextures[blockTileTexture.path]
+            if (image) {
+              drawBlockTile(context, image, connectionBits, px, py, cellSize)
+            }
+          } else if (isGeyser && !buildingTexture) {
               const centerX = originX + instance.position.x * cellSize
               const centerY = originY + (size.height - instance.position.y - .5) * cellSize
               const image = geyserTexture ? geyserTextures[geyserTexture.path] : undefined
@@ -2793,12 +3705,11 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
                 context.fillStyle = '#2a5965'
                 context.fillRect(fallbackX - Math.max(1, cellSize * .08), fallbackY - Math.max(1, cellSize * .08), Math.max(2, cellSize * .16), Math.max(2, cellSize * .16))
               }
-            } else if (buildingTexture) {
-              const image = buildingTextures[buildingTexture.path]
-              if (image) {
-                const anchor = mapObjectAnchor(instance.position.x, instance.position.y, size.height, cellSize, originX, originY)
-                drawGeyserTexture(context, image, buildingTexture, cellSize, anchor.x, anchor.y - cellSize / 2)
-              }
+          } else if (buildingTexture) {
+            const image = buildingTextures[buildingTexture.path]
+            if (image) {
+              const anchor = mapObjectAnchor(instance.position.x, instance.position.y, size.height, cellSize, originX, originY)
+              drawGeyserTexture(context, image, buildingTexture, cellSize, anchor.x, anchor.y, instanceOrientation(instance), rotatableVisualizerForTag(group.tag))
             }
           }
         }
@@ -2838,7 +3749,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
     ref={viewportRef}
     style={mapBackgroundStyle}
     className={`canvas-frame canvas-viewport ${isPanning ? 'is-panning' : ''} ${isSelecting ? 'is-selecting' : ''} ${spacePan ? 'is-space-pan' : ''} ${tool === 'inspect' ? 'is-select-mode' : ''} ${tool !== 'inspect' && tool !== 'move' ? 'is-brush-mode' : ''}`}
-    onWheel={(event) => { event.preventDefault(); event.stopPropagation(); setZoomPercentAround(zoomPercent + (event.deltaY < 0 ? 5 : -5), event.clientX, event.clientY) }}
+    onWheel={(event) => { event.preventDefault(); event.stopPropagation(); queueWheelZoom(event.deltaY < 0 ? 5 : -5, event.clientX, event.clientY) }}
     onPointerDown={(event) => {
       if (event.button !== 0 && event.button !== 1) return
       if (event.button === 1) event.preventDefault()
@@ -2957,6 +3868,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
         style={canvasStyle}
       />
       <canvas ref={fluidCanvasRef} className="canvas-fluid" style={canvasStyle} aria-hidden="true" />
+      <canvas ref={gridCanvasRef} className="canvas-grid" style={canvasStyle} aria-hidden="true" />
       <canvas ref={overlayRef} className="canvas-overlay" style={canvasStyle} aria-hidden="true" />
       {activeSelectionBounds && <div
         className="map-selection-overlay"
