@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type Dispatch, type SetStateAction } from 'react'
 import {
   AlertTriangle,
   Archive,
@@ -70,7 +70,7 @@ import {
   type UtilityFamily,
 } from './lib/utilityTiles'
 import { parseYamlTemplate, templateVisualElementForName, type TemplateEntity, type YamlTemplate } from './lib/yamlTemplates'
-import { oniBuildingDefinitionForAnimation, oniBuildingDefinitionForTag } from './lib/oniBuildingDefs.generated'
+import { oniBuildingDefinitionForAnimation, oniBuildingDefinitionForTag, type OniBuildingDefinition } from './lib/oniBuildingDefs.generated'
 
 type View = 'overview' | 'map' | 'dupes' | 'objects'
 type MapLayer = 'grid' | 'biome' | 'minions' | 'buildings' | 'geysers' | 'power' | 'plumbing' | 'ventilation' | 'automation' | 'shipment' | 'gas' | 'liquid' | 'ground' | 'backwall'
@@ -81,6 +81,8 @@ type MapPreviewCell = { x: number; y: number; elementHash: number }
 type MapSelection = { start: { x: number; y: number }; end: { x: number; y: number } }
 type MapTool = 'inspect' | 'move' | 'paint' | 'erase' | 'eyedropper' | 'fill' | 'rectangle' | 'line'
 type MapCellUpdate = { x: number; y: number; patch: Partial<SimCell> }
+type MapViewport = { zoomPercent: number; pan: { x: number; y: number } }
+const DEFAULT_MAP_VIEWPORT: MapViewport = { zoomPercent: 50, pan: { x: 0, y: 0 } }
 const MAP_CELL_PIXELS = 4
 const MAP_ZOOM_MIN = 1
 const MAP_ZOOM_MAX = 16
@@ -426,14 +428,34 @@ const BUILDING_TAG_ALIASES: Record<string, string> = {
   facilitydoor: 'door_facility',
   poibunkerexteriordoor: 'door_poi',
   poidoorinternal: 'door_poi_internal',
+  logicgateand: 'logic_and',
+  poicerestechunlock: 'research_unlock',
+  poidlc4techunlock: 'research_unlock_dino',
+  poidlc5techunlock: 'research_unlock_aquatic',
   gravitasdoor: 'gravitas_door_internal',
   storagenetworkorderproductioncenter: 'storagenetwork_orderproductioncenter',
+}
+
+// LogicGateAND is exported by the game with a specialized config that is not
+// present in the current generated Config.cs table. Keep its real footprint
+// here so even-width visualizer offsets and occupied-cell masking stay aligned.
+const BUILDING_DEFINITION_OVERRIDES: Record<string, OniBuildingDefinition> = {
+  logicgateand: {
+    id: 'LogicGateAND',
+    width: 2,
+    height: 2,
+    animation: 'logic_and_kanim',
+    sceneLayer: 'LogicGates',
+    foregroundLayer: 'BuildingFront',
+    objectLayer: 'LogicGate',
+    source: 'LogicGateANDConfig.cs',
+  },
 }
 
 function oniBuildingDefinitionForSaveTag(tag: string) {
   const key = tag.trim().toLowerCase()
   const alias = BUILDING_TAG_ALIASES[key]
-  return oniBuildingDefinitionForTag(key) ?? (alias ? oniBuildingDefinitionForAnimation(alias) : undefined)
+  return BUILDING_DEFINITION_OVERRIDES[key] ?? oniBuildingDefinitionForTag(key) ?? (alias ? oniBuildingDefinitionForAnimation(alias) : undefined)
 }
 
 function buildingTextureLookupKeys(tag: string): string[] {
@@ -452,6 +474,25 @@ function buildingTextureForTag(tag: string, generated: Record<string, BuildingTe
   const definition = keys.map((key) => generated[key]).find((candidate): candidate is BuildingTextureDefinition => candidate !== undefined)
     ?? keys.map((key) => BUILDING_TEXTURES[key]).find((definition): definition is BuildingTextureDefinition => definition !== undefined)
   return definition
+}
+
+function doorControlTextureForInstance(tag: string, instance: SavedObjectInstance, generated: Record<string, BuildingTextureDefinition>): BuildingTextureDefinition | undefined {
+  const definition = oniBuildingDefinitionForSaveTag(tag)
+  const animation = definition?.animation.replace(/_kanim$/i, '').toLowerCase()
+  if (animation !== 'door_poi_internal') return undefined
+  const door = instance.components.find((component) => component.typeName.split(/[.+]/).pop()?.toLowerCase() === 'door')
+  const controlState = door?.value?.members.find((member) => member.name === 'controlState')?.value
+  // Door.ControlState in the game source: Auto = 0, Opened = 1, Locked = 2.
+  // Auto starts in Door.Controller.closed, matching POIDoorInternal's explicit
+  // initialAnim = "closed" configuration.
+  const state = controlState?.kind === 'enum' || controlState?.kind === 'int32' || controlState?.kind === 'uint32'
+    ? controlState.v === 1 ? 'open' : controlState.v === 2 ? 'locked' : 'closed'
+    : 'closed'
+  return generated[`${animation}__${state}`]
+}
+
+function buildingTextureForInstance(tag: string, instance: SavedObjectInstance, generated: Record<string, BuildingTextureDefinition> = {}): BuildingTextureDefinition | undefined {
+  return doorControlTextureForInstance(tag, instance, generated) ?? buildingTextureForTag(tag, generated)
 }
 
 function hasSimpleComponent(instance: SavedObjectInstance, typeName: string): boolean {
@@ -558,6 +599,20 @@ function buildingPlacementCells(instance: SavedObjectInstance, footprint: Return
   return cells
 }
 
+function overlaysNaturalTerrain(group: SavedObjectGroup, instance: SavedObjectInstance): boolean {
+  // BuildingTemplates.CreateLadderDef() assigns ladders to LadderTile rather
+  // than the building tile layer. In-game they remain visible on top of a
+  // natural solid cell; they do not excavate that cell. Check the component
+  // first (covers ladder variants), with the saved prefab tags as a fallback
+  // for older saves that omit Ladder's empty serialized state.
+  const tag = group.tag.trim().toLowerCase()
+  return hasSimpleComponent(instance, 'Ladder')
+    || tag === 'ladder'
+    || tag === 'ladderfast'
+    || tag === 'firepole'
+    || tag === 'ladderbed'
+}
+
 function terrainMaskedCellsByBuilding(save: ParsedSave): Set<string> {
   const cells = new Set<string>()
   for (const group of save.manager?.groups ?? []) {
@@ -565,6 +620,7 @@ function terrainMaskedCellsByBuilding(save: ParsedSave): Set<string> {
     if (!footprint) continue
     for (const instance of group.instances) {
       if (!hasSimpleComponent(instance, 'BuildingComplete')) continue
+      if (overlaysNaturalTerrain(group, instance)) continue
       for (const cell of buildingPlacementCells(instance, footprint)) cells.add(blockTileCellKey(cell.x, cell.y))
     }
   }
@@ -752,6 +808,7 @@ function App() {
   const [selectedYamlPath, setSelectedYamlPath] = useState('')
   const [fileName, setFileName] = useState('')
   const [view, setView] = useState<View>('overview')
+  const [mapViewport, setMapViewport] = useState<MapViewport>(DEFAULT_MAP_VIEWPORT)
   const [dirty, setDirty] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -787,6 +844,7 @@ function App() {
       setFileName(parsed.length === 1 ? first.path : `${first.path.split('/')[0]} · ${parsed.length} 个 YAML`)
       setSourceHandle(null)
       setDirty(false)
+      setMapViewport(DEFAULT_MAP_VIEWPORT)
       if (parsed.length < yamlSources.length) setError(`有 ${yamlSources.length - parsed.length} 个 YAML 无法解析，已跳过。`)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '无法解析这个 YAML 文件。')
@@ -823,6 +881,7 @@ function App() {
       setSourceHandle(handle)
       setDirty(false)
       setView('overview')
+      setMapViewport(DEFAULT_MAP_VIEWPORT)
       setSelectedGroup('Minion')
       setSelectedIndex(0)
     } catch (cause) {
@@ -856,6 +915,7 @@ function App() {
     setDirty(false)
     setError('')
     setView('overview')
+    setMapViewport(DEFAULT_MAP_VIEWPORT)
   }, [dirty])
 
   const downloadSave = useCallback(() => {
@@ -1037,7 +1097,7 @@ function App() {
               <div className="head-meta"><span className="status-dot" />{dirty ? '待导出' : '已载入'}<ChevronRight size={14} />{fileName}</div>
             </div>}
             {view === 'overview' && <Overview save={save} onNavigate={setView} updateSave={updateSave} />}
-            {view === 'map' && <MapView save={save} updateSave={updateSave} />}
+            {view === 'map' && <MapView save={save} updateSave={updateSave} viewport={mapViewport} onViewportChange={setMapViewport} />}
             {view === 'dupes' && <DupesView save={save} updateSave={updateSave} onOpenObject={(index) => { setSelectedGroup('Minion'); setSelectedIndex(index); setView('objects') }} />}
             {view === 'objects' && <ObjectsView save={save} selectedGroup={selectedGroup} selectedIndex={selectedIndex} onSelect={(tag, index) => { setSelectedGroup(tag); setSelectedIndex(index) }} updateSave={updateSave} />}
           </main>
@@ -1269,7 +1329,7 @@ function Overview({ save, onNavigate, updateSave }: { save: ParsedSave; onNaviga
   )
 }
 
-function MapView({ save, updateSave }: { save: ParsedSave; updateSave: (update: (save: ParsedSave) => void) => void }) {
+function MapView({ save, updateSave, viewport, onViewportChange }: { save: ParsedSave; updateSave: (update: (save: ParsedSave) => void) => void; viewport: MapViewport; onViewportChange: Dispatch<SetStateAction<MapViewport>> }) {
   const [visibleLayers, setVisibleLayers] = useState<MapLayerVisibility>(DEFAULT_MAP_LAYER_VISIBILITY)
   const [layersExpanded, setLayersExpanded] = useState(false)
   const [overlay, setOverlay] = useState<MapOverlay>('none')
@@ -1559,7 +1619,7 @@ function MapView({ save, updateSave }: { save: ParsedSave; updateSave: (update: 
               </div>
             </div>
           </section>
-          <MapCanvas save={save} visibleLayers={visibleLayers} overlay={overlay} tool={tool} brushSize={brushSize} selectedCell={lastCell} selection={selection} previewCells={previewCellsRef.current} previewVersion={previewVersion} onCell={handleCell} onSelectionChange={(next) => { setSelection(next); if (next) setLastCell(null) }} onShape={previewShape} onStrokeStart={beginStroke} onStrokeEnd={endStroke} />
+          <MapCanvas save={save} visibleLayers={visibleLayers} overlay={overlay} tool={tool} brushSize={brushSize} viewport={viewport} onViewportChange={onViewportChange} selectedCell={lastCell} selection={selection} previewCells={previewCellsRef.current} previewVersion={previewVersion} onCell={handleCell} onSelectionChange={(next) => { setSelection(next); if (next) setLastCell(null) }} onShape={previewShape} onStrokeStart={beginStroke} onStrokeEnd={endStroke} />
           <div className="map-legend"><span><i className="legend-visible" />独立图层</span><span><i className="legend-entity" />{overlay === 'none' ? '无分析覆盖' : `${overlayLabel}覆盖`}</span><span><i className="legend-damage" />选中单元</span><span className="legend-help">SIM 网格含四周边界层</span></div>
         </div>
       </section>
@@ -2299,7 +2359,7 @@ function floodFillCoordinates(
   return cells
 }
 
-function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell, selection, previewCells, previewVersion, onCell, onSelectionChange, onShape, onStrokeStart, onStrokeEnd }: { save: ParsedSave; visibleLayers: MapLayerVisibility; overlay: MapOverlay; tool: MapTool; brushSize: number; selectedCell: { x: number; y: number } | null; selection: MapSelection | null; previewCells: Map<string, MapPreviewCell>; previewVersion: number; onCell: (x: number, y: number) => void; onSelectionChange: (selection: MapSelection | null) => void; onShape: (start: { x: number; y: number }, end: { x: number; y: number }) => void; onStrokeStart: () => void; onStrokeEnd: () => void }) {
+function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, onViewportChange, selectedCell, selection, previewCells, previewVersion, onCell, onSelectionChange, onShape, onStrokeStart, onStrokeEnd }: { save: ParsedSave; visibleLayers: MapLayerVisibility; overlay: MapOverlay; tool: MapTool; brushSize: number; viewport: MapViewport; onViewportChange: Dispatch<SetStateAction<MapViewport>>; selectedCell: { x: number; y: number } | null; selection: MapSelection | null; previewCells: Map<string, MapPreviewCell>; previewVersion: number; onCell: (x: number, y: number) => void; onSelectionChange: (selection: MapSelection | null) => void; onShape: (start: { x: number; y: number }, end: { x: number; y: number }) => void; onStrokeStart: () => void; onStrokeEnd: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fluidCanvasRef = useRef<HTMLCanvasElement>(null)
   const gridCanvasRef = useRef<HTMLCanvasElement>(null)
@@ -2322,8 +2382,9 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
   const [geyserTextures, setGeyserTextures] = useState<Record<string, HTMLImageElement>>({})
   const [buildingTextures, setBuildingTextures] = useState<Record<string, HTMLImageElement>>({})
   const [generatedBuildingDefinitions, setGeneratedBuildingDefinitions] = useState<Record<string, BuildingTextureDefinition>>({})
-  const [zoomPercent, setZoomPercent] = useState(50)
-  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const { zoomPercent, pan } = viewport
+  const setZoomPercent = (nextZoomPercent: number) => onViewportChange((current) => ({ ...current, zoomPercent: nextZoomPercent }))
+  const setPan = (nextPan: { x: number; y: number }) => onViewportChange((current) => ({ ...current, pan: nextPan }))
   const [isPanning, setIsPanning] = useState(false)
   const [spacePan, setSpacePan] = useState(false)
   const [brushCell, setBrushCell] = useState<{ x: number; y: number } | null>(null)
@@ -2510,7 +2571,11 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
         setGeneratedBuildingDefinitions(definitions)
         const usedTags = new Set(initialGroupTagsRef.current.flatMap((tag) => buildingTextureLookupKeys(tag)))
         const paths = Object.entries(definitions)
-          .filter(([tag]) => usedTags.has(tag))
+          // Stateful KAnim frames are stored as `<animation>__<state>`.
+          // Loading only the base key made a POIDoorInternal choose its
+          // correct `closed/open/locked` definition but then skip drawing,
+          // because that PNG had never been requested.
+          .filter(([tag]) => usedTags.has(tag) || usedTags.has(tag.split('__')[0]))
           .map(([, definition]) => definition.path)
         void loadAssetImages(paths).then((images) => { if (active) setBuildingTextures((current) => ({ ...current, ...images })) })
       })
@@ -2842,7 +2907,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
         const utilityFamily = utilityFamilyForTag(group.tag)
         const isBuilding = hasSimpleComponent(instance, 'BuildingComplete')
         const geyserTexture = geyserTextureForTag(group.tag)
-        const buildingTexture = buildingTextureForTag(group.tag, generatedBuildingDefinitions)
+        const buildingTexture = buildingTextureForInstance(group.tag, instance, generatedBuildingDefinitions)
         const isGeyser = isGeyserInstance(group.tag, instance, geyserTexture)
         if (!isBuilding && !isGeyser && !buildingTexture && !blockTileTexture && !utilityTexture) continue
         if (!mapEntityLayerIsVisible(visibleLayers, isGeyser, utilityFamily)) continue
@@ -3518,7 +3583,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, selectedCell
           const utilityFamily = utilityFamilyForTag(group.tag)
           const isBuilding = hasSimpleComponent(instance, 'BuildingComplete')
           const geyserTexture = geyserTextureForTag(group.tag)
-          const buildingTexture = buildingTextureForTag(group.tag, generatedBuildingDefinitions)
+          const buildingTexture = buildingTextureForInstance(group.tag, instance, generatedBuildingDefinitions)
           const isGeyser = isGeyserInstance(group.tag, instance, geyserTexture)
           if (!isBuilding && !isGeyser && !buildingTexture && !blockTileTexture && !utilityTexture) continue
           if (!mapEntityLayerIsVisible(visibleLayers, isGeyser, utilityFamily)) continue

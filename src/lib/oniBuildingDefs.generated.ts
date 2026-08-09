@@ -183,6 +183,36 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "AutoMinerConfig.cs"
   },
+  "basicfabricplant": {
+    "id": "BasicFabricPlant",
+    "width": 1,
+    "height": 3,
+    "animation": "swampreed_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "BasicFabricMaterialPlantConfig.cs"
+  },
+  "basicforageplantplanted": {
+    "id": "BasicForagePlantPlanted",
+    "width": 1,
+    "height": 1,
+    "animation": "muckroot_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "BasicForagePlantPlantedConfig.cs"
+  },
+  "basicsingleharvestplant": {
+    "id": "BasicSingleHarvestPlant",
+    "width": 1,
+    "height": 2,
+    "animation": "meallice_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "BasicSingleHarvestPlantConfig.cs"
+  },
   "batterymodule": {
     "id": "BatteryModule",
     "width": 3,
@@ -203,6 +233,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "BeachChairConfig.cs"
   },
+  "beanplant": {
+    "id": "BeanPlant",
+    "width": 1,
+    "height": 2,
+    "animation": "beanplant_kanim",
+    "sceneLayer": "BuildingFront",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "BeanPlantConfig.cs"
+  },
   "bed": {
     "id": "Bed",
     "width": 2,
@@ -212,6 +252,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "Building",
     "source": "BedConfig.cs"
+  },
+  "beehive": {
+    "id": "BeeHive",
+    "width": 2,
+    "height": 3,
+    "animation": "beehive_kanim",
+    "sceneLayer": "Creatures",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "BaseBeeHiveConfig.cs"
   },
   "biodieselengine": {
     "id": "BiodieselEngine",
@@ -232,6 +282,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "Building",
     "source": "BiodieselEngineClusterConfig.cs"
+  },
+  "bluegrass": {
+    "id": "BlueGrass",
+    "width": 1,
+    "height": 2,
+    "animation": "bluegrass_kanim",
+    "sceneLayer": "BuildingFront",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "BlueGrassConfig.cs"
   },
   "bottleemptier": {
     "id": "BottleEmptier",
@@ -273,6 +333,26 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "BottleEmptierGasConfig.cs"
   },
+  "bulbloom": {
+    "id": "Bulbloom",
+    "width": 1,
+    "height": 1,
+    "animation": "bulbloom_kanim",
+    "sceneLayer": "BuildingFront",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "BulbloomConfig.cs"
+  },
+  "bulbplant": {
+    "id": "BulbPlant",
+    "width": 1,
+    "height": 1,
+    "animation": "potted_bulb_kanim",
+    "sceneLayer": "BuildingFront",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "BulbPlantConfig.cs"
+  },
   "bunkerdoor": {
     "id": "BunkerDoor",
     "width": 4,
@@ -292,6 +372,26 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "Building",
     "source": "BunkerTileConfig.cs"
+  },
+  "butterflyplant": {
+    "id": "ButterflyPlant",
+    "width": 1,
+    "height": 2,
+    "animation": "pollinator_plant_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "ButterflyPlantConfig.cs"
+  },
+  "cactusplant": {
+    "id": "CactusPlant",
+    "width": 1,
+    "height": 1,
+    "animation": "potted_cactus_kanim",
+    "sceneLayer": "BuildingFront",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "CactusPlantConfig.cs"
   },
   "campfire": {
     "id": "Campfire",
@@ -363,6 +463,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "CarpetTileConfig.cs"
   },
+  "carrotplant": {
+    "id": "CarrotPlant",
+    "width": 1,
+    "height": 2,
+    "animation": "purpleroot_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "CarrotPlantConfig.cs"
+  },
   "ceilingfossilsculpture": {
     "id": "CeilingFossilSculpture",
     "width": 3,
@@ -413,6 +523,26 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "ChlorinatorConfig.cs"
   },
+  "chlorinegeyser": {
+    "id": "ChlorineGeyser",
+    "width": 4,
+    "height": 2,
+    "animation": "geyser_side_chlorine_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "ChlorineGeyserConfig.cs"
+  },
+  "clam": {
+    "id": "Clam",
+    "width": 3,
+    "height": 3,
+    "animation": "clam_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "ClamConfig.cs"
+  },
   "clothingalterationstation": {
     "id": "ClothingAlterationStation",
     "width": 4,
@@ -432,6 +562,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "Building",
     "source": "ClothingFabricatorConfig.cs"
+  },
+  "clustercraftinteriordoor": {
+    "id": "ClustercraftInteriorDoor",
+    "width": 1,
+    "height": 2,
+    "animation": "rocket_hatch_door_kanim",
+    "sceneLayer": "TileMain",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "ClustercraftInteriorDoorConfig.cs"
   },
   "clustertelescope": {
     "id": "ClusterTelescope",
@@ -472,6 +612,36 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "Building",
     "source": "CO2ScrubberConfig.cs"
+  },
+  "coldbreather": {
+    "id": "ColdBreather",
+    "width": 1,
+    "height": 2,
+    "animation": "coldbreather_kanim",
+    "sceneLayer": "BuildingFront",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "ColdBreatherConfig.cs"
+  },
+  "coldwheat": {
+    "id": "ColdWheat",
+    "width": 1,
+    "height": 1,
+    "animation": "coldwheat_kanim",
+    "sceneLayer": "BuildingFront",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "ColdWheatConfig.cs"
+  },
+  "cometdetector": {
+    "id": "CometDetector",
+    "width": 2,
+    "height": 4,
+    "animation": "meteor_detector_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "CometDetectorConfig.cs"
   },
   "commandmodule": {
     "id": "CommandModule",
@@ -643,6 +813,26 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "CrownMouldingConfig.cs"
   },
+  "cryotank": {
+    "id": "CryoTank",
+    "width": 2,
+    "height": 3,
+    "animation": "cryo_chamber_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "CryoTankConfig.cs"
+  },
+  "cylindrica": {
+    "id": "Cylindrica",
+    "width": 1,
+    "height": 1,
+    "animation": "potted_cylindricafan_kanim",
+    "sceneLayer": "BuildingFront",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "CylindricaConfig.cs"
+  },
   "dataminer": {
     "id": "DataMiner",
     "width": 3,
@@ -793,6 +983,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "DiningTableConfig.cs"
   },
+  "dinofern": {
+    "id": "Dinofern",
+    "width": 3,
+    "height": 3,
+    "animation": "prehistoric_fern_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "DinofernConfig.cs"
+  },
   "dlc1cosmicresearchcenter": {
     "id": "DLC1CosmicResearchCenter",
     "width": 4,
@@ -863,6 +1063,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "ElectrolyzerConfig.cs"
   },
+  "escapepod": {
+    "id": "EscapePod",
+    "width": 1,
+    "height": 2,
+    "animation": "escape_pod_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "EscapePodConfig.cs"
+  },
   "espressomachine": {
     "id": "EspressoMachine",
     "width": 3,
@@ -882,6 +1092,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "Building",
     "source": "EthanolDistilleryConfig.cs"
+  },
+  "evilflower": {
+    "id": "EvilFlower",
+    "width": 1,
+    "height": 1,
+    "animation": "potted_evilflower_kanim",
+    "sceneLayer": "BuildingFront",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "EvilFlowerConfig.cs"
   },
   "exobaseheadquarters": {
     "id": "ExobaseHeadquarters",
@@ -952,6 +1172,26 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "Building",
     "source": "FertilizerMakerConfig.cs"
+  },
+  "filamentplant": {
+    "id": "FilamentPlant",
+    "width": 1,
+    "height": 1,
+    "animation": "potted_petta_pouf_kanim",
+    "sceneLayer": "BuildingFront",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "FilamentPlantConfig.cs"
+  },
+  "filterplant": {
+    "id": "FilterPlant",
+    "width": 1,
+    "height": 2,
+    "animation": "cactus_kanim",
+    "sceneLayer": "BuildingFront",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "FilterPlantConfig.cs"
   },
   "firepole": {
     "id": "FirePole",
@@ -1103,6 +1343,36 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "FoodRehydratorConfig.cs"
   },
+  "forestforageplantplanted": {
+    "id": "ForestForagePlantPlanted",
+    "width": 1,
+    "height": 2,
+    "animation": "podmelon_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "ForestForagePlantPlantedConfig.cs"
+  },
+  "fossilbitslarge": {
+    "id": "FossilBitsLarge",
+    "width": 2,
+    "height": 2,
+    "animation": "fossil_bits_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "FossilBitsLargeConfig.cs"
+  },
+  "fossilbitssmall": {
+    "id": "FossilBitsSmall",
+    "width": 1,
+    "height": 2,
+    "animation": "fossil_bits1x2_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "FossilBitsSmallConfig.cs"
+  },
   "fossildig": {
     "id": "FossilDig",
     "width": 5,
@@ -1132,6 +1402,36 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "Gantry",
     "source": "GantryConfig.cs"
+  },
+  "gardendecorplant": {
+    "id": "GardenDecorPlant",
+    "width": 1,
+    "height": 1,
+    "animation": "discplant_kanim",
+    "sceneLayer": "BuildingFront",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "GardenDecorPlantConfig.cs"
+  },
+  "gardenfoodplant": {
+    "id": "GardenFoodPlant",
+    "width": 1,
+    "height": 2,
+    "animation": "spike_fruit_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "GardenFoodPlantConfig.cs"
+  },
+  "gardenforageplantplanted": {
+    "id": "GardenForagePlantPlanted",
+    "width": 1,
+    "height": 2,
+    "animation": "fatplant_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "GardenForagePlantPlantedConfig.cs"
   },
   "gasbottler": {
     "id": "GasBottler",
@@ -1232,6 +1532,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "Building",
     "source": "GasFilterConfig.cs"
+  },
+  "gasgrass": {
+    "id": "GasGrass",
+    "width": 1,
+    "height": 3,
+    "animation": "gassygrass_kanim",
+    "sceneLayer": "BuildingFront",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "GasGrassConfig.cs"
   },
   "gaslimitvalve": {
     "id": "GasLimitValve",
@@ -1343,6 +1653,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "GenericFabricatorConfig.cs"
   },
+  "geneshuffler": {
+    "id": "GeneShuffler",
+    "width": 4,
+    "height": 3,
+    "animation": "geneshuffler_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "GeneShufflerConfig.cs"
+  },
   "geneticanalysisstation": {
     "id": "GeneticAnalysisStation",
     "width": 7,
@@ -1353,6 +1673,26 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "GeneticAnalysisStationConfig.cs"
   },
+  "geothermalcontrollerentity": {
+    "id": "GeothermalControllerEntity",
+    "width": 7,
+    "height": 8,
+    "animation": "gravitas_geoplant_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "GeothermalControllerConfig.cs"
+  },
+  "geothermalvententity": {
+    "id": "GeothermalVentEntity",
+    "width": 3,
+    "height": 4,
+    "animation": "gravitas_geospout_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "GeothermalVentConfig.cs"
+  },
   "geotuner": {
     "id": "GeoTuner",
     "width": 4,
@@ -1362,6 +1702,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "Building",
     "source": "GeoTunerConfig.cs"
+  },
+  "geyser": {
+    "id": "Geyser",
+    "width": 4,
+    "height": 2,
+    "animation": "geyser_side_steam_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "GeyserConfig.cs"
   },
   "glassceilinglight": {
     "id": "GlassCeilingLight",
@@ -1403,6 +1753,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "GlassTileConfig.cs"
   },
+  "glom": {
+    "id": "Glom",
+    "width": 1,
+    "height": 1,
+    "animation": "glom_kanim",
+    "sceneLayer": "Creatures",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "GlomConfig.cs"
+  },
   "gourmetcookingstation": {
     "id": "GourmetCookingStation",
     "width": 3,
@@ -1423,6 +1783,26 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "GraveConfig.cs"
   },
+  "gravitasbathroommirror": {
+    "id": "GravitasBathroomMirror",
+    "width": 1,
+    "height": 1,
+    "animation": "gravitas_bathroom_mirror_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "GravitasBathroomMirrorConfig.cs"
+  },
+  "gravitasbathroomsink": {
+    "id": "GravitasBathroomSink",
+    "width": 1,
+    "height": 1,
+    "animation": "gravitas_bathroom_sink_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "GravitasBathroomSinkConfig.cs"
+  },
   "gravitasbathroomstall": {
     "id": "GravitasBathroomStall",
     "width": 2,
@@ -1432,6 +1812,26 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "Building",
     "source": "GravitasBathroomStallConfig.cs"
+  },
+  "gravitasceilinglight": {
+    "id": "GravitasCeilingLight",
+    "width": 1,
+    "height": 1,
+    "animation": "gravitas_light2_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "GravitasCeilingLightConfig.cs"
+  },
+  "gravitasclocksquare": {
+    "id": "GravitasClockSquare",
+    "width": 1,
+    "height": 1,
+    "animation": "gravitas_clock_square_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "GravitasClockSquareConfig.cs"
   },
   "gravitascontainer": {
     "id": "GravitasContainer",
@@ -1453,6 +1853,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "GravitasCreatureManipulatorConfig.cs"
   },
+  "gravitasdesk": {
+    "id": "GravitasDesk",
+    "width": 4,
+    "height": 3,
+    "animation": "gravitas_desk2_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "GravitasDeskConfig.cs"
+  },
   "gravitasdoor": {
     "id": "GravitasDoor",
     "width": 1,
@@ -1462,6 +1872,26 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "InteriorWall",
     "objectLayer": "Building",
     "source": "GravitasDoorConfig.cs"
+  },
+  "gravitasflipphone": {
+    "id": "GravitasFlipPhone",
+    "width": 1,
+    "height": 1,
+    "animation": "gravitas_flip_phone_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "GravitasFlipPhoneConfig.cs"
+  },
+  "gravitasfridge": {
+    "id": "GravitasFridge",
+    "width": 2,
+    "height": 2,
+    "animation": "gravitas_fridge_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "GravitasFridgeConfig.cs"
   },
   "gravitaslablight": {
     "id": "GravitasLabLight",
@@ -1473,6 +1903,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "GravitasLabLightConfig.cs"
   },
+  "gravitaspapertoweldispenser": {
+    "id": "GravitasPaperTowelDispenser",
+    "width": 1,
+    "height": 1,
+    "animation": "gravitas_paper_towell_dispenser_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "GravitasPaperTowelDispenserConfig.cs"
+  },
   "gravitaspedestal": {
     "id": "GravitasPedestal",
     "width": 1,
@@ -1482,6 +1922,56 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "Building",
     "source": "GravitasPedestalConfig.cs"
+  },
+  "gravitasposterplants": {
+    "id": "GravitasPosterPlants",
+    "width": 2,
+    "height": 2,
+    "animation": "gravitas_poster_plant_growth_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "GravitasPosterPlantsConfig.cs"
+  },
+  "gravitasposterseed": {
+    "id": "GravitasPosterSeed",
+    "width": 2,
+    "height": 2,
+    "animation": "gravitas_poster_seed_plant_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "GravitasPosterSeedConfig.cs"
+  },
+  "gravitaspotplantdead": {
+    "id": "GravitasPotPlantDead",
+    "width": 1,
+    "height": 2,
+    "animation": "gravitas_tall_plant_dead_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "GravitasPotPlantDeadConfig.cs"
+  },
+  "gravitastoiletpaperholder": {
+    "id": "GravitasToiletPaperHolder",
+    "width": 1,
+    "height": 1,
+    "animation": "gravitas_toilet_paper_holder_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "GravitasToiletPaperHolderConfig.cs"
+  },
+  "gravitastrashcan": {
+    "id": "GravitasTrashCan",
+    "width": 1,
+    "height": 1,
+    "animation": "gravitas_trash_can_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "GravitasTrashCanConfig.cs"
   },
   "gunkemptier": {
     "id": "GunkEmptier",
@@ -1522,6 +2012,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "Building",
     "source": "HandSanitizerConfig.cs"
+  },
+  "hardskinberryplant": {
+    "id": "HardSkinBerryPlant",
+    "width": 1,
+    "height": 2,
+    "animation": "ice_berry_bush_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "HardSkinBerryPlantConfig.cs"
   },
   "headquarters": {
     "id": "Headquarters",
@@ -1662,6 +2162,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "Building",
     "source": "IceCooledFanConfig.cs"
+  },
+  "iceflower": {
+    "id": "IceFlower",
+    "width": 1,
+    "height": 1,
+    "animation": "potted_ice_flower_kanim",
+    "sceneLayer": "BuildingFront",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "IceFlowerConfig.cs"
   },
   "icekettle": {
     "id": "IceKettle",
@@ -1823,6 +2333,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "LadderConfig.cs"
   },
+  "ladderbed": {
+    "id": "LadderBed",
+    "width": 2,
+    "height": 2,
+    "animation": "ladder_bed_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "LadderBedConfig.cs"
+  },
   "ladderfast": {
     "id": "LadderFast",
     "width": 1,
@@ -1842,6 +2362,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "Building",
     "source": "LandingBeaconConfig.cs"
+  },
+  "landingpod": {
+    "id": "LandingPod",
+    "width": 3,
+    "height": 3,
+    "animation": "rocket_puft_pod_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "LandingPodConfig.cs"
   },
   "largebackwallfarm": {
     "id": "LargeBackwallFarm",
@@ -1892,6 +2422,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "Building",
     "source": "LeadSuitMarkerConfig.cs"
+  },
+  "leafyplant": {
+    "id": "LeafyPlant",
+    "width": 1,
+    "height": 1,
+    "animation": "potted_leafy_kanim",
+    "sceneLayer": "BuildingFront",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "LeafyPlantConfig.cs"
   },
   "liquidbottler": {
     "id": "LiquidBottler",
@@ -2123,6 +2663,56 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "LiquidVentConfig.cs"
   },
+  "logicalarm": {
+    "id": "LogicAlarm",
+    "width": 1,
+    "height": 1,
+    "animation": "alarm_sensor_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "LogicAlarmConfig.cs"
+  },
+  "logicclusterlocationsensor": {
+    "id": "LogicClusterLocationSensor",
+    "width": 1,
+    "height": 1,
+    "animation": "logic_location_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "LogicClusterLocationSensorConfig.cs"
+  },
+  "logiccounter": {
+    "id": "LogicCounter",
+    "width": 1,
+    "height": 3,
+    "animation": "logic_counter_kanim",
+    "sceneLayer": "LogicGates",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "LogicGate",
+    "source": "LogicCounterConfig.cs"
+  },
+  "logiccrittercountsensor": {
+    "id": "LogicCritterCountSensor",
+    "width": 1,
+    "height": 1,
+    "animation": "critter_sensor_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "LogicCritterCountSensorConfig.cs"
+  },
+  "logicdiseasesensor": {
+    "id": "LogicDiseaseSensor",
+    "width": 1,
+    "height": 1,
+    "animation": "diseasesensor_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "LogicDiseaseSensorConfig.cs"
+  },
   "logicduplicantsensor": {
     "id": "LogicDuplicantSensor",
     "width": 1,
@@ -2132,6 +2722,46 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "Building",
     "source": "LogicDuplicantSensorConfig.cs"
+  },
+  "logicelementsensorgas": {
+    "id": "LogicElementSensorGas",
+    "width": 1,
+    "height": 1,
+    "animation": "world_element_sensor_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "LogicElementSensorGasConfig.cs"
+  },
+  "logicelementsensorliquid": {
+    "id": "LogicElementSensorLiquid",
+    "width": 1,
+    "height": 1,
+    "animation": "world_liquid_sensor_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "LogicElementSensorLiquidConfig.cs"
+  },
+  "logichammer": {
+    "id": "LogicHammer",
+    "width": 1,
+    "height": 1,
+    "animation": "hammer_kanim",
+    "sceneLayer": "BuildingFront",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "LogicHammerConfig.cs"
+  },
+  "logichepsensor": {
+    "id": "LogicHEPSensor",
+    "width": 1,
+    "height": 1,
+    "animation": "radbolt_sensor_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "LogicHEPSensorConfig.cs"
   },
   "logicinterasteroidreceiver": {
     "id": "LogicInterasteroidReceiver",
@@ -2153,6 +2783,66 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "LogicInterasteroidSenderConfig.cs"
   },
+  "logiclightsensor": {
+    "id": "LogicLightSensor",
+    "width": 1,
+    "height": 1,
+    "animation": "logiclightsensor_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "LogicLightSensorConfig.cs"
+  },
+  "logicmemory": {
+    "id": "LogicMemory",
+    "width": 2,
+    "height": 2,
+    "animation": "logic_memory_kanim",
+    "sceneLayer": "LogicGates",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "LogicGate",
+    "source": "LogicMemoryConfig.cs"
+  },
+  "logicpowerrelay": {
+    "id": "LogicPowerRelay",
+    "width": 1,
+    "height": 1,
+    "animation": "switchpowershutoff_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "LogicPowerRelayConfig.cs"
+  },
+  "logicpressuresensorgas": {
+    "id": "LogicPressureSensorGas",
+    "width": 1,
+    "height": 1,
+    "animation": "switchgaspressure_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "LogicPressureSensorGasConfig.cs"
+  },
+  "logicpressuresensorliquid": {
+    "id": "LogicPressureSensorLiquid",
+    "width": 1,
+    "height": 1,
+    "animation": "switchliquidpressure_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "LogicPressureSensorLiquidConfig.cs"
+  },
+  "logicradiationsensor": {
+    "id": "LogicRadiationSensor",
+    "width": 1,
+    "height": 1,
+    "animation": "radiation_sensor_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "LogicRadiationSensorConfig.cs"
+  },
   "logicribbonbridge": {
     "id": "LogicRibbonBridge",
     "width": 3,
@@ -2162,6 +2852,76 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "LogicGate",
     "source": "LogicRibbonBridgeConfig.cs"
+  },
+  "logicribbonreader": {
+    "id": "LogicRibbonReader",
+    "width": 2,
+    "height": 1,
+    "animation": "logic_ribbon_reader_kanim",
+    "sceneLayer": "LogicGates",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "LogicGate",
+    "source": "LogicRibbonReaderConfig.cs"
+  },
+  "logicribbonwriter": {
+    "id": "LogicRibbonWriter",
+    "width": 2,
+    "height": 1,
+    "animation": "logic_ribbon_writer_kanim",
+    "sceneLayer": "LogicGates",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "LogicGate",
+    "source": "LogicRibbonWriterConfig.cs"
+  },
+  "logicswitch": {
+    "id": "LogicSwitch",
+    "width": 1,
+    "height": 1,
+    "animation": "switchdupecontrolledpower_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "LogicSwitchConfig.cs"
+  },
+  "logictemperaturesensor": {
+    "id": "LogicTemperatureSensor",
+    "width": 1,
+    "height": 1,
+    "animation": "switchthermal_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "LogicTemperatureSensorConfig.cs"
+  },
+  "logictimeofdaysensor": {
+    "id": "LogicTimeOfDaySensor",
+    "width": 1,
+    "height": 1,
+    "animation": "switchtimeofday_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "LogicTimeOfDaySensorConfig.cs"
+  },
+  "logictimersensor": {
+    "id": "LogicTimerSensor",
+    "width": 1,
+    "height": 1,
+    "animation": "time_sensor_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "LogicTimerSensorConfig.cs"
+  },
+  "logicwattagesensor": {
+    "id": "LogicWattageSensor",
+    "width": 1,
+    "height": 1,
+    "animation": "wattage_sensor_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "LogicWattageSensorConfig.cs"
   },
   "logicwirebridge": {
     "id": "LogicWireBridge",
@@ -2363,6 +3123,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "MethaneGeneratorConfig.cs"
   },
+  "methanegeyser": {
+    "id": "MethaneGeyser",
+    "width": 4,
+    "height": 2,
+    "animation": "geyser_side_methane_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "MethaneGeyserConfig.cs"
+  },
   "microbemusher": {
     "id": "MicrobeMusher",
     "width": 2,
@@ -2433,6 +3203,36 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "MiniFridgeConfig.cs"
   },
+  "minnowimperativepoia": {
+    "id": "MinnowImperativePOIA",
+    "width": 3,
+    "height": 3,
+    "animation": "minnow_imperative_poi_a_kanim",
+    "sceneLayer": "Creatures",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "MinnowImperativePOIAConfig.cs"
+  },
+  "minnowimperativepoib": {
+    "id": "MinnowImperativePOIB",
+    "width": 3,
+    "height": 3,
+    "animation": "minnow_imperative_poi_b_kanim",
+    "sceneLayer": "Creatures",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "MinnowImperativePOIBConfig.cs"
+  },
+  "minnowimperativepoic": {
+    "id": "MinnowImperativePOIC",
+    "width": 3,
+    "height": 3,
+    "animation": "minnow_imperative_poi_c_kanim",
+    "sceneLayer": "Creatures",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "MinnowImperativePOICConfig.cs"
+  },
   "missilefabricator": {
     "id": "MissileFabricator",
     "width": 5,
@@ -2452,6 +3252,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "Building",
     "source": "MissileLauncherConfig.cs"
+  },
+  "missilesetlocker": {
+    "id": "MissileSetLocker",
+    "width": 1,
+    "height": 2,
+    "animation": "armoury_locker_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "MissileSetLockerConfig.cs"
   },
   "missioncontrol": {
     "id": "MissionControl",
@@ -2543,6 +3353,26 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "MultiMinionDiningTableConfig.cs"
   },
+  "mushroomplant": {
+    "id": "MushroomPlant",
+    "width": 1,
+    "height": 2,
+    "animation": "fungusplant_kanim",
+    "sceneLayer": "BuildingFront",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "MushroomPlantConfig.cs"
+  },
+  "musselsprout": {
+    "id": "MusselSprout",
+    "width": 1,
+    "height": 1,
+    "animation": "mussel_sprout_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "MusselSproutConfig.cs"
+  },
   "noseconebasic": {
     "id": "NoseconeBasic",
     "width": 5,
@@ -2612,6 +3442,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "Building",
     "source": "OilRefineryConfig.cs"
+  },
+  "oilwell": {
+    "id": "OilWell",
+    "width": 4,
+    "height": 2,
+    "animation": "geyser_side_oil_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "OilWellConfig.cs"
   },
   "oilwellcap": {
     "id": "OilWellCap",
@@ -2703,6 +3543,26 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "OxidizerTankLiquidClusterConfig.cs"
   },
+  "oxycoral": {
+    "id": "OxyCoral",
+    "width": 3,
+    "height": 2,
+    "animation": "thalassaire_coral_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "OxyCoralConfig.cs"
+  },
+  "oxyfern": {
+    "id": "Oxyfern",
+    "width": 1,
+    "height": 2,
+    "animation": "oxy_fern_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "OxyfernConfig.cs"
+  },
   "oxygenmasklocker": {
     "id": "OxygenMaskLocker",
     "width": 1,
@@ -2793,6 +3653,26 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "PhonoboxConfig.cs"
   },
+  "pinkrock": {
+    "id": "PinkRock",
+    "width": 1,
+    "height": 1,
+    "animation": "pinkrock_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PinkRockConfig.cs"
+  },
+  "pioneerlander": {
+    "id": "PioneerLander",
+    "width": 3,
+    "height": 3,
+    "animation": "rocket_pioneer_cargo_lander_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PioneerLanderConfig.cs"
+  },
   "pioneermodule": {
     "id": "PioneerModule",
     "width": 3,
@@ -2802,6 +3682,26 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "Front",
     "objectLayer": "Building",
     "source": "PioneerModuleConfig.cs"
+  },
+  "pixelpack": {
+    "id": "PixelPack",
+    "width": 4,
+    "height": 1,
+    "animation": "pixel_pack_kanim",
+    "sceneLayer": "InteriorWall",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Backwall",
+    "source": "PixelPackConfig.cs"
+  },
+  "planktoncoral": {
+    "id": "PlanktonCoral",
+    "width": 2,
+    "height": 2,
+    "animation": "parrotfish_coral_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PlanktonCoralConfig.cs"
   },
   "planterbox": {
     "id": "PlanterBox",
@@ -2823,6 +3723,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "PlasticTileConfig.cs"
   },
+  "poicerestechunlock": {
+    "id": "POICeresTechUnlock",
+    "width": 3,
+    "height": 3,
+    "animation": "research_unlock_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "POICeresTechUnlockConfig.cs"
+  },
   "poidlc2showroomdoor": {
     "id": "POIDlc2ShowroomDoor",
     "width": 2,
@@ -2832,6 +3742,36 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "InteriorWall",
     "objectLayer": "Building",
     "source": "POIDlc2ShowroomDoorConfig.cs"
+  },
+  "poidlc4techunlock": {
+    "id": "POIDlc4TechUnlock",
+    "width": 3,
+    "height": 3,
+    "animation": "research_unlock_dino_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "POIDlc4TechUnlockConfig.cs"
+  },
+  "poidlc5techunlock": {
+    "id": "POIDlc5TechUnlock",
+    "width": 3,
+    "height": 3,
+    "animation": "research_unlock_aquatic_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "POIDlc5TechUnlockConfig.cs"
+  },
+  "poidoorinternal": {
+    "id": "POIDoorInternal",
+    "width": 1,
+    "height": 2,
+    "animation": "door_poi_internal_kanim",
+    "sceneLayer": "TileMain",
+    "foregroundLayer": "InteriorWall",
+    "objectLayer": "Building",
+    "source": "POIDoorInternalConfig.cs"
   },
   "poifacilitydoor": {
     "id": "POIFacilityDoor",
@@ -2893,6 +3833,46 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "PressureDoorConfig.cs"
   },
+  "pressureswitchgas": {
+    "id": "PressureSwitchGas",
+    "width": 1,
+    "height": 1,
+    "animation": "switchgaspressure_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PressureSwitchGasConfig.cs"
+  },
+  "pressureswitchliquid": {
+    "id": "PressureSwitchLiquid",
+    "width": 1,
+    "height": 1,
+    "animation": "switchliquidpressure_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PressureSwitchLiquidConfig.cs"
+  },
+  "prickleflower": {
+    "id": "PrickleFlower",
+    "width": 1,
+    "height": 2,
+    "animation": "bristleblossom_kanim",
+    "sceneLayer": "BuildingFront",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PrickleFlowerConfig.cs"
+  },
+  "pricklegrass": {
+    "id": "PrickleGrass",
+    "width": 1,
+    "height": 1,
+    "animation": "bristlebriar_kanim",
+    "sceneLayer": "BuildingFront",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PrickleGrassConfig.cs"
+  },
   "propbeachchair": {
     "id": "PropBeachChair",
     "width": 2,
@@ -2902,6 +3882,346 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "Building",
     "source": "PropBeachChairConfig.cs"
+  },
+  "propceresposterlarge": {
+    "id": "PropCeresPosterLarge",
+    "width": 5,
+    "height": 7,
+    "animation": "poster_ceres_7x5_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropCeresPosterLargeConfig.cs"
+  },
+  "propclock": {
+    "id": "PropClock",
+    "width": 1,
+    "height": 1,
+    "animation": "clock_poi_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropClockConfig.cs"
+  },
+  "propdesk": {
+    "id": "PropDesk",
+    "width": 3,
+    "height": 2,
+    "animation": "setpiece_desk_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropDeskConfig.cs"
+  },
+  "propdlc2display1": {
+    "id": "PropDlc2Display1",
+    "width": 1,
+    "height": 3,
+    "animation": "gravitas_display_showroom_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropDlc2Display1Config.cs"
+  },
+  "propdlc2geothermalcart": {
+    "id": "PropDlc2GeothermalCart",
+    "width": 2,
+    "height": 3,
+    "animation": "gravitas_geothermal_cart_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropDlc2GeothermalCartConfig.cs"
+  },
+  "propelevator": {
+    "id": "PropElevator",
+    "width": 2,
+    "height": 3,
+    "animation": "gravitas_elevator_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropElevatorConfig.cs"
+  },
+  "propexosetlocker": {
+    "id": "PropExoSetLocker",
+    "width": 1,
+    "height": 2,
+    "animation": "zipper_locker_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "ProExoSetLockerConfig.cs"
+  },
+  "propexoshelflong": {
+    "id": "PropExoShelfLong",
+    "width": 3,
+    "height": 1,
+    "animation": "poi_shelf_long_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropExoShelfLongConfig.cs"
+  },
+  "propexoshelfshort": {
+    "id": "PropExoShelfShort",
+    "width": 1,
+    "height": 1,
+    "animation": "poi_shelf_short_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropExoShelfShortConfig.cs"
+  },
+  "propfacilitychair": {
+    "id": "PropFacilityChair",
+    "width": 2,
+    "height": 2,
+    "animation": "gravitas_chair_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropFacilityChairConfig.cs"
+  },
+  "propfacilitychairflip": {
+    "id": "PropFacilityChairFlip",
+    "width": 2,
+    "height": 2,
+    "animation": "gravitas_chairFlip_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropFacilityChairFlipConfig.cs"
+  },
+  "propfacilitychandelier": {
+    "id": "PropFacilityChandelier",
+    "width": 5,
+    "height": 7,
+    "animation": "gravitas_chandelier_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropFacilityChandelierConfig.cs"
+  },
+  "propfacilitycouch": {
+    "id": "PropFacilityCouch",
+    "width": 4,
+    "height": 2,
+    "animation": "gravitas_couch_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropFacilityCouchConfig.cs"
+  },
+  "propfacilitydesk": {
+    "id": "PropFacilityDesk",
+    "width": 4,
+    "height": 2,
+    "animation": "gravitas_desk_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropFacilityDeskConfig.cs"
+  },
+  "propfacilitydisplay3": {
+    "id": "PropFacilityDisplay3",
+    "width": 2,
+    "height": 2,
+    "animation": "gravitas_display3_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropFacilityDisplay3Config.cs"
+  },
+  "propfacilityglobedroors": {
+    "id": "PropFacilityGlobeDroors",
+    "width": 1,
+    "height": 3,
+    "animation": "gravitas_globe_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropFacilityGlobeDroorsConfig.cs"
+  },
+  "propfacilityhanginglight": {
+    "id": "PropFacilityHangingLight",
+    "width": 1,
+    "height": 4,
+    "animation": "gravitas_light_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropFacilityHangingLightConfig.cs"
+  },
+  "propfacilitypainting": {
+    "id": "PropFacilityPainting",
+    "width": 3,
+    "height": 2,
+    "animation": "gravitas_painting_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropFacilityPaintingConfig.cs"
+  },
+  "propfacilitystatue": {
+    "id": "PropFacilityStatue",
+    "width": 5,
+    "height": 9,
+    "animation": "gravitas_statue_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropFacilityStatueConfig.cs"
+  },
+  "propfacilitytable": {
+    "id": "PropFacilityTable",
+    "width": 4,
+    "height": 2,
+    "animation": "gravitas_table_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropFacilityTableConfig.cs"
+  },
+  "propfacilitywalldegree": {
+    "id": "PropFacilityWallDegree",
+    "width": 2,
+    "height": 2,
+    "animation": "gravitas_degree_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropFacilityWallDegreeConfig.cs"
+  },
+  "propgravitasceilingrobot": {
+    "id": "PropGravitasCeilingRobot",
+    "width": 2,
+    "height": 4,
+    "animation": "gravitas_ceiling_robot_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropGravitasCeilingRobotConfig.cs"
+  },
+  "propgravitascreatureposter": {
+    "id": "PropGravitasCreaturePoster",
+    "width": 2,
+    "height": 2,
+    "animation": "gravitas_poster_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropGravitasCreaturePosterConfig.cs"
+  },
+  "propgravitasdecorativewindow": {
+    "id": "PropGravitasDecorativeWindow",
+    "width": 2,
+    "height": 3,
+    "animation": "gravitas_top_window_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropGravitasDecorativeWindowConfig.cs"
+  },
+  "propgravitasdeskpodium": {
+    "id": "PropGravitasDeskPodium",
+    "width": 1,
+    "height": 2,
+    "animation": "gravitas_desk_podium_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropGravitasDeskPodiumConfig.cs"
+  },
+  "propgravitasdeskpodiumdlc4": {
+    "id": "PropGravitasDeskPodiumDLC4",
+    "width": 1,
+    "height": 2,
+    "animation": "gravitas_desk_podium_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropGravitasDeskPodiumDLC4Config.cs"
+  },
+  "propgravitasdeskpodiumgeothermalplant": {
+    "id": "PropGravitasDeskPodiumGeothermalPlant",
+    "width": 1,
+    "height": 2,
+    "animation": "gravitas_desk_podium_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropGravitasDeskPodiumGeothermalPlantConfig.cs"
+  },
+  "propgravitasdisplay4": {
+    "id": "PropGravitasDisplay4",
+    "width": 1,
+    "height": 3,
+    "animation": "gravitas_display4_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropGravitasDisplay4Config.cs"
+  },
+  "propgravitasfireextinguisher": {
+    "id": "PropGravitasFireExtinguisher",
+    "width": 1,
+    "height": 2,
+    "animation": "poi_fireextinguisher_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropGravitasFireExtinguisherConfig.cs"
+  },
+  "propgravitasfloorrobot": {
+    "id": "PropGravitasFloorRobot",
+    "width": 2,
+    "height": 3,
+    "animation": "gravitas_floor_robot_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropGravitasFloorRobotConfig.cs"
+  },
+  "propgravitashandscanner": {
+    "id": "PropGravitasHandScanner",
+    "width": 1,
+    "height": 1,
+    "animation": "gravitas_hand_scanner_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropGravitasHandScannerConfig.cs"
+  },
+  "propgravitasjar1": {
+    "id": "PropGravitasJar1",
+    "width": 1,
+    "height": 2,
+    "animation": "gravitas_jar1_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropGravitasJar1Config.cs"
+  },
+  "propgravitasjar2": {
+    "id": "PropGravitasJar2",
+    "width": 1,
+    "height": 1,
+    "animation": "gravitas_jar2_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropGravitasJar2Config.cs"
+  },
+  "propgravitaslabtable": {
+    "id": "PropGravitasLabTable",
+    "width": 3,
+    "height": 2,
+    "animation": "gravitas_lab_table_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropGravitasLabTableConfig.cs"
   },
   "propgravitaslabwall": {
     "id": "PropGravitasLabWall",
@@ -2933,6 +4253,56 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Backwall",
     "source": "PropGravitasLabWindowHorizontalConfig.cs"
   },
+  "propgravitasrobitctable": {
+    "id": "PropGravitasRobitcTable",
+    "width": 3,
+    "height": 3,
+    "animation": "gravitas_robotic_table_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropGravitasRoboticTableConfig.cs"
+  },
+  "propgravitasshelf": {
+    "id": "PropGravitasShelf",
+    "width": 2,
+    "height": 1,
+    "animation": "gravitas_shelf_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropGravitasShelfConfig.cs"
+  },
+  "propgravitassmallseedlocker": {
+    "id": "PropGravitasSmallSeedLocker",
+    "width": 1,
+    "height": 1,
+    "animation": "gravitas_medical_locker_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropGravitasSmallSeedLockerConfig.cs"
+  },
+  "propgravitastoolcrate": {
+    "id": "PropGravitasToolCrate",
+    "width": 1,
+    "height": 1,
+    "animation": "poi_1x1_crate_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropGravitasToolCrateConfig.cs"
+  },
+  "propgravitastoolshelf": {
+    "id": "PropGravitasToolShelf",
+    "width": 2,
+    "height": 2,
+    "animation": "poi_toolshelf_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropGravitasToolShelfConfig.cs"
+  },
   "propgravitaswall": {
     "id": "PropGravitasWall",
     "width": 1,
@@ -2962,6 +4332,126 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "Backwall",
     "source": "PropGravitasWallPurpleWhiteDiagonalConfig.cs"
+  },
+  "prophumanchesterfieldchair": {
+    "id": "PropHumanChesterfieldChair",
+    "width": 5,
+    "height": 2,
+    "animation": "poi_chair_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropHumanChesterfieldChairConfig.cs"
+  },
+  "prophumanchesterfieldsofa": {
+    "id": "PropHumanChesterfieldSofa",
+    "width": 3,
+    "height": 2,
+    "animation": "poi_couch_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropHumanChesterfieldSofaConfig.cs"
+  },
+  "prophumanmurphybed": {
+    "id": "PropHumanMurphyBed",
+    "width": 5,
+    "height": 4,
+    "animation": "poi_murphybed_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropHumanMurphyBedConfig.cs"
+  },
+  "propladder": {
+    "id": "PropLadder",
+    "width": 1,
+    "height": 1,
+    "animation": "ladder_poi_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "LadderPOIConfig.cs"
+  },
+  "proplight": {
+    "id": "PropLight",
+    "width": 1,
+    "height": 1,
+    "animation": "setpiece_light_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropLightConfig.cs"
+  },
+  "propreceptiondesk": {
+    "id": "PropReceptionDesk",
+    "width": 5,
+    "height": 3,
+    "animation": "gravitas_reception_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropReceptionDeskConfig.cs"
+  },
+  "propskeleton": {
+    "id": "PropSkeleton",
+    "width": 1,
+    "height": 2,
+    "animation": "skeleton_poi_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropSkeletonConfig.cs"
+  },
+  "propsurfacesatellite1": {
+    "id": "PropSurfaceSatellite1",
+    "width": 3,
+    "height": 3,
+    "animation": "satellite1_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropSurfaceSatellite1Config.cs"
+  },
+  "propsurfacesatellite2": {
+    "id": "PropSurfaceSatellite2",
+    "width": 4,
+    "height": 4,
+    "animation": "satellite2_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropSurfaceSatellite2Config.cs"
+  },
+  "propsurfacesatellite3": {
+    "id": "PropSurfaceSatellite3",
+    "width": 6,
+    "height": 6,
+    "animation": "satellite3_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropSurfaceSatellite3Config.cs"
+  },
+  "proptable": {
+    "id": "PropTable",
+    "width": 3,
+    "height": 1,
+    "animation": "table_breakroom_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropTableConfig.cs"
+  },
+  "proptallplant": {
+    "id": "PropTallPlant",
+    "width": 1,
+    "height": 3,
+    "animation": "gravitas_tall_plant_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "PropTallPlantConfig.cs"
   },
   "radiationlight": {
     "id": "RadiationLight",
@@ -3033,6 +4523,26 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "RefrigeratorConfig.cs"
   },
+  "remoteworkerdock": {
+    "id": "RemoteWorkerDock",
+    "width": 1,
+    "height": 2,
+    "animation": "remote_work_dock_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "RemoteWorkerDockConfig.cs"
+  },
+  "remoteworkterminal": {
+    "id": "RemoteWorkTerminal",
+    "width": 3,
+    "height": 3,
+    "animation": "remote_work_terminal_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "RemoteWorkTerminalConfig.cs"
+  },
   "researchcenter": {
     "id": "ResearchCenter",
     "width": 2,
@@ -3102,6 +4612,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "Building",
     "source": "RockCrusherConfig.cs"
+  },
+  "rocketcontrolstation": {
+    "id": "RocketControlStation",
+    "width": 2,
+    "height": 2,
+    "animation": "rocket_control_station_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "RocketControlStationConfig.cs"
   },
   "rocketenvelopewindowtile": {
     "id": "RocketEnvelopeWindowTile",
@@ -3273,6 +4793,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "RustDeoxidizerConfig.cs"
   },
+  "saltysticksplant": {
+    "id": "SaltySticksPlant",
+    "width": 1,
+    "height": 2,
+    "animation": "salty_sticks_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "SaltySticksPlantConfig.cs"
+  },
   "sauna": {
     "id": "Sauna",
     "width": 3,
@@ -3292,6 +4822,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "Building",
     "source": "ScannerModuleConfig.cs"
+  },
+  "scoutlander": {
+    "id": "ScoutLander",
+    "width": 3,
+    "height": 3,
+    "animation": "rocket_scout_cargo_lander_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "ScoutLanderConfig.cs"
   },
   "scoutmodule": {
     "id": "ScoutModule",
@@ -3313,6 +4853,36 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "SculptureConfig.cs"
   },
+  "sealettuce": {
+    "id": "SeaLettuce",
+    "width": 1,
+    "height": 2,
+    "animation": "sea_lettuce_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "SeaLettuceConfig.cs"
+  },
+  "seatree": {
+    "id": "SeaTree",
+    "width": 1,
+    "height": 2,
+    "animation": "sea_fairy_plant_kanim",
+    "sceneLayer": "BuildingFront",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "SeaTreeRootConfig.cs"
+  },
+  "setlocker": {
+    "id": "SetLocker",
+    "width": 1,
+    "height": 2,
+    "animation": "setpiece_locker_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "SetLockerConfig.cs"
+  },
   "shearingstation": {
     "id": "ShearingStation",
     "width": 3,
@@ -3332,6 +4902,26 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "Building",
     "source": "ShelfConfig.cs"
+  },
+  "shockworm": {
+    "id": "ShockWorm",
+    "width": 1,
+    "height": 2,
+    "animation": "shockworm_kanim",
+    "sceneLayer": "Creatures",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "ShockwormConfig.cs"
+  },
+  "shower": {
+    "id": "Shower",
+    "width": 2,
+    "height": 4,
+    "animation": "shower_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "ShowerConfig.cs"
   },
   "sludgepress": {
     "id": "SludgePress",
@@ -3543,6 +5133,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "SpaceHeaterConfig.cs"
   },
+  "spacetree": {
+    "id": "SpaceTree",
+    "width": 1,
+    "height": 2,
+    "animation": "syrup_tree_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "SpaceTreeConfig.cs"
+  },
   "specialcargobay": {
     "id": "SpecialCargoBay",
     "width": 5,
@@ -3572,6 +5172,36 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "Building",
     "source": "SpiceGrinderConfig.cs"
+  },
+  "staterpillargasconnector": {
+    "id": "StaterpillarGasConnector",
+    "width": 1,
+    "height": 2,
+    "animation": "egg_caterpillar_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "StaterpillarGasConnectorConfig.cs"
+  },
+  "staterpillargenerator": {
+    "id": "StaterpillarGenerator",
+    "width": 1,
+    "height": 2,
+    "animation": "egg_caterpillar_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "StaterpillarGeneratorConfig.cs"
+  },
+  "staterpillarliquidconnector": {
+    "id": "StaterpillarLiquidConnector",
+    "width": 1,
+    "height": 2,
+    "animation": "egg_caterpillar_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "StaterpillarLiquidConnectorConfig.cs"
   },
   "steamengine": {
     "id": "SteamEngine",
@@ -3713,6 +5343,46 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "SushiBarConfig.cs"
   },
+  "swampforageplantplanted": {
+    "id": "SwampForagePlantPlanted",
+    "width": 1,
+    "height": 2,
+    "animation": "swamptuber_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "SwampForagePlantPlantedConfig.cs"
+  },
+  "swampharvestplant": {
+    "id": "SwampHarvestPlant",
+    "width": 1,
+    "height": 2,
+    "animation": "swampcrop_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "SwampHarvestPlantConfig.cs"
+  },
+  "swamplily": {
+    "id": "SwampLily",
+    "width": 1,
+    "height": 2,
+    "animation": "swamplily_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "SwampLilyConfig.cs"
+  },
+  "sweepbot": {
+    "id": "SweepBot",
+    "width": 1,
+    "height": 1,
+    "animation": "sweep_bot_kanim",
+    "sceneLayer": "Creatures",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "SweepBotConfig.cs"
+  },
   "sweepbotstation": {
     "id": "SweepBotStation",
     "width": 2,
@@ -3722,6 +5392,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "Building",
     "source": "SweepBotStationConfig.cs"
+  },
+  "switch": {
+    "id": "Switch",
+    "width": 1,
+    "height": 1,
+    "animation": "switchpower_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "SwitchConfig.cs"
   },
   "telephone": {
     "id": "Telephone",
@@ -3753,6 +5433,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "TelescopeConfig.cs"
   },
+  "temperaturecontrolledswitch": {
+    "id": "TemperatureControlledSwitch",
+    "width": 1,
+    "height": 1,
+    "animation": "switchthermal_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "TemperatureControlledSwitchConfig.cs"
+  },
   "temporaltearopener": {
     "id": "TemporalTearOpener",
     "width": 3,
@@ -3782,6 +5472,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "Building",
     "source": "TileConfig.cs"
+  },
+  "tilepoi": {
+    "id": "TilePOI",
+    "width": 1,
+    "height": 1,
+    "animation": "floor_mesh_kanim",
+    "sceneLayer": "TileMain",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "TilePOIConfig.cs"
   },
   "touristmodule": {
     "id": "TouristModule",
@@ -3822,6 +5522,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "TileMain",
     "objectLayer": "Building",
     "source": "TravelTubeWallBridgeConfig.cs"
+  },
+  "tubeworm": {
+    "id": "TubeWorm",
+    "width": 1,
+    "height": 2,
+    "animation": "tube_worm_kanim",
+    "sceneLayer": "BuildingFront",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "TubeWormConfig.cs"
   },
   "underwaterbreathingstation": {
     "id": "UnderwaterBreathingStation",
@@ -3883,6 +5593,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "UnderwaterShearingStationConfig.cs"
   },
+  "underwatervent": {
+    "id": "UnderwaterVent",
+    "width": 4,
+    "height": 4,
+    "animation": "underwater_vent_kanim",
+    "sceneLayer": "BuildingBack",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "UnderwaterVentConfig.cs"
+  },
   "underwaterventdrill": {
     "id": "UnderwaterVentDrill",
     "width": 4,
@@ -3903,6 +5623,26 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "UraniumCentrifugeConfig.cs"
   },
+  "urchinplant": {
+    "id": "UrchinPlant",
+    "width": 2,
+    "height": 2,
+    "animation": "urchin_plant_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "UrchinPlantConfig.cs"
+  },
+  "vendingmachine": {
+    "id": "VendingMachine",
+    "width": 2,
+    "height": 3,
+    "animation": "vendingmachine_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "VendingMachineConfig.cs"
+  },
   "verticalwindtunnel": {
     "id": "VerticalWindTunnel",
     "width": 5,
@@ -3912,6 +5652,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingFront",
     "objectLayer": "Building",
     "source": "VerticalWindTunnelConfig.cs"
+  },
+  "vinemother": {
+    "id": "VineMother",
+    "width": 1,
+    "height": 2,
+    "animation": "vine_mother_kanim",
+    "sceneLayer": "BuildingFront",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "VineMotherConfig.cs"
   },
   "walltoilet": {
     "id": "WallToilet",
@@ -3943,6 +5693,26 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "WarpConduitSenderConfig.cs"
   },
+  "warpportal": {
+    "id": "WarpPortal",
+    "width": 3,
+    "height": 3,
+    "animation": "warp_portal_sender_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "WarpPortalConfig.cs"
+  },
+  "warpreceiver": {
+    "id": "WarpReceiver",
+    "width": 3,
+    "height": 3,
+    "animation": "warp_portal_receiver_kanim",
+    "sceneLayer": "Building",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "WarpReceiverConfig.cs"
+  },
   "washbasin": {
     "id": "WashBasin",
     "width": 2,
@@ -3973,6 +5743,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "objectLayer": "Building",
     "source": "WaterCoolerConfig.cs"
   },
+  "watercups": {
+    "id": "WaterCups",
+    "width": 1,
+    "height": 1,
+    "animation": "watercups_kanim",
+    "sceneLayer": "BuildingFront",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "WaterCupsPlantConfig.cs"
+  },
   "waterpurifier": {
     "id": "WaterPurifier",
     "width": 4,
@@ -4002,6 +5782,16 @@ export const ONI_BUILDING_DEFINITIONS: Record<string, OniBuildingDefinition> = {
     "foregroundLayer": "BuildingBack",
     "objectLayer": "Building",
     "source": "WideFarmTileConfig.cs"
+  },
+  "winecups": {
+    "id": "WineCups",
+    "width": 1,
+    "height": 1,
+    "animation": "potted_cups_kanim",
+    "sceneLayer": "BuildingFront",
+    "foregroundLayer": "BuildingFront",
+    "objectLayer": "Building",
+    "source": "WineCupsConfig.cs"
   },
   "woodendoor": {
     "id": "WoodenDoor",

@@ -7,7 +7,7 @@
     "pixelHeight": 683,
     "anchorOffsetXCells": -0.04943748474121094,
     "anchorOffsetYCells": -1.6364374351501465,
-    "source": "advanced_crafting_table_kanim"
+    "source": "advanced_crafting_table_kanim:working_loop"
   },
   "airborne_critter_bait": {
     "path": "/assets/buildings/sprites/airborne_critter_bait.png",
@@ -17,7 +17,7 @@
     "pixelHeight": 471,
     "anchorOffsetXCells": -0.015244171929662115,
     "anchorOffsetYCells": -0.9100807329313829,
-    "source": "airborne_critter_bait_kanim"
+    "source": "airborne_critter_bait_kanim:on"
   },
   "airbornecreaturetrap": {
     "path": "/assets/buildings/sprites/airbornecreaturetrap.png",
@@ -27,7 +27,7 @@
     "pixelHeight": 818,
     "anchorOffsetXCells": 0.09112500190771143,
     "anchorOffsetYCells": -1.9178811673376475,
-    "source": "airbornecreaturetrap_kanim"
+    "source": "airbornecreaturetrap_kanim:working_loop"
   },
   "airconditioner": {
     "path": "/assets/buildings/sprites/airconditioner.png",
@@ -37,7 +37,7 @@
     "pixelHeight": 515,
     "anchorOffsetXCells": 0.17815094862823116,
     "anchorOffsetYCells": -1.1045278657777453,
-    "source": "airconditioner_kanim"
+    "source": "airconditioner_kanim:working_loop"
   },
   "algae_distillery": {
     "path": "/assets/buildings/sprites/algae_distillery.png",
@@ -47,7 +47,7 @@
     "pixelHeight": 887,
     "anchorOffsetXCells": 0.01375,
     "anchorOffsetYCells": -1.8859375,
-    "source": "algae_distillery_kanim"
+    "source": "algae_distillery_kanim:working_loop"
   },
   "algaefarm": {
     "path": "/assets/buildings/sprites/algaefarm.png",
@@ -57,7 +57,7 @@
     "pixelHeight": 410,
     "anchorOffsetXCells": 0.004500000476837158,
     "anchorOffsetYCells": -0.8040074711870113,
-    "source": "algaefarm_kanim"
+    "source": "algaefarm_kanim:working_loop"
   },
   "apothecary": {
     "path": "/assets/buildings/sprites/apothecary.png",
@@ -67,7 +67,7 @@
     "pixelHeight": 672,
     "anchorOffsetXCells": -0.01899749755859375,
     "anchorOffsetYCells": -1.4109976768493653,
-    "source": "apothecary_kanim"
+    "source": "apothecary_kanim:working_loop"
   },
   "aquatic_brackene_fountain": {
     "path": "/assets/buildings/sprites/aquatic_brackene_fountain.png",
@@ -77,7 +77,7 @@
     "pixelHeight": 1255,
     "anchorOffsetXCells": -0.0023467481136322022,
     "anchorOffsetYCells": 1.004484577178955,
-    "source": "aquatic_brackene_fountain_kanim"
+    "source": "aquatic_brackene_fountain_kanim:working_pre"
   },
   "arcade_cabinet": {
     "path": "/assets/buildings/sprites/arcade_cabinet.png",
@@ -87,7 +87,17 @@
     "pixelHeight": 629,
     "anchorOffsetXCells": -0.012874969244003297,
     "anchorOffsetYCells": -1.3988124465942382,
-    "source": "arcade_cabinet_kanim"
+    "source": "arcade_cabinet_kanim:working_pre"
+  },
+  "armoury_locker": {
+    "path": "/assets/buildings/sprites/armoury_locker.png",
+    "widthCells": 1.1,
+    "heightCells": 2.295,
+    "pixelWidth": 224,
+    "pixelHeight": 463,
+    "anchorOffsetXCells": -0.000625,
+    "anchorOffsetYCells": -1.001875,
+    "source": "armoury_locker_kanim:working_loop"
   },
   "artifact_analysis": {
     "path": "/assets/buildings/sprites/artifact_analysis.png",
@@ -97,7 +107,17 @@
     "pixelHeight": 546,
     "anchorOffsetXCells": -0.05580537396142063,
     "anchorOffsetYCells": -1.2108122805729635,
-    "source": "artifact_analysis_kanim"
+    "source": "artifact_analysis_kanim:working_loop"
+  },
+  "artifact_transport_module": {
+    "path": "/assets/buildings/sprites/artifact_transport_module.png",
+    "widthCells": 3.18,
+    "heightCells": 1.325,
+    "pixelWidth": 640,
+    "pixelHeight": 269,
+    "anchorOffsetXCells": -0.007749999761581421,
+    "anchorOffsetYCells": -0.512124969959259,
+    "source": "artifact_transport_module_kanim:grounded"
   },
   "auto_miner": {
     "path": "/assets/buildings/sprites/auto_miner.png",
@@ -107,7 +127,7 @@
     "pixelHeight": 595,
     "anchorOffsetXCells": -0.0003750157356262207,
     "anchorOffsetYCells": -1.3520000076293945,
-    "source": "auto_miner_kanim"
+    "source": "auto_miner_kanim:on"
   },
   "backwall_planter_box": {
     "path": "/assets/buildings/sprites/backwall_planter_box.png",
@@ -117,7 +137,7 @@
     "pixelHeight": 422,
     "anchorOffsetXCells": 0.0007500000298023224,
     "anchorOffsetYCells": -1.0020000305771828,
-    "source": "backwall_planter_box_kanim"
+    "source": "backwall_planter_box_kanim:on"
   },
   "beach_chair": {
     "path": "/assets/buildings/sprites/beach_chair.png",
@@ -127,7 +147,7 @@
     "pixelHeight": 655,
     "anchorOffsetXCells": -0.00024997711181640625,
     "anchorOffsetYCells": -1.470062484741211,
-    "source": "beach_chair_kanim"
+    "source": "beach_chair_kanim:working_loop"
   },
   "beachchair_tattered": {
     "path": "/assets/buildings/sprites/beachchair_tattered.png",
@@ -137,7 +157,17 @@
     "pixelHeight": 643,
     "anchorOffsetXCells": -0.17533294677734376,
     "anchorOffsetYCells": -1.4666875457763673,
-    "source": "beachchair_tattered_kanim"
+    "source": "beachchair_tattered_kanim:working_loop"
+  },
+  "beanplant": {
+    "path": "/assets/buildings/sprites/beanplant.png",
+    "widthCells": 0.7605061316236259,
+    "heightCells": 0.9305842372252306,
+    "pixelWidth": 157,
+    "pixelHeight": 191,
+    "anchorOffsetXCells": 0.14300305246037254,
+    "anchorOffsetYCells": -0.36254211050638363,
+    "source": "beanplant_kanim:idle_empty"
   },
   "bed_medical": {
     "path": "/assets/buildings/sprites/bed_medical.png",
@@ -147,7 +177,7 @@
     "pixelHeight": 677,
     "anchorOffsetXCells": -0.15652611870005445,
     "anchorOffsetYCells": -1.4931114320954044,
-    "source": "bed_medical_kanim"
+    "source": "bed_medical_kanim:working_loop"
   },
   "bedlg": {
     "path": "/assets/buildings/sprites/bedlg.png",
@@ -157,7 +187,27 @@
     "pixelHeight": 424,
     "anchorOffsetXCells": 0.003000001907348633,
     "anchorOffsetYCells": -0.8910624694824218,
-    "source": "bedlg_kanim"
+    "source": "bedlg_kanim:working_loop"
+  },
+  "beehive": {
+    "path": "/assets/buildings/sprites/beehive.png",
+    "widthCells": 2.353374929428101,
+    "heightCells": 3.377999954223633,
+    "pixelWidth": 475,
+    "pixelHeight": 680,
+    "anchorOffsetXCells": -0.01906247615814209,
+    "anchorOffsetYCells": -1.4720624923706054,
+    "source": "beehive_kanim:working_loop"
+  },
+  "bluegrass": {
+    "path": "/assets/buildings/sprites/bluegrass.png",
+    "widthCells": 1.3452856432955236,
+    "heightCells": 1.1315857020718978,
+    "pixelWidth": 274,
+    "pixelHeight": 231,
+    "anchorOffsetXCells": 0.059750265230821074,
+    "anchorOffsetYCells": -0.4355283765145577,
+    "source": "bluegrass_kanim:idle_empty"
   },
   "boiler": {
     "path": "/assets/buildings/sprites/boiler.png",
@@ -167,7 +217,7 @@
     "pixelHeight": 320,
     "anchorOffsetXCells": -0.06063598469347923,
     "anchorOffsetYCells": -0.6314096479492854,
-    "source": "boiler_kanim"
+    "source": "boiler_kanim:working_loop"
   },
   "bottle_emptier_gas_conduit": {
     "path": "/assets/buildings/sprites/bottle_emptier_gas_conduit.png",
@@ -177,7 +227,7 @@
     "pixelHeight": 419,
     "anchorOffsetXCells": 0.0012500031944108513,
     "anchorOffsetYCells": -0.964610562011585,
-    "source": "bottle_emptier_gas_conduit_kanim"
+    "source": "bottle_emptier_gas_conduit_kanim:working_loop"
   },
   "bottle_emptier_liquid_conduit": {
     "path": "/assets/buildings/sprites/bottle_emptier_liquid_conduit.png",
@@ -187,7 +237,47 @@
     "pixelHeight": 454,
     "anchorOffsetXCells": 0.00434374988079071,
     "anchorOffsetYCells": -1.0035613458752732,
-    "source": "bottle_emptier_liquid_conduit_kanim"
+    "source": "bottle_emptier_liquid_conduit_kanim:working_loop"
+  },
+  "bristleblossom": {
+    "path": "/assets/buildings/sprites/bristleblossom.png",
+    "widthCells": 0.846965024137171,
+    "heightCells": 1.0550729849466507,
+    "pixelWidth": 174,
+    "pixelHeight": 216,
+    "anchorOffsetXCells": -0.03363327454135288,
+    "anchorOffsetYCells": -0.36334860373207223,
+    "source": "bristleblossom_kanim:idle_empty"
+  },
+  "bristlebriar": {
+    "path": "/assets/buildings/sprites/bristlebriar.png",
+    "widthCells": 1.8462589982667124,
+    "heightCells": 1.5684173608131824,
+    "pixelWidth": 374,
+    "pixelHeight": 318,
+    "anchorOffsetXCells": 0.06303424440920935,
+    "anchorOffsetYCells": -0.4221718682999199,
+    "source": "bristlebriar_kanim:idle"
+  },
+  "bulbloom": {
+    "path": "/assets/buildings/sprites/bulbloom.png",
+    "widthCells": 1.032963233125047,
+    "heightCells": 1.4221039870980894,
+    "pixelWidth": 211,
+    "pixelHeight": 289,
+    "anchorOffsetXCells": -0.004616537972760852,
+    "anchorOffsetYCells": -0.53442699355277,
+    "source": "bulbloom_kanim:idle"
+  },
+  "cactus": {
+    "path": "/assets/buildings/sprites/cactus.png",
+    "widthCells": 0.69,
+    "heightCells": 0.58,
+    "pixelWidth": 142,
+    "pixelHeight": 120,
+    "anchorOffsetXCells": 0.008914283514022826,
+    "anchorOffsetYCells": -0.22225000381469726,
+    "source": "cactus_kanim:idle_empty"
   },
   "campfire_small": {
     "path": "/assets/buildings/sprites/campfire_small.png",
@@ -197,7 +287,7 @@
     "pixelHeight": 488,
     "anchorOffsetXCells": -0.08437504768371581,
     "anchorOffsetYCells": -1.0992499923706054,
-    "source": "campfire_small_kanim"
+    "source": "campfire_small_kanim:working_loop"
   },
   "ceilinglight": {
     "path": "/assets/buildings/sprites/ceilinglight.png",
@@ -207,7 +297,7 @@
     "pixelHeight": 241,
     "anchorOffsetXCells": -0.006625007390975952,
     "anchorOffsetYCells": -0.5026845534396125,
-    "source": "ceilinglight_kanim"
+    "source": "ceilinglight_kanim:on"
   },
   "centrifuge": {
     "path": "/assets/buildings/sprites/centrifuge.png",
@@ -217,7 +307,7 @@
     "pixelHeight": 1144,
     "anchorOffsetXCells": 0.15313609554200242,
     "anchorOffsetYCells": -2.744430780844705,
-    "source": "centrifuge_kanim"
+    "source": "centrifuge_kanim:working_loop"
   },
   "changingarea": {
     "path": "/assets/buildings/sprites/changingarea.png",
@@ -227,7 +317,7 @@
     "pixelHeight": 665,
     "anchorOffsetXCells": -0.0005000019073486328,
     "anchorOffsetYCells": -1.451999969482422,
-    "source": "changingarea_kanim"
+    "source": "changingarea_kanim:working_loop"
   },
   "changingarea_arrow": {
     "path": "/assets/buildings/sprites/changingarea_arrow.png",
@@ -237,7 +327,7 @@
     "pixelHeight": 660,
     "anchorOffsetXCells": 0.014499998092651368,
     "anchorOffsetYCells": -1.430062484741211,
-    "source": "changingarea_arrow_kanim"
+    "source": "changingarea_arrow_kanim:working_loop"
   },
   "changingarea_jetsuit": {
     "path": "/assets/buildings/sprites/changingarea_jetsuit.png",
@@ -247,7 +337,7 @@
     "pixelHeight": 838,
     "anchorOffsetXCells": -0.003046855926513672,
     "anchorOffsetYCells": -1.9977812004089355,
-    "source": "changingarea_jetsuit_kanim"
+    "source": "changingarea_jetsuit_kanim:on"
   },
   "changingarea_jetsuit_arrow": {
     "path": "/assets/buildings/sprites/changingarea_jetsuit_arrow.png",
@@ -257,7 +347,7 @@
     "pixelHeight": 815,
     "anchorOffsetXCells": -0.20625001907348633,
     "anchorOffsetYCells": -1.9135000610351562,
-    "source": "changingarea_jetsuit_arrow_kanim"
+    "source": "changingarea_jetsuit_arrow_kanim:working_loop"
   },
   "changingarea_radiation": {
     "path": "/assets/buildings/sprites/changingarea_radiation.png",
@@ -267,7 +357,7 @@
     "pixelHeight": 802,
     "anchorOffsetXCells": -0.004455814978049659,
     "anchorOffsetYCells": -1.9264374923706056,
-    "source": "changingarea_radiation_kanim"
+    "source": "changingarea_radiation_kanim:on"
   },
   "changingarea_radiation_arrow": {
     "path": "/assets/buildings/sprites/changingarea_radiation_arrow.png",
@@ -277,7 +367,7 @@
     "pixelHeight": 802,
     "anchorOffsetXCells": 0.0015000128746032715,
     "anchorOffsetYCells": -1.9264374923706056,
-    "source": "changingarea_radiation_arrow_kanim"
+    "source": "changingarea_radiation_arrow_kanim:working_loop"
   },
   "checkpoint": {
     "path": "/assets/buildings/sprites/checkpoint.png",
@@ -287,7 +377,7 @@
     "pixelHeight": 652,
     "anchorOffsetXCells": 0.02993751525878906,
     "anchorOffsetYCells": -1.4652513054275187,
-    "source": "checkpoint_kanim"
+    "source": "checkpoint_kanim:off"
   },
   "chemistry_lab": {
     "path": "/assets/buildings/sprites/chemistry_lab.png",
@@ -297,7 +387,7 @@
     "pixelHeight": 659,
     "anchorOffsetXCells": -0.0012968969345092773,
     "anchorOffsetYCells": -1.5453434324264526,
-    "source": "chemistry_lab_kanim"
+    "source": "chemistry_lab_kanim:working_loop"
   },
   "chlorinator": {
     "path": "/assets/buildings/sprites/chlorinator.png",
@@ -307,7 +397,27 @@
     "pixelHeight": 591,
     "anchorOffsetXCells": -0.11104663280585556,
     "anchorOffsetYCells": -1.3330865004555654,
-    "source": "chlorinator_kanim"
+    "source": "chlorinator_kanim:working_loop"
+  },
+  "clam": {
+    "path": "/assets/buildings/sprites/clam.png",
+    "widthCells": 3.2043035022229014,
+    "heightCells": 3.165604343414307,
+    "pixelWidth": 645,
+    "pixelHeight": 638,
+    "anchorOffsetXCells": -0.05977678139061027,
+    "anchorOffsetYCells": -1.440677194595337,
+    "source": "clam_kanim:idle_empty"
+  },
+  "clock_poi": {
+    "path": "/assets/buildings/sprites/clock_poi.png",
+    "widthCells": 1.12,
+    "heightCells": 1.12,
+    "pixelWidth": 228,
+    "pixelHeight": 228,
+    "anchorOffsetXCells": -0.009249992370605468,
+    "anchorOffsetYCells": -0.51875,
+    "source": "clock_poi_kanim:off"
   },
   "clothingfactory": {
     "path": "/assets/buildings/sprites/clothingfactory.png",
@@ -317,7 +427,7 @@
     "pixelHeight": 667,
     "anchorOffsetXCells": -0.05548768352993647,
     "anchorOffsetYCells": -1.4413749694824218,
-    "source": "clothingfactory_kanim"
+    "source": "clothingfactory_kanim:working_loop"
   },
   "co2filter": {
     "path": "/assets/buildings/sprites/co2filter.png",
@@ -327,7 +437,7 @@
     "pixelHeight": 373,
     "anchorOffsetXCells": 0.13515446272007506,
     "anchorOffsetYCells": -0.7588446842830607,
-    "source": "co2filter_kanim"
+    "source": "co2filter_kanim:working_loop"
   },
   "co2scrubber": {
     "path": "/assets/buildings/sprites/co2scrubber.png",
@@ -337,7 +447,27 @@
     "pixelHeight": 509,
     "anchorOffsetXCells": -0.039950610878972836,
     "anchorOffsetYCells": -1.1759999942779542,
-    "source": "co2scrubber_kanim"
+    "source": "co2scrubber_kanim:working_loop"
+  },
+  "coldbreather": {
+    "path": "/assets/buildings/sprites/coldbreather.png",
+    "widthCells": 1.04823974609375,
+    "heightCells": 2.2332010755408587,
+    "pixelWidth": 214,
+    "pixelHeight": 451,
+    "anchorOffsetXCells": -0.022996354555943982,
+    "anchorOffsetYCells": -0.9437974179955215,
+    "source": "coldbreather_kanim:idle"
+  },
+  "coldwheat": {
+    "path": "/assets/buildings/sprites/coldwheat.png",
+    "widthCells": 1.075203341128132,
+    "heightCells": 0.9096874558849376,
+    "pixelWidth": 220,
+    "pixelHeight": 186,
+    "anchorOffsetXCells": 0.0438977686806146,
+    "anchorOffsetYCells": -0.17821730678752648,
+    "source": "coldwheat_kanim:idle_empty"
   },
   "compost": {
     "path": "/assets/buildings/sprites/compost.png",
@@ -347,7 +477,7 @@
     "pixelHeight": 470,
     "anchorOffsetXCells": -0.05300000190734863,
     "anchorOffsetYCells": -0.92375,
-    "source": "compost_kanim"
+    "source": "compost_kanim:working_loop"
   },
   "conduit_port_gas_loader": {
     "path": "/assets/buildings/sprites/conduit_port_gas_loader.png",
@@ -357,7 +487,7 @@
     "pixelHeight": 493,
     "anchorOffsetXCells": 0.017905311584472658,
     "anchorOffsetYCells": -1.1565625075995922,
-    "source": "conduit_port_gas_loader_kanim"
+    "source": "conduit_port_gas_loader_kanim:on"
   },
   "conduit_port_gas_unloader": {
     "path": "/assets/buildings/sprites/conduit_port_gas_unloader.png",
@@ -367,7 +497,7 @@
     "pixelHeight": 735,
     "anchorOffsetXCells": 0.017905311584472658,
     "anchorOffsetYCells": -1.761562545746565,
-    "source": "conduit_port_gas_unloader_kanim"
+    "source": "conduit_port_gas_unloader_kanim:on"
   },
   "conduit_port_liquid_loader": {
     "path": "/assets/buildings/sprites/conduit_port_liquid_loader.png",
@@ -377,7 +507,7 @@
     "pixelHeight": 453,
     "anchorOffsetXCells": 0.05571783065795898,
     "anchorOffsetYCells": -1.0568437270820141,
-    "source": "conduit_port_liquid_loader_kanim"
+    "source": "conduit_port_liquid_loader_kanim:on"
   },
   "conduit_port_liquid_unloader": {
     "path": "/assets/buildings/sprites/conduit_port_liquid_unloader.png",
@@ -387,7 +517,7 @@
     "pixelHeight": 657,
     "anchorOffsetXCells": 0.055847730636596676,
     "anchorOffsetYCells": -1.5683664397895336,
-    "source": "conduit_port_liquid_unloader_kanim"
+    "source": "conduit_port_liquid_unloader_kanim:on"
   },
   "conduit_port_solid_loader": {
     "path": "/assets/buildings/sprites/conduit_port_solid_loader.png",
@@ -397,7 +527,7 @@
     "pixelHeight": 470,
     "anchorOffsetXCells": 0.06760746955871583,
     "anchorOffsetYCells": -1.0988124924898148,
-    "source": "conduit_port_solid_loader_kanim"
+    "source": "conduit_port_solid_loader_kanim:on"
   },
   "conduit_port_solid_unloader": {
     "path": "/assets/buildings/sprites/conduit_port_solid_unloader.png",
@@ -407,7 +537,7 @@
     "pixelHeight": 630,
     "anchorOffsetXCells": 0.06760746955871583,
     "anchorOffsetYCells": -1.498812454342842,
-    "source": "conduit_port_solid_unloader_kanim"
+    "source": "conduit_port_solid_unloader_kanim:on"
   },
   "contactconductivepipebridge": {
     "path": "/assets/buildings/sprites/contactconductivepipebridge.png",
@@ -417,7 +547,7 @@
     "pixelHeight": 275,
     "anchorOffsetXCells": 0.01049999237060547,
     "anchorOffsetYCells": -0.5081872447342499,
-    "source": "contactconductivepipebridge_kanim"
+    "source": "contactconductivepipebridge_kanim:on"
   },
   "conveyer_dropper": {
     "path": "/assets/buildings/sprites/conveyer_dropper.png",
@@ -427,7 +557,7 @@
     "pixelHeight": 280,
     "anchorOffsetXCells": -0.009750000238418578,
     "anchorOffsetYCells": -0.41862499237060546,
-    "source": "conveyer_dropper_kanim"
+    "source": "conveyer_dropper_kanim:working_loop"
   },
   "conveyor_shutoff": {
     "path": "/assets/buildings/sprites/conveyor_shutoff.png",
@@ -437,7 +567,7 @@
     "pixelHeight": 451,
     "anchorOffsetXCells": 0.24771621506605931,
     "anchorOffsetYCells": -0.9892499828338623,
-    "source": "conveyor_shutoff_kanim"
+    "source": "conveyor_shutoff_kanim:on"
   },
   "conveyor_transferarm": {
     "path": "/assets/buildings/sprites/conveyor_transferarm.png",
@@ -447,7 +577,7 @@
     "pixelHeight": 429,
     "anchorOffsetXCells": 0.02387500762939453,
     "anchorOffsetYCells": -0.9103125333786011,
-    "source": "conveyor_transferarm_kanim"
+    "source": "conveyor_transferarm_kanim:on"
   },
   "conveyorin": {
     "path": "/assets/buildings/sprites/conveyorin.png",
@@ -457,7 +587,7 @@
     "pixelHeight": 470,
     "anchorOffsetXCells": -0.009299665351281874,
     "anchorOffsetYCells": -1.0329638074730463,
-    "source": "conveyorin_kanim"
+    "source": "conveyorin_kanim:working_loop"
   },
   "conveyorout": {
     "path": "/assets/buildings/sprites/conveyorout.png",
@@ -467,7 +597,7 @@
     "pixelHeight": 459,
     "anchorOffsetXCells": -0.014546135016098062,
     "anchorOffsetYCells": -0.9932771435215877,
-    "source": "conveyorout_kanim"
+    "source": "conveyorout_kanim:working_loop"
   },
   "cookstation": {
     "path": "/assets/buildings/sprites/cookstation.png",
@@ -477,7 +607,7 @@
     "pixelHeight": 452,
     "anchorOffsetXCells": -0.004874992370605469,
     "anchorOffsetYCells": -0.8436562053473091,
-    "source": "cookstation_kanim"
+    "source": "cookstation_kanim:working_loop"
   },
   "cookstation_gourmet": {
     "path": "/assets/buildings/sprites/cookstation_gourmet.png",
@@ -487,7 +617,7 @@
     "pixelHeight": 728,
     "anchorOffsetXCells": 0.25542257480847125,
     "anchorOffsetYCells": -1.4381638718493053,
-    "source": "cookstation_gourmet_kanim"
+    "source": "cookstation_gourmet_kanim:working_loop"
   },
   "craftingstation": {
     "path": "/assets/buildings/sprites/craftingstation.png",
@@ -497,7 +627,7 @@
     "pixelHeight": 533,
     "anchorOffsetXCells": -0.0024942802556120114,
     "anchorOffsetYCells": -0.8992551533208473,
-    "source": "craftingstation_kanim"
+    "source": "craftingstation_kanim:working_loop"
   },
   "creaturetrap": {
     "path": "/assets/buildings/sprites/creaturetrap.png",
@@ -507,7 +637,7 @@
     "pixelHeight": 376,
     "anchorOffsetXCells": 0.01574998617172241,
     "anchorOffsetYCells": -0.8625331256278014,
-    "source": "creaturetrap_kanim"
+    "source": "creaturetrap_kanim:working_loop"
   },
   "critter_condo": {
     "path": "/assets/buildings/sprites/critter_condo.png",
@@ -517,7 +647,7 @@
     "pixelHeight": 589,
     "anchorOffsetXCells": 0.01888062119542184,
     "anchorOffsetYCells": -1.2982145570658856,
-    "source": "critter_condo_kanim"
+    "source": "critter_condo_kanim:on"
   },
   "critter_condo_airborne": {
     "path": "/assets/buildings/sprites/critter_condo_airborne.png",
@@ -527,7 +657,7 @@
     "pixelHeight": 628,
     "anchorOffsetXCells": -0.014750046730041504,
     "anchorOffsetYCells": -1.5016250495612622,
-    "source": "critter_condo_airborne_kanim"
+    "source": "critter_condo_airborne_kanim:on"
   },
   "critter_milk_feeder": {
     "path": "/assets/buildings/sprites/critter_milk_feeder.png",
@@ -537,7 +667,7 @@
     "pixelHeight": 685,
     "anchorOffsetXCells": -0.07848304888144085,
     "anchorOffsetYCells": -1.5948857228159887,
-    "source": "critter_milk_feeder_kanim"
+    "source": "critter_milk_feeder_kanim:working_pre"
   },
   "critter_trap_air": {
     "path": "/assets/buildings/sprites/critter_trap_air.png",
@@ -547,7 +677,7 @@
     "pixelHeight": 315,
     "anchorOffsetXCells": -0.004250001907348633,
     "anchorOffsetYCells": -0.6511088988647679,
-    "source": "critter_trap_air_kanim"
+    "source": "critter_trap_air_kanim:working_loop"
   },
   "critter_trap_ground": {
     "path": "/assets/buildings/sprites/critter_trap_ground.png",
@@ -557,7 +687,7 @@
     "pixelHeight": 351,
     "anchorOffsetXCells": 0.02048967519082453,
     "anchorOffsetYCells": -0.8000513909142464,
-    "source": "critter_trap_ground_kanim"
+    "source": "critter_trap_ground_kanim:working_loop"
   },
   "critter_trap_water": {
     "path": "/assets/buildings/sprites/critter_trap_water.png",
@@ -567,7 +697,17 @@
     "pixelHeight": 401,
     "anchorOffsetXCells": 0.0003577880561351776,
     "anchorOffsetYCells": -1.2132500076293946,
-    "source": "critter_trap_water_kanim"
+    "source": "critter_trap_water_kanim:working_loop"
+  },
+  "cryo_chamber": {
+    "path": "/assets/buildings/sprites/cryo_chamber.png",
+    "widthCells": 2.4703524811565876,
+    "heightCells": 3.069326605051756,
+    "pixelWidth": 499,
+    "pixelHeight": 618,
+    "anchorOffsetXCells": 0.003749795619864926,
+    "anchorOffsetYCells": -1.4333532361593098,
+    "source": "cryo_chamber_kanim:working_loop"
   },
   "data_miner": {
     "path": "/assets/buildings/sprites/data_miner.png",
@@ -577,7 +717,7 @@
     "pixelHeight": 512,
     "anchorOffsetXCells": 0.06875009059906007,
     "anchorOffsetYCells": -1.1520625256523522,
-    "source": "data_miner_kanim"
+    "source": "data_miner_kanim:working_loop"
   },
   "decontamination_shower": {
     "path": "/assets/buildings/sprites/decontamination_shower.png",
@@ -587,7 +727,7 @@
     "pixelHeight": 936,
     "anchorOffsetXCells": 0.014912799838930369,
     "anchorOffsetYCells": -2.072750065326691,
-    "source": "decontamination_shower_kanim"
+    "source": "decontamination_shower_kanim:working_loop"
   },
   "deepfryer": {
     "path": "/assets/buildings/sprites/deepfryer.png",
@@ -597,7 +737,7 @@
     "pixelHeight": 443,
     "anchorOffsetXCells": 0.04168788784466258,
     "anchorOffsetYCells": -0.9590189396641836,
-    "source": "deepfryer_kanim"
+    "source": "deepfryer_kanim:working_loop"
   },
   "dehydrator": {
     "path": "/assets/buildings/sprites/dehydrator.png",
@@ -607,7 +747,7 @@
     "pixelHeight": 651,
     "anchorOffsetXCells": 0.04387505531311035,
     "anchorOffsetYCells": -1.4494216389720622,
-    "source": "dehydrator_kanim"
+    "source": "dehydrator_kanim:working_loop"
   },
   "desalinator": {
     "path": "/assets/buildings/sprites/desalinator.png",
@@ -617,7 +757,7 @@
     "pixelHeight": 665,
     "anchorOffsetXCells": -0.02033586243429454,
     "anchorOffsetYCells": -1.5174374771118164,
-    "source": "desalinator_kanim"
+    "source": "desalinator_kanim:working_loop"
   },
   "dev_generator": {
     "path": "/assets/buildings/sprites/dev_generator.png",
@@ -627,7 +767,7 @@
     "pixelHeight": 275,
     "anchorOffsetXCells": 0.01856250286102295,
     "anchorOffsetYCells": -0.47212499618530274,
-    "source": "dev_generator_kanim"
+    "source": "dev_generator_kanim:working_loop"
   },
   "dev_life_support": {
     "path": "/assets/buildings/sprites/dev_life_support.png",
@@ -637,7 +777,7 @@
     "pixelHeight": 311,
     "anchorOffsetXCells": -0.0017499732971191406,
     "anchorOffsetYCells": -0.5686968346348695,
-    "source": "dev_life_support_kanim"
+    "source": "dev_life_support_kanim:working_loop"
   },
   "dev_pump_gas": {
     "path": "/assets/buildings/sprites/dev_pump_gas.png",
@@ -647,7 +787,7 @@
     "pixelHeight": 489,
     "anchorOffsetXCells": -0.018995685577392576,
     "anchorOffsetYCells": -1.0070309829711914,
-    "source": "dev_pump_gas_kanim"
+    "source": "dev_pump_gas_kanim:working_loop"
   },
   "dev_pump_liquid": {
     "path": "/assets/buildings/sprites/dev_pump_liquid.png",
@@ -657,7 +797,7 @@
     "pixelHeight": 479,
     "anchorOffsetXCells": -0.0274346923828125,
     "anchorOffsetYCells": -0.9823907852172852,
-    "source": "dev_pump_liquid_kanim"
+    "source": "dev_pump_liquid_kanim:working_loop"
   },
   "dev_pump_solid": {
     "path": "/assets/buildings/sprites/dev_pump_solid.png",
@@ -667,7 +807,7 @@
     "pixelHeight": 473,
     "anchorOffsetXCells": 0.008125858306884766,
     "anchorOffsetYCells": -0.968921890258789,
-    "source": "dev_pump_solid_kanim"
+    "source": "dev_pump_solid_kanim:working_loop"
   },
   "dev_radbolt_generator": {
     "path": "/assets/buildings/sprites/dev_radbolt_generator.png",
@@ -677,7 +817,7 @@
     "pixelHeight": 375,
     "anchorOffsetXCells": 0.03547876127174973,
     "anchorOffsetYCells": -0.05554888645331588,
-    "source": "dev_radbolt_generator_kanim"
+    "source": "dev_radbolt_generator_kanim:working_loop"
   },
   "diamond_press": {
     "path": "/assets/buildings/sprites/diamond_press.png",
@@ -687,7 +827,7 @@
     "pixelHeight": 1050,
     "anchorOffsetXCells": 0.03856250047683716,
     "anchorOffsetYCells": -2.5131256866455076,
-    "source": "diamond_press_kanim"
+    "source": "diamond_press_kanim:working_loop"
   },
   "diningtable": {
     "path": "/assets/buildings/sprites/diningtable.png",
@@ -697,7 +837,17 @@
     "pixelHeight": 274,
     "anchorOffsetXCells": 0.015625,
     "anchorOffsetYCells": -0.52418750166893,
-    "source": "diningtable_kanim"
+    "source": "diningtable_kanim:off"
+  },
+  "discplant": {
+    "path": "/assets/buildings/sprites/discplant.png",
+    "widthCells": 0.667478458935031,
+    "heightCells": 1.2755604521673962,
+    "pixelWidth": 138,
+    "pixelHeight": 260,
+    "anchorOffsetXCells": 0.0028017294675154857,
+    "anchorOffsetYCells": -0.4133427031955145,
+    "source": "discplant_kanim:idle"
   },
   "door_bunker": {
     "path": "/assets/buildings/sprites/door_bunker.png",
@@ -707,7 +857,7 @@
     "pixelHeight": 277,
     "anchorOffsetXCells": 0.000625,
     "anchorOffsetYCells": -0.5112512054434046,
-    "source": "door_bunker_kanim"
+    "source": "door_bunker_kanim:closed"
   },
   "door_external": {
     "path": "/assets/buildings/sprites/door_external.png",
@@ -717,7 +867,7 @@
     "pixelHeight": 476,
     "anchorOffsetXCells": -0.009249984622001647,
     "anchorOffsetYCells": -1.0022500610351563,
-    "source": "door_external_kanim"
+    "source": "door_external_kanim:closed"
   },
   "door_facility": {
     "path": "/assets/buildings/sprites/door_facility.png",
@@ -727,7 +877,7 @@
     "pixelHeight": 660,
     "anchorOffsetXCells": -0.015,
     "anchorOffsetYCells": -1.4469374734163285,
-    "source": "door_facility_kanim"
+    "source": "door_facility_kanim:closed"
   },
   "door_insulated": {
     "path": "/assets/buildings/sprites/door_insulated.png",
@@ -737,7 +887,7 @@
     "pixelHeight": 462,
     "anchorOffsetXCells": -0.017375022172927856,
     "anchorOffsetYCells": -0.9986250305175781,
-    "source": "door_insulated_kanim"
+    "source": "door_insulated_kanim:closed"
   },
   "door_internal": {
     "path": "/assets/buildings/sprites/door_internal.png",
@@ -747,7 +897,7 @@
     "pixelHeight": 480,
     "anchorOffsetXCells": -0.012250015735626221,
     "anchorOffsetYCells": -0.9951249694824219,
-    "source": "door_internal_kanim"
+    "source": "door_internal_kanim:closed"
   },
   "door_manual": {
     "path": "/assets/buildings/sprites/door_manual.png",
@@ -757,7 +907,7 @@
     "pixelHeight": 495,
     "anchorOffsetXCells": -0.01899999558925629,
     "anchorOffsetYCells": -1.050854811668396,
-    "source": "door_manual_kanim"
+    "source": "door_manual_kanim:closed"
   },
   "door_poi": {
     "path": "/assets/buildings/sprites/door_poi.png",
@@ -767,7 +917,7 @@
     "pixelHeight": 472,
     "anchorOffsetXCells": 0.035392012911179334,
     "anchorOffsetYCells": -0.9961250305175782,
-    "source": "door_poi_kanim"
+    "source": "door_poi_kanim:working_loop"
   },
   "door_poi_internal": {
     "path": "/assets/buildings/sprites/door_poi_internal.png",
@@ -777,7 +927,37 @@
     "pixelHeight": 472,
     "anchorOffsetXCells": -0.006625015735626221,
     "anchorOffsetYCells": -0.9961250305175782,
-    "source": "door_poi_internal_kanim"
+    "source": "door_poi_internal_kanim:closed"
+  },
+  "door_poi_internal__closed": {
+    "path": "/assets/buildings/sprites/door_poi_internal__closed.png",
+    "widthCells": 1.26,
+    "heightCells": 2.34,
+    "pixelWidth": 256,
+    "pixelHeight": 472,
+    "anchorOffsetXCells": -0.006625015735626221,
+    "anchorOffsetYCells": -0.9961250305175782,
+    "source": "door_poi_internal_kanim:closed"
+  },
+  "door_poi_internal__locked": {
+    "path": "/assets/buildings/sprites/door_poi_internal__locked.png",
+    "widthCells": 1.44716227883182,
+    "heightCells": 2.34,
+    "pixelWidth": 294,
+    "pixelHeight": 472,
+    "anchorOffsetXCells": 0.06258115467469906,
+    "anchorOffsetYCells": -0.9961250305175782,
+    "source": "door_poi_internal_kanim:locked"
+  },
+  "door_poi_internal__open": {
+    "path": "/assets/buildings/sprites/door_poi_internal__open.png",
+    "widthCells": 1.26,
+    "heightCells": 2.34,
+    "pixelWidth": 256,
+    "pixelHeight": 472,
+    "anchorOffsetXCells": -0.006625015735626221,
+    "anchorOffsetYCells": -0.9961250305175782,
+    "source": "door_poi_internal_kanim:open"
   },
   "door_wood": {
     "path": "/assets/buildings/sprites/door_wood.png",
@@ -787,7 +967,7 @@
     "pixelHeight": 488,
     "anchorOffsetXCells": -0.021508629322052,
     "anchorOffsetYCells": -1.0548590087890626,
-    "source": "door_wood_kanim"
+    "source": "door_wood_kanim:closed"
   },
   "egg_cracker": {
     "path": "/assets/buildings/sprites/egg_cracker.png",
@@ -797,7 +977,7 @@
     "pixelHeight": 449,
     "anchorOffsetXCells": 0.008124969601631164,
     "anchorOffsetYCells": -0.9582672381401062,
-    "source": "egg_cracker_kanim"
+    "source": "egg_cracker_kanim:working_loop"
   },
   "electricianworkdesk": {
     "path": "/assets/buildings/sprites/electricianworkdesk.png",
@@ -807,7 +987,7 @@
     "pixelHeight": 841,
     "anchorOffsetXCells": 0.014284941554069518,
     "anchorOffsetYCells": -1.8865691893300935,
-    "source": "electricianworkdesk_kanim"
+    "source": "electricianworkdesk_kanim:working_loop"
   },
   "electrobank_charger_small": {
     "path": "/assets/buildings/sprites/electrobank_charger_small.png",
@@ -817,7 +997,7 @@
     "pixelHeight": 501,
     "anchorOffsetXCells": -0.10110358416247038,
     "anchorOffsetYCells": -1.1166471913387728,
-    "source": "electrobank_charger_small_kanim"
+    "source": "electrobank_charger_small_kanim:working_loop"
   },
   "electrobank_discharger_large": {
     "path": "/assets/buildings/sprites/electrobank_discharger_large.png",
@@ -827,7 +1007,7 @@
     "pixelHeight": 474,
     "anchorOffsetXCells": 0.06490625381469727,
     "anchorOffsetYCells": -1.120250015258789,
-    "source": "electrobank_discharger_large_kanim"
+    "source": "electrobank_discharger_large_kanim:working_loop"
   },
   "electrobank_discharger_small": {
     "path": "/assets/buildings/sprites/electrobank_discharger_small.png",
@@ -837,7 +1017,7 @@
     "pixelHeight": 296,
     "anchorOffsetXCells": -0.041874971389770504,
     "anchorOffsetYCells": -0.610579993724823,
-    "source": "electrobank_discharger_small_kanim"
+    "source": "electrobank_discharger_small_kanim:working_loop"
   },
   "electrolyzer": {
     "path": "/assets/buildings/sprites/electrolyzer.png",
@@ -847,7 +1027,7 @@
     "pixelHeight": 551,
     "anchorOffsetXCells": 0.051624741382356946,
     "anchorOffsetYCells": -1.2237499713897706,
-    "source": "electrolyzer_kanim"
+    "source": "electrolyzer_kanim:working_loop"
   },
   "elegantbed": {
     "path": "/assets/buildings/sprites/elegantbed.png",
@@ -857,7 +1037,7 @@
     "pixelHeight": 454,
     "anchorOffsetXCells": -0.0062499380111694335,
     "anchorOffsetYCells": -0.9033749675750733,
-    "source": "elegantbed_kanim"
+    "source": "elegantbed_kanim:working_loop"
   },
   "enrichmentcentrifuge": {
     "path": "/assets/buildings/sprites/enrichmentcentrifuge.png",
@@ -867,7 +1047,17 @@
     "pixelHeight": 833,
     "anchorOffsetXCells": 0.10449997305870057,
     "anchorOffsetYCells": -1.992793035507202,
-    "source": "enrichmentcentrifuge_kanim"
+    "source": "enrichmentcentrifuge_kanim:working_loop"
+  },
+  "escape_pod": {
+    "path": "/assets/buildings/sprites/escape_pod.png",
+    "widthCells": 2.12,
+    "heightCells": 2.565,
+    "pixelWidth": 428,
+    "pixelHeight": 517,
+    "anchorOffsetXCells": -0.0017500001192092896,
+    "anchorOffsetYCells": -1.0330000305175782,
+    "source": "escape_pod_kanim:grounded"
   },
   "espresso_machine": {
     "path": "/assets/buildings/sprites/espresso_machine.png",
@@ -877,7 +1067,7 @@
     "pixelHeight": 661,
     "anchorOffsetXCells": -0.015249999761581421,
     "anchorOffsetYCells": -1.5852500343322753,
-    "source": "espresso_machine_kanim"
+    "source": "espresso_machine_kanim:working_loop"
   },
   "ethanoldistillery": {
     "path": "/assets/buildings/sprites/ethanoldistillery.png",
@@ -887,7 +1077,7 @@
     "pixelHeight": 760,
     "anchorOffsetXCells": 0.16737499237060546,
     "anchorOffsetYCells": -1.2961250114440919,
-    "source": "ethanoldistillery_kanim"
+    "source": "ethanoldistillery_kanim:working_loop"
   },
   "fabricator_generic": {
     "path": "/assets/buildings/sprites/fabricator_generic.png",
@@ -897,7 +1087,7 @@
     "pixelHeight": 665,
     "anchorOffsetXCells": -0.05662500381469727,
     "anchorOffsetYCells": -1.4351108008017763,
-    "source": "fabricator_generic_kanim"
+    "source": "fabricator_generic_kanim:working_loop"
   },
   "fanice": {
     "path": "/assets/buildings/sprites/fanice.png",
@@ -907,7 +1097,7 @@
     "pixelHeight": 439,
     "anchorOffsetXCells": 0.10164999384116875,
     "anchorOffsetYCells": -0.974992451044655,
-    "source": "fanice_kanim"
+    "source": "fanice_kanim:working_loop"
   },
   "fanliquid": {
     "path": "/assets/buildings/sprites/fanliquid.png",
@@ -917,7 +1107,7 @@
     "pixelHeight": 441,
     "anchorOffsetXCells": 0.005663432121835612,
     "anchorOffsetYCells": -0.9319374799728394,
-    "source": "fanliquid_kanim"
+    "source": "fanliquid_kanim:working_loop"
   },
   "farmtile_wide": {
     "path": "/assets/buildings/sprites/farmtile_wide.png",
@@ -927,7 +1117,7 @@
     "pixelHeight": 238,
     "anchorOffsetXCells": 0.00899993896484375,
     "anchorOffsetYCells": -0.481875,
-    "source": "farmtile_wide_kanim"
+    "source": "farmtile_wide_kanim:on"
   },
   "farmtilehydroponicrotating": {
     "path": "/assets/buildings/sprites/farmtilehydroponicrotating.png",
@@ -937,7 +1127,7 @@
     "pixelHeight": 252,
     "anchorOffsetXCells": 0.01,
     "anchorOffsetYCells": -0.49650001525878906,
-    "source": "farmtilehydroponicrotating_kanim"
+    "source": "farmtilehydroponicrotating_kanim:on"
   },
   "farmtilerotating": {
     "path": "/assets/buildings/sprites/farmtilerotating.png",
@@ -947,7 +1137,17 @@
     "pixelHeight": 252,
     "anchorOffsetXCells": 0.01,
     "anchorOffsetYCells": -0.49650001525878906,
-    "source": "farmtilerotating_kanim"
+    "source": "farmtilerotating_kanim:on"
+  },
+  "fatplant": {
+    "path": "/assets/buildings/sprites/fatplant.png",
+    "widthCells": 1.29,
+    "heightCells": 1.765,
+    "pixelWidth": 262,
+    "pixelHeight": 357,
+    "anchorOffsetXCells": 0.041269470453262326,
+    "anchorOffsetYCells": -0.7426250600814819,
+    "source": "fatplant_kanim:idle"
   },
   "feeder": {
     "path": "/assets/buildings/sprites/feeder.png",
@@ -957,7 +1157,7 @@
     "pixelHeight": 511,
     "anchorOffsetXCells": -0.01344034492969513,
     "anchorOffsetYCells": -1.1566698090379395,
-    "source": "feeder_kanim"
+    "source": "feeder_kanim:on"
   },
   "fertilizer_maker": {
     "path": "/assets/buildings/sprites/fertilizer_maker.png",
@@ -967,7 +1167,7 @@
     "pixelHeight": 663,
     "anchorOffsetXCells": 0.09604777155967895,
     "anchorOffsetYCells": -1.433437442779541,
-    "source": "fertilizer_maker_kanim"
+    "source": "fertilizer_maker_kanim:working_loop"
   },
   "filter_gas": {
     "path": "/assets/buildings/sprites/filter_gas.png",
@@ -977,7 +1177,7 @@
     "pixelHeight": 308,
     "anchorOffsetXCells": 0.0005192617771912467,
     "anchorOffsetYCells": -0.6328725242614746,
-    "source": "filter_gas_kanim"
+    "source": "filter_gas_kanim:working_loop"
   },
   "filter_liquid": {
     "path": "/assets/buildings/sprites/filter_liquid.png",
@@ -987,7 +1187,7 @@
     "pixelHeight": 283,
     "anchorOffsetXCells": 0.06105940615030704,
     "anchorOffsetYCells": -0.4715000152584207,
-    "source": "filter_liquid_kanim"
+    "source": "filter_liquid_kanim:working_loop"
   },
   "filter_material_conveyor": {
     "path": "/assets/buildings/sprites/filter_material_conveyor.png",
@@ -997,7 +1197,7 @@
     "pixelHeight": 333,
     "anchorOffsetXCells": -0.0015000152587890626,
     "anchorOffsetYCells": -0.48300568857230247,
-    "source": "filter_material_conveyor_kanim"
+    "source": "filter_material_conveyor_kanim:working_loop"
   },
   "firepole": {
     "path": "/assets/buildings/sprites/firepole.png",
@@ -1007,7 +1207,7 @@
     "pixelHeight": 436,
     "anchorOffsetXCells": 0.003000015318393707,
     "anchorOffsetYCells": -0.9799999809265136,
-    "source": "firepole_kanim"
+    "source": "firepole_kanim:off"
   },
   "fishfeeder": {
     "path": "/assets/buildings/sprites/fishfeeder.png",
@@ -1017,7 +1217,27 @@
     "pixelHeight": 682,
     "anchorOffsetXCells": -0.02071873426437378,
     "anchorOffsetYCells": -1.5953125190734863,
-    "source": "fishfeeder_kanim"
+    "source": "fishfeeder_kanim:working_loop"
+  },
+  "fishrelocator": {
+    "path": "/assets/buildings/sprites/fishrelocator.png",
+    "widthCells": 1.335,
+    "heightCells": 3.863545719278163,
+    "pixelWidth": 271,
+    "pixelHeight": 777,
+    "anchorOffsetXCells": 0.002625060975551605,
+    "anchorOffsetYCells": -0.8480853634537788,
+    "source": "fishrelocator_kanim:on_1"
+  },
+  "fishrelocator2": {
+    "path": "/assets/buildings/sprites/fishrelocator2.png",
+    "widthCells": 1.335,
+    "heightCells": 3.8632957230928606,
+    "pixelWidth": 271,
+    "pixelHeight": 777,
+    "anchorOffsetXCells": 0.002625060975551605,
+    "anchorOffsetYCells": -0.8482103615464303,
+    "source": "fishrelocator2_kanim:on_1"
   },
   "fishtrap": {
     "path": "/assets/buildings/sprites/fishtrap.png",
@@ -1027,7 +1247,7 @@
     "pixelHeight": 336,
     "anchorOffsetXCells": 0.0006249845027923584,
     "anchorOffsetYCells": -1.6043125295639038,
-    "source": "fishtrap_kanim"
+    "source": "fishtrap_kanim:working_loop"
   },
   "floorlamp": {
     "path": "/assets/buildings/sprites/floorlamp.png",
@@ -1037,7 +1257,7 @@
     "pixelHeight": 488,
     "anchorOffsetXCells": -0.02610759847040754,
     "anchorOffsetYCells": -1.0346167513218825,
-    "source": "floorlamp_kanim"
+    "source": "floorlamp_kanim:on"
   },
   "flowervase": {
     "path": "/assets/buildings/sprites/flowervase.png",
@@ -1047,7 +1267,7 @@
     "pixelHeight": 274,
     "anchorOffsetXCells": 0.0016250157356262208,
     "anchorOffsetYCells": -0.49381251335144044,
-    "source": "flowervase_kanim"
+    "source": "flowervase_kanim:on"
   },
   "flowervase_hanging": {
     "path": "/assets/buildings/sprites/flowervase_hanging.png",
@@ -1057,7 +1277,7 @@
     "pixelHeight": 468,
     "anchorOffsetXCells": 0.006000000238418579,
     "anchorOffsetYCells": -1.050124969482422,
-    "source": "flowervase_hanging_kanim"
+    "source": "flowervase_hanging_kanim:on"
   },
   "flowervase_hanging_basic": {
     "path": "/assets/buildings/sprites/flowervase_hanging_basic.png",
@@ -1067,7 +1287,7 @@
     "pixelHeight": 467,
     "anchorOffsetXCells": -0.007749999761581421,
     "anchorOffsetYCells": -1.042249984741211,
-    "source": "flowervase_hanging_basic_kanim"
+    "source": "flowervase_hanging_basic_kanim:on"
   },
   "flowervase_wall": {
     "path": "/assets/buildings/sprites/flowervase_wall.png",
@@ -1077,7 +1297,27 @@
     "pixelHeight": 224,
     "anchorOffsetXCells": 0.0006250154972076416,
     "anchorOffsetYCells": -0.4937184524536133,
-    "source": "flowervase_wall_kanim"
+    "source": "flowervase_wall_kanim:off"
+  },
+  "fossil_bits": {
+    "path": "/assets/buildings/sprites/fossil_bits.png",
+    "widthCells": 1.81,
+    "heightCells": 2.015,
+    "pixelWidth": 366,
+    "pixelHeight": 407,
+    "anchorOffsetXCells": 0.04629687502980232,
+    "anchorOffsetYCells": -0.9167184753715992,
+    "source": "fossil_bits_kanim:object"
+  },
+  "fossil_bits1x2": {
+    "path": "/assets/buildings/sprites/fossil_bits1x2.png",
+    "widthCells": 1.15,
+    "heightCells": 2.145,
+    "pixelWidth": 234,
+    "pixelHeight": 433,
+    "anchorOffsetXCells": 0.0038124847412109373,
+    "anchorOffsetYCells": -0.98977294921875,
+    "source": "fossil_bits1x2_kanim:object"
   },
   "fossil_dig": {
     "path": "/assets/buildings/sprites/fossil_dig.png",
@@ -1087,7 +1327,27 @@
     "pixelHeight": 659,
     "anchorOffsetXCells": 0.041781320571899414,
     "anchorOffsetYCells": -1.5016614102463381,
-    "source": "fossil_dig_kanim"
+    "source": "fossil_dig_kanim:working_loop"
+  },
+  "fossilsculpture": {
+    "path": "/assets/buildings/sprites/fossilsculpture.png",
+    "widthCells": 3.37,
+    "heightCells": 3.214625110626221,
+    "pixelWidth": 678,
+    "pixelHeight": 647,
+    "anchorOffsetXCells": 0.10587493896484375,
+    "anchorOffsetYCells": -1.4565625667572022,
+    "source": "fossilsculpture_kanim:slab"
+  },
+  "fossilsculpture_hanging": {
+    "path": "/assets/buildings/sprites/fossilsculpture_hanging.png",
+    "widthCells": 3.430375061035156,
+    "heightCells": 2.285500087738037,
+    "pixelWidth": 691,
+    "pixelHeight": 462,
+    "anchorOffsetXCells": 0.17581253051757811,
+    "anchorOffsetYCells": -0.8872500133514404,
+    "source": "fossilsculpture_hanging_kanim:slab"
   },
   "freezerator": {
     "path": "/assets/buildings/sprites/freezerator.png",
@@ -1097,7 +1357,7 @@
     "pixelHeight": 673,
     "anchorOffsetXCells": 0.018027704930813328,
     "anchorOffsetYCells": -1.6088417040332001,
-    "source": "freezerator_kanim"
+    "source": "freezerator_kanim:working_loop"
   },
   "fridge": {
     "path": "/assets/buildings/sprites/fridge.png",
@@ -1107,7 +1367,17 @@
     "pixelHeight": 561,
     "anchorOffsetXCells": 0.04481946775602353,
     "anchorOffsetYCells": -1.168575267738866,
-    "source": "fridge_kanim"
+    "source": "fridge_kanim:on"
+  },
+  "fungusplant": {
+    "path": "/assets/buildings/sprites/fungusplant.png",
+    "widthCells": 0.8282818774878978,
+    "heightCells": 0.8885809175245805,
+    "pixelWidth": 170,
+    "pixelHeight": 182,
+    "anchorOffsetXCells": 0.10582426630309782,
+    "anchorOffsetYCells": -0.34551503989633064,
+    "source": "fungusplant_kanim:idle_empty"
   },
   "gantry": {
     "path": "/assets/buildings/sprites/gantry.png",
@@ -1117,7 +1387,7 @@
     "pixelHeight": 472,
     "anchorOffsetXCells": -0.048250045776367184,
     "anchorOffsetYCells": -1.0065937614440919,
-    "source": "gantry_kanim"
+    "source": "gantry_kanim:on"
   },
   "gas_bottler": {
     "path": "/assets/buildings/sprites/gas_bottler.png",
@@ -1127,7 +1397,7 @@
     "pixelHeight": 478,
     "anchorOffsetXCells": -0.06459144592285156,
     "anchorOffsetYCells": -1.023187484741211,
-    "source": "gas_bottler_kanim"
+    "source": "gas_bottler_kanim:on"
   },
   "gas_emptying_station": {
     "path": "/assets/buildings/sprites/gas_emptying_station.png",
@@ -1137,7 +1407,7 @@
     "pixelHeight": 751,
     "anchorOffsetXCells": -0.0062497520446777345,
     "anchorOffsetYCells": -1.8397517321109627,
-    "source": "gas_emptying_station_kanim"
+    "source": "gas_emptying_station_kanim:working_loop"
   },
   "gasstorage": {
     "path": "/assets/buildings/sprites/gasstorage.png",
@@ -1147,7 +1417,17 @@
     "pixelHeight": 621,
     "anchorOffsetXCells": 0.0015001821517944337,
     "anchorOffsetYCells": -1.5193437004089356,
-    "source": "gasstorage_kanim"
+    "source": "gasstorage_kanim:on"
+  },
+  "gassygrass": {
+    "path": "/assets/buildings/sprites/gassygrass.png",
+    "widthCells": 0.555,
+    "heightCells": 0.45000003814697265,
+    "pixelWidth": 115,
+    "pixelHeight": 95,
+    "anchorOffsetXCells": 0.026250003576278685,
+    "anchorOffsetYCells": -0.18118743896484374,
+    "source": "gassygrass_kanim:idle_empty"
   },
   "generatormanual": {
     "path": "/assets/buildings/sprites/generatormanual.png",
@@ -1157,7 +1437,7 @@
     "pixelHeight": 447,
     "anchorOffsetXCells": 0.02188505751960868,
     "anchorOffsetYCells": -1.0172135324896328,
-    "source": "generatormanual_kanim"
+    "source": "generatormanual_kanim:working_loop"
   },
   "generatormerc": {
     "path": "/assets/buildings/sprites/generatormerc.png",
@@ -1167,7 +1447,7 @@
     "pixelHeight": 547,
     "anchorOffsetXCells": 0.022805771810156444,
     "anchorOffsetYCells": -1.1964428291558813,
-    "source": "generatormerc_kanim"
+    "source": "generatormerc_kanim:working_loop"
   },
   "generatormethane": {
     "path": "/assets/buildings/sprites/generatormethane.png",
@@ -1177,7 +1457,7 @@
     "pixelHeight": 665,
     "anchorOffsetXCells": 0.05390523237806832,
     "anchorOffsetYCells": -1.493974154791358,
-    "source": "generatormethane_kanim"
+    "source": "generatormethane_kanim:working_loop"
   },
   "generatornuclear": {
     "path": "/assets/buildings/sprites/generatornuclear.png",
@@ -1187,7 +1467,7 @@
     "pixelHeight": 1400,
     "anchorOffsetXCells": 0.13490220665931701,
     "anchorOffsetYCells": -3.3415001106262205,
-    "source": "generatornuclear_kanim"
+    "source": "generatornuclear_kanim:working_loop"
   },
   "generatorpeat": {
     "path": "/assets/buildings/sprites/generatorpeat.png",
@@ -1197,7 +1477,7 @@
     "pixelHeight": 623,
     "anchorOffsetXCells": 0.327098232945483,
     "anchorOffsetYCells": -1.2342550823251646,
-    "source": "generatorpeat_kanim"
+    "source": "generatorpeat_kanim:working_loop"
   },
   "generatorpetrol": {
     "path": "/assets/buildings/sprites/generatorpetrol.png",
@@ -1207,7 +1487,7 @@
     "pixelHeight": 848,
     "anchorOffsetXCells": -0.060671882628956834,
     "anchorOffsetYCells": -1.8959609842300416,
-    "source": "generatorpetrol_kanim"
+    "source": "generatorpetrol_kanim:working_loop"
   },
   "generatorphos": {
     "path": "/assets/buildings/sprites/generatorphos.png",
@@ -1217,7 +1497,7 @@
     "pixelHeight": 653,
     "anchorOffsetXCells": 0.13041811664258432,
     "anchorOffsetYCells": -1.3912017416031375,
-    "source": "generatorphos_kanim"
+    "source": "generatorphos_kanim:working_loop"
   },
   "generatorwood": {
     "path": "/assets/buildings/sprites/generatorwood.png",
@@ -1227,7 +1507,17 @@
     "pixelHeight": 656,
     "anchorOffsetXCells": -0.3453012300859908,
     "anchorOffsetYCells": -1.546376211952188,
-    "source": "generatorwood_kanim"
+    "source": "generatorwood_kanim:working_loop"
+  },
+  "geneshuffler": {
+    "path": "/assets/buildings/sprites/geneshuffler.png",
+    "widthCells": 4.2,
+    "heightCells": 3.356085089560486,
+    "pixelWidth": 844,
+    "pixelHeight": 676,
+    "anchorOffsetXCells": -0.03549996852874756,
+    "anchorOffsetYCells": -1.5256675524096375,
+    "source": "geneshuffler_kanim:working_loop"
   },
   "genetic_analysisstation": {
     "path": "/assets/buildings/sprites/genetic_analysisstation.png",
@@ -1237,7 +1527,7 @@
     "pixelHeight": 497,
     "anchorOffsetXCells": 0.07764115671445097,
     "anchorOffsetYCells": -0.9997030065656145,
-    "source": "genetic_analysisstation_kanim"
+    "source": "genetic_analysisstation_kanim:working_loop"
   },
   "geotuner": {
     "path": "/assets/buildings/sprites/geotuner.png",
@@ -1247,7 +1537,7 @@
     "pixelHeight": 661,
     "anchorOffsetXCells": 0.06170403402892589,
     "anchorOffsetYCells": -1.4558360890193973,
-    "source": "geotuner_kanim"
+    "source": "geotuner_kanim:working_loop"
   },
   "geyser_oil_cap": {
     "path": "/assets/buildings/sprites/geyser_oil_cap.png",
@@ -1257,7 +1547,47 @@
     "pixelHeight": 994,
     "anchorOffsetXCells": -0.012999933063983917,
     "anchorOffsetYCells": -1.6534023408895757,
-    "source": "geyser_oil_cap_kanim"
+    "source": "geyser_oil_cap_kanim:working_loop"
+  },
+  "geyser_side_chlorine": {
+    "path": "/assets/buildings/sprites/geyser_side_chlorine.png",
+    "widthCells": 0.6618017578125,
+    "heightCells": 0.6618017578125,
+    "pixelWidth": 137,
+    "pixelHeight": 137,
+    "anchorOffsetXCells": 0.17134702682495118,
+    "anchorOffsetYCells": 0.3013470268249512,
+    "source": "geyser_side_chlorine_kanim:gas_Puff"
+  },
+  "geyser_side_methane": {
+    "path": "/assets/buildings/sprites/geyser_side_methane.png",
+    "widthCells": 0.6618017578125,
+    "heightCells": 0.6618017578125,
+    "pixelWidth": 137,
+    "pixelHeight": 137,
+    "anchorOffsetXCells": 0.17134702682495118,
+    "anchorOffsetYCells": 0.3013470268249512,
+    "source": "geyser_side_methane_kanim:gas_Puff"
+  },
+  "geyser_side_oil": {
+    "path": "/assets/buildings/sprites/geyser_side_oil.png",
+    "widthCells": 4.38,
+    "heightCells": 2.62,
+    "pixelWidth": 880,
+    "pixelHeight": 528,
+    "anchorOffsetXCells": -0.012999939024448395,
+    "anchorOffsetYCells": -0.45562506198883057,
+    "source": "geyser_side_oil_kanim:on"
+  },
+  "geyser_side_steam": {
+    "path": "/assets/buildings/sprites/geyser_side_steam.png",
+    "widthCells": 0.5377139282226563,
+    "heightCells": 0.5377139282226563,
+    "pixelWidth": 112,
+    "pixelHeight": 112,
+    "anchorOffsetXCells": 0.11266381882189308,
+    "anchorOffsetYCells": 0.24266381882189308,
+    "source": "geyser_side_steam_kanim:gas_Puff"
   },
   "glassceilinglight_jelly_green": {
     "path": "/assets/buildings/sprites/glassceilinglight_jelly_green.png",
@@ -1267,7 +1597,7 @@
     "pixelHeight": 341,
     "anchorOffsetXCells": 0.014803156721059167,
     "anchorOffsetYCells": -0.27147634783942975,
-    "source": "glassceilinglight_jelly_green_kanim"
+    "source": "glassceilinglight_jelly_green_kanim:on"
   },
   "glassrefinery": {
     "path": "/assets/buildings/sprites/glassrefinery.png",
@@ -1277,7 +1607,17 @@
     "pixelHeight": 814,
     "anchorOffsetXCells": 0.017571905385702847,
     "anchorOffsetYCells": -1.9762826824188233,
-    "source": "glassrefinery_kanim"
+    "source": "glassrefinery_kanim:working_loop"
+  },
+  "glom": {
+    "path": "/assets/buildings/sprites/glom.png",
+    "widthCells": 0.965,
+    "heightCells": 0.887218713760376,
+    "pixelWidth": 197,
+    "pixelHeight": 182,
+    "anchorOffsetXCells": 0.007750023007392883,
+    "anchorOffsetYCells": -0.3253906202316284,
+    "source": "glom_kanim:idle_loop"
   },
   "gravestone": {
     "path": "/assets/buildings/sprites/gravestone.png",
@@ -1287,7 +1627,77 @@
     "pixelHeight": 463,
     "anchorOffsetXCells": 0.0003171391412615776,
     "anchorOffsetYCells": -0.882499942779541,
-    "source": "gravestone_kanim"
+    "source": "gravestone_kanim:closed"
+  },
+  "gravitas_bathroom_mirror": {
+    "path": "/assets/buildings/sprites/gravitas_bathroom_mirror.png",
+    "widthCells": 1.15,
+    "heightCells": 1.21,
+    "pixelWidth": 234,
+    "pixelHeight": 246,
+    "anchorOffsetXCells": 0.002749984711408615,
+    "anchorOffsetYCells": -0.5828750157356262,
+    "source": "gravitas_bathroom_mirror_kanim:on"
+  },
+  "gravitas_bathroom_sink": {
+    "path": "/assets/buildings/sprites/gravitas_bathroom_sink.png",
+    "widthCells": 1.14,
+    "heightCells": 1.375,
+    "pixelWidth": 232,
+    "pixelHeight": 279,
+    "anchorOffsetXCells": -0.001906272917985916,
+    "anchorOffsetYCells": -0.6156095576286316,
+    "source": "gravitas_bathroom_sink_kanim:on"
+  },
+  "gravitas_ceiling_robot": {
+    "path": "/assets/buildings/sprites/gravitas_ceiling_robot.png",
+    "widthCells": 2.41,
+    "heightCells": 5.075,
+    "pixelWidth": 486,
+    "pixelHeight": 1019,
+    "anchorOffsetXCells": 0.06231253027915955,
+    "anchorOffsetYCells": -2.5087189942598345,
+    "source": "gravitas_ceiling_robot_kanim:on"
+  },
+  "gravitas_chair": {
+    "path": "/assets/buildings/sprites/gravitas_chair.png",
+    "widthCells": 2.02,
+    "heightCells": 2.1,
+    "pixelWidth": 408,
+    "pixelHeight": 424,
+    "anchorOffsetXCells": 0.01449998378753662,
+    "anchorOffsetYCells": -0.8632500457763672,
+    "source": "gravitas_chair_kanim:on"
+  },
+  "gravitas_chairflip": {
+    "path": "/assets/buildings/sprites/gravitas_chairflip.png",
+    "widthCells": 2.02,
+    "heightCells": 2.1,
+    "pixelWidth": 408,
+    "pixelHeight": 424,
+    "anchorOffsetXCells": 0.01449998378753662,
+    "anchorOffsetYCells": -0.8632500457763672,
+    "source": "gravitas_chairflip_kanim:on"
+  },
+  "gravitas_chandelier": {
+    "path": "/assets/buildings/sprites/gravitas_chandelier.png",
+    "widthCells": 6.62,
+    "heightCells": 8.182125290036202,
+    "pixelWidth": 1328,
+    "pixelHeight": 1641,
+    "anchorOffsetXCells": 0.06400006115436555,
+    "anchorOffsetYCells": -2.9878125992417335,
+    "source": "gravitas_chandelier_kanim:on"
+  },
+  "gravitas_clock_square": {
+    "path": "/assets/buildings/sprites/gravitas_clock_square.png",
+    "widthCells": 1.01,
+    "heightCells": 1.025,
+    "pixelWidth": 206,
+    "pixelHeight": 209,
+    "anchorOffsetXCells": 0.004697265625,
+    "anchorOffsetYCells": -0.518826675415039,
+    "source": "gravitas_clock_square_kanim:off"
   },
   "gravitas_container": {
     "path": "/assets/buildings/sprites/gravitas_container.png",
@@ -1297,7 +1707,17 @@
     "pixelHeight": 503,
     "anchorOffsetXCells": 0.010062522888183593,
     "anchorOffsetYCells": -1.1116874599456787,
-    "source": "gravitas_container_kanim"
+    "source": "gravitas_container_kanim:working_loop"
+  },
+  "gravitas_couch": {
+    "path": "/assets/buildings/sprites/gravitas_couch.png",
+    "widthCells": 4.96,
+    "heightCells": 1.92,
+    "pixelWidth": 996,
+    "pixelHeight": 388,
+    "anchorOffsetXCells": 0.024375,
+    "anchorOffsetYCells": -0.7946249389648438,
+    "source": "gravitas_couch_kanim:on"
   },
   "gravitas_critter_manipulator": {
     "path": "/assets/buildings/sprites/gravitas_critter_manipulator.png",
@@ -1307,7 +1727,77 @@
     "pixelHeight": 855,
     "anchorOffsetXCells": -0.6173694205642224,
     "anchorOffsetYCells": -1.9348307873960584,
-    "source": "gravitas_critter_manipulator_kanim"
+    "source": "gravitas_critter_manipulator_kanim:working_loop"
+  },
+  "gravitas_degree": {
+    "path": "/assets/buildings/sprites/gravitas_degree.png",
+    "widthCells": 2.14,
+    "heightCells": 1.68,
+    "pixelWidth": 432,
+    "pixelHeight": 340,
+    "anchorOffsetXCells": 0.004625015258789063,
+    "anchorOffsetYCells": -0.9094999694824218,
+    "source": "gravitas_degree_kanim:on"
+  },
+  "gravitas_desk": {
+    "path": "/assets/buildings/sprites/gravitas_desk.png",
+    "widthCells": 4.285624961853028,
+    "heightCells": 2.42,
+    "pixelWidth": 862,
+    "pixelHeight": 488,
+    "anchorOffsetXCells": -0.006937465667724609,
+    "anchorOffsetYCells": -1.01375,
+    "source": "gravitas_desk_kanim:on"
+  },
+  "gravitas_desk2": {
+    "path": "/assets/buildings/sprites/gravitas_desk2.png",
+    "widthCells": 4.13,
+    "heightCells": 2.793920707702637,
+    "pixelWidth": 830,
+    "pixelHeight": 563,
+    "anchorOffsetXCells": -0.00399993896484375,
+    "anchorOffsetYCells": -1.2069915962219238,
+    "source": "gravitas_desk2_kanim:on"
+  },
+  "gravitas_desk_podium": {
+    "path": "/assets/buildings/sprites/gravitas_desk_podium.png",
+    "widthCells": 1.4198956108093261,
+    "heightCells": 2.3144142913818357,
+    "pixelWidth": 288,
+    "pixelHeight": 467,
+    "anchorOffsetXCells": 0.052322797775268555,
+    "anchorOffsetYCells": -1.020457191467285,
+    "source": "gravitas_desk_podium_kanim:on"
+  },
+  "gravitas_display3": {
+    "path": "/assets/buildings/sprites/gravitas_display3.png",
+    "widthCells": 2.48,
+    "heightCells": 2.26,
+    "pixelWidth": 500,
+    "pixelHeight": 456,
+    "anchorOffsetXCells": -0.03412498474121094,
+    "anchorOffsetYCells": -0.954375,
+    "source": "gravitas_display3_kanim:on"
+  },
+  "gravitas_display4": {
+    "path": "/assets/buildings/sprites/gravitas_display4.png",
+    "widthCells": 1.37,
+    "heightCells": 2.92,
+    "pixelWidth": 278,
+    "pixelHeight": 588,
+    "anchorOffsetXCells": 0.04191327095031738,
+    "anchorOffsetYCells": -1.324540557861328,
+    "source": "gravitas_display4_kanim:on"
+  },
+  "gravitas_display_showroom": {
+    "path": "/assets/buildings/sprites/gravitas_display_showroom.png",
+    "widthCells": 1.37,
+    "heightCells": 2.92,
+    "pixelWidth": 278,
+    "pixelHeight": 588,
+    "anchorOffsetXCells": 0.04191327095031738,
+    "anchorOffsetYCells": -1.324540557861328,
+    "source": "gravitas_display_showroom_kanim:on"
   },
   "gravitas_door_internal": {
     "path": "/assets/buildings/sprites/gravitas_door_internal.png",
@@ -1317,7 +1807,127 @@
     "pixelHeight": 645,
     "anchorOffsetXCells": -0.016749985218048095,
     "anchorOffsetYCells": -1.4551251220703125,
-    "source": "gravitas_door_internal_kanim"
+    "source": "gravitas_door_internal_kanim:closed"
+  },
+  "gravitas_elevator": {
+    "path": "/assets/buildings/sprites/gravitas_elevator.png",
+    "widthCells": 2.4,
+    "heightCells": 3.4888749158382417,
+    "pixelWidth": 484,
+    "pixelHeight": 702,
+    "anchorOffsetXCells": -0.007250015139579773,
+    "anchorOffsetYCells": -1.5530624657869339,
+    "source": "gravitas_elevator_kanim:on"
+  },
+  "gravitas_first_aid_kit": {
+    "path": "/assets/buildings/sprites/gravitas_first_aid_kit.png",
+    "widthCells": 1.225,
+    "heightCells": 0.935,
+    "pixelWidth": 249,
+    "pixelHeight": 191,
+    "anchorOffsetXCells": 0.019138436317443847,
+    "anchorOffsetYCells": -0.38896175384521486,
+    "source": "gravitas_first_aid_kit_kanim:off"
+  },
+  "gravitas_flip_phone": {
+    "path": "/assets/buildings/sprites/gravitas_flip_phone.png",
+    "widthCells": 0.515,
+    "heightCells": 0.655,
+    "pixelWidth": 107,
+    "pixelHeight": 135,
+    "anchorOffsetXCells": -0.02625,
+    "anchorOffsetYCells": -0.07837499618530273,
+    "source": "gravitas_flip_phone_kanim:on"
+  },
+  "gravitas_floor_robot": {
+    "path": "/assets/buildings/sprites/gravitas_floor_robot.png",
+    "widthCells": 2.155,
+    "heightCells": 2.81,
+    "pixelWidth": 435,
+    "pixelHeight": 566,
+    "anchorOffsetXCells": 0.051406264305114746,
+    "anchorOffsetYCells": -1.2828749847412109,
+    "source": "gravitas_floor_robot_kanim:on"
+  },
+  "gravitas_fridge": {
+    "path": "/assets/buildings/sprites/gravitas_fridge.png",
+    "widthCells": 2.22,
+    "heightCells": 2.38,
+    "pixelWidth": 448,
+    "pixelHeight": 480,
+    "anchorOffsetXCells": -0.08240846157073975,
+    "anchorOffsetYCells": -1.022383270263672,
+    "source": "gravitas_fridge_kanim:on"
+  },
+  "gravitas_geoplant": {
+    "path": "/assets/buildings/sprites/gravitas_geoplant.png",
+    "widthCells": 8.27,
+    "heightCells": 9.291937685012817,
+    "pixelWidth": 1658,
+    "pixelHeight": 1863,
+    "anchorOffsetXCells": 0.32256250381469725,
+    "anchorOffsetYCells": -3.6619689321517943,
+    "source": "gravitas_geoplant_kanim:on"
+  },
+  "gravitas_geospout": {
+    "path": "/assets/buildings/sprites/gravitas_geospout.png",
+    "widthCells": 2.5954222959242745,
+    "heightCells": 3.757594985961914,
+    "pixelWidth": 524,
+    "pixelHeight": 756,
+    "anchorOffsetXCells": -0.07227373629994759,
+    "anchorOffsetYCells": -1.7231100082397461,
+    "source": "gravitas_geospout_kanim:working_pre"
+  },
+  "gravitas_geothermal_cart": {
+    "path": "/assets/buildings/sprites/gravitas_geothermal_cart.png",
+    "widthCells": 1.705,
+    "heightCells": 2.19,
+    "pixelWidth": 345,
+    "pixelHeight": 442,
+    "anchorOffsetXCells": 0.0543124532699585,
+    "anchorOffsetYCells": -1.0150299835205079,
+    "source": "gravitas_geothermal_cart_kanim:on"
+  },
+  "gravitas_globe": {
+    "path": "/assets/buildings/sprites/gravitas_globe.png",
+    "widthCells": 1.262250007390976,
+    "heightCells": 3.3417499542236326,
+    "pixelWidth": 257,
+    "pixelHeight": 673,
+    "anchorOffsetXCells": 0.0015000039339065551,
+    "anchorOffsetYCells": -1.5077499771118164,
+    "source": "gravitas_globe_kanim:on"
+  },
+  "gravitas_hand_scanner": {
+    "path": "/assets/buildings/sprites/gravitas_hand_scanner.png",
+    "widthCells": 1.215,
+    "heightCells": 1.255,
+    "pixelWidth": 247,
+    "pixelHeight": 255,
+    "anchorOffsetXCells": 0.05849995374679565,
+    "anchorOffsetYCells": -0.5795000076293946,
+    "source": "gravitas_hand_scanner_kanim:on"
+  },
+  "gravitas_jar1": {
+    "path": "/assets/buildings/sprites/gravitas_jar1.png",
+    "widthCells": 1.185,
+    "heightCells": 2.35,
+    "pixelWidth": 241,
+    "pixelHeight": 474,
+    "anchorOffsetXCells": 0.008429291248321534,
+    "anchorOffsetYCells": -1.0723410034179688,
+    "source": "gravitas_jar1_kanim:on"
+  },
+  "gravitas_jar2": {
+    "path": "/assets/buildings/sprites/gravitas_jar2.png",
+    "widthCells": 1.17,
+    "heightCells": 1.62,
+    "pixelWidth": 238,
+    "pixelHeight": 328,
+    "anchorOffsetXCells": -0.00974999189376831,
+    "anchorOffsetYCells": -0.7072500228881836,
+    "source": "gravitas_jar2_kanim:on"
   },
   "gravitas_lab_light": {
     "path": "/assets/buildings/sprites/gravitas_lab_light.png",
@@ -1327,7 +1937,17 @@
     "pixelHeight": 210,
     "anchorOffsetXCells": 0.0014980316162109375,
     "anchorOffsetYCells": -0.5415848367969738,
-    "source": "gravitas_lab_light_kanim"
+    "source": "gravitas_lab_light_kanim:on"
+  },
+  "gravitas_lab_table": {
+    "path": "/assets/buildings/sprites/gravitas_lab_table.png",
+    "widthCells": 3.37,
+    "heightCells": 2.9253894805908205,
+    "pixelWidth": 678,
+    "pixelHeight": 590,
+    "anchorOffsetXCells": 0.016250060796737673,
+    "anchorOffsetYCells": -1.3349448013305665,
+    "source": "gravitas_lab_table_kanim:on"
   },
   "gravitas_lab_wall": {
     "path": "/assets/buildings/sprites/gravitas_lab_wall.png",
@@ -1337,7 +1957,7 @@
     "pixelHeight": 625,
     "anchorOffsetXCells": -0.001625000238418579,
     "anchorOffsetYCells": -1.5007501220703126,
-    "source": "gravitas_lab_wall_kanim"
+    "source": "gravitas_lab_wall_kanim:on"
   },
   "gravitas_lab_window": {
     "path": "/assets/buildings/sprites/gravitas_lab_window.png",
@@ -1347,7 +1967,7 @@
     "pixelHeight": 625,
     "anchorOffsetXCells": -0.001625000238418579,
     "anchorOffsetYCells": -1.5007501220703126,
-    "source": "gravitas_lab_window_kanim"
+    "source": "gravitas_lab_window_kanim:on"
   },
   "gravitas_lab_window_horizontal": {
     "path": "/assets/buildings/sprites/gravitas_lab_window_horizontal.png",
@@ -1357,7 +1977,37 @@
     "pixelHeight": 425,
     "anchorOffsetXCells": -0.001749969720840454,
     "anchorOffsetYCells": -0.991875,
-    "source": "gravitas_lab_window_horizontal_kanim"
+    "source": "gravitas_lab_window_horizontal_kanim:on"
+  },
+  "gravitas_light": {
+    "path": "/assets/buildings/sprites/gravitas_light.png",
+    "widthCells": 1.1211685180664062,
+    "heightCells": 4.237727165222168,
+    "pixelWidth": 229,
+    "pixelHeight": 852,
+    "anchorOffsetXCells": -0.000659659341617953,
+    "anchorOffsetYCells": -1.9663865089416503,
+    "source": "gravitas_light_kanim:on"
+  },
+  "gravitas_light2": {
+    "path": "/assets/buildings/sprites/gravitas_light2.png",
+    "widthCells": 1.02,
+    "heightCells": 0.685,
+    "pixelWidth": 208,
+    "pixelHeight": 141,
+    "anchorOffsetXCells": 0.02210546851158142,
+    "anchorOffsetYCells": -0.6869079741835594,
+    "source": "gravitas_light2_kanim:on"
+  },
+  "gravitas_medical_locker": {
+    "path": "/assets/buildings/sprites/gravitas_medical_locker.png",
+    "widthCells": 1.175,
+    "heightCells": 1.16,
+    "pixelWidth": 239,
+    "pixelHeight": 236,
+    "anchorOffsetXCells": -0.004999984502792359,
+    "anchorOffsetYCells": -0.5241250228881836,
+    "source": "gravitas_medical_locker_kanim:on"
   },
   "gravitas_megabrain": {
     "path": "/assets/buildings/sprites/gravitas_megabrain.png",
@@ -1367,7 +2017,7 @@
     "pixelHeight": 1467,
     "anchorOffsetXCells": 0.011749938726425171,
     "anchorOffsetYCells": -3.5319998931884764,
-    "source": "gravitas_megabrain_kanim"
+    "source": "gravitas_megabrain_kanim:on"
   },
   "gravitas_morb_tank": {
     "path": "/assets/buildings/sprites/gravitas_morb_tank.png",
@@ -1377,7 +2027,137 @@
     "pixelHeight": 863,
     "anchorOffsetXCells": 0.011357651188009186,
     "anchorOffsetYCells": -2.0316093444824217,
-    "source": "gravitas_morb_tank_kanim"
+    "source": "gravitas_morb_tank_kanim:working_loop"
+  },
+  "gravitas_painting": {
+    "path": "/assets/buildings/sprites/gravitas_painting.png",
+    "widthCells": 3.08,
+    "heightCells": 2.18,
+    "pixelWidth": 620,
+    "pixelHeight": 440,
+    "anchorOffsetXCells": 0.00287506103515625,
+    "anchorOffsetYCells": -1.0004999542236328,
+    "source": "gravitas_painting_kanim:on"
+  },
+  "gravitas_paper_towell_dispenser": {
+    "path": "/assets/buildings/sprites/gravitas_paper_towell_dispenser.png",
+    "widthCells": 0.7,
+    "heightCells": 0.825,
+    "pixelWidth": 144,
+    "pixelHeight": 169,
+    "anchorOffsetXCells": -0.016375000476837157,
+    "anchorOffsetYCells": -0.395,
+    "source": "gravitas_paper_towell_dispenser_kanim:on"
+  },
+  "gravitas_pedestal_nice": {
+    "path": "/assets/buildings/sprites/gravitas_pedestal_nice.png",
+    "widthCells": 1.17,
+    "heightCells": 1.3,
+    "pixelWidth": 238,
+    "pixelHeight": 264,
+    "anchorOffsetXCells": -0.0002499997615814209,
+    "anchorOffsetYCells": -0.48356250047683713,
+    "source": "gravitas_pedestal_nice_kanim:pedestal_nice"
+  },
+  "gravitas_poster": {
+    "path": "/assets/buildings/sprites/gravitas_poster.png",
+    "widthCells": 1.86,
+    "heightCells": 1.985,
+    "pixelWidth": 376,
+    "pixelHeight": 401,
+    "anchorOffsetXCells": 0.008250045776367187,
+    "anchorOffsetYCells": -0.9986250305175781,
+    "source": "gravitas_poster_kanim:on"
+  },
+  "gravitas_poster_plant_growth": {
+    "path": "/assets/buildings/sprites/gravitas_poster_plant_growth.png",
+    "widthCells": 2.175,
+    "heightCells": 1.495,
+    "pixelWidth": 439,
+    "pixelHeight": 303,
+    "anchorOffsetXCells": -0.017562530040740966,
+    "anchorOffsetYCells": -0.6997500610351562,
+    "source": "gravitas_poster_plant_growth_kanim:on"
+  },
+  "gravitas_poster_seed_plant": {
+    "path": "/assets/buildings/sprites/gravitas_poster_seed_plant.png",
+    "widthCells": 1.18,
+    "heightCells": 2.17,
+    "pixelWidth": 240,
+    "pixelHeight": 438,
+    "anchorOffsetXCells": 0.02299999237060547,
+    "anchorOffsetYCells": -1.0001565551757812,
+    "source": "gravitas_poster_seed_plant_kanim:on"
+  },
+  "gravitas_reception": {
+    "path": "/assets/buildings/sprites/gravitas_reception.png",
+    "widthCells": 5.32,
+    "heightCells": 3.591125030517578,
+    "pixelWidth": 1068,
+    "pixelHeight": 723,
+    "anchorOffsetXCells": 0.04462499976158142,
+    "anchorOffsetYCells": -1.607437515258789,
+    "source": "gravitas_reception_kanim:on"
+  },
+  "gravitas_robotic_table": {
+    "path": "/assets/buildings/sprites/gravitas_robotic_table.png",
+    "widthCells": 3.225,
+    "heightCells": 3.16,
+    "pixelWidth": 649,
+    "pixelHeight": 636,
+    "anchorOffsetXCells": 0.004245972633361817,
+    "anchorOffsetYCells": -1.4821250915527344,
+    "source": "gravitas_robotic_table_kanim:on"
+  },
+  "gravitas_shelf": {
+    "path": "/assets/buildings/sprites/gravitas_shelf.png",
+    "widthCells": 2.065,
+    "heightCells": 1.07,
+    "pixelWidth": 417,
+    "pixelHeight": 218,
+    "anchorOffsetXCells": 0.002749953269958496,
+    "anchorOffsetYCells": -0.5163750076293945,
+    "source": "gravitas_shelf_kanim:on"
+  },
+  "gravitas_statue": {
+    "path": "/assets/buildings/sprites/gravitas_statue.png",
+    "widthCells": 5.36,
+    "heightCells": 9.52,
+    "pixelWidth": 1076,
+    "pixelHeight": 1908,
+    "anchorOffsetXCells": -0.023874878883361816,
+    "anchorOffsetYCells": -4.499249877929688,
+    "source": "gravitas_statue_kanim:on"
+  },
+  "gravitas_table": {
+    "path": "/assets/buildings/sprites/gravitas_table.png",
+    "widthCells": 2.16,
+    "heightCells": 1.2,
+    "pixelWidth": 436,
+    "pixelHeight": 244,
+    "anchorOffsetXCells": 0.009500017166137695,
+    "anchorOffsetYCells": -0.475,
+    "source": "gravitas_table_kanim:on"
+  },
+  "gravitas_tall_plant": {
+    "path": "/assets/buildings/sprites/gravitas_tall_plant.png",
+    "widthCells": 1.54,
+    "heightCells": 3.2,
+    "pixelWidth": 312,
+    "pixelHeight": 644,
+    "anchorOffsetXCells": -0.02762498378753662,
+    "anchorOffsetYCells": -1.4613749694824218,
+    "source": "gravitas_tall_plant_kanim:on"
+  },
+  "gravitas_tall_plant_dead": {
+    "path": "/assets/buildings/sprites/gravitas_tall_plant_dead.png",
+    "widthCells": 1.83,
+    "heightCells": 2.095,
+    "pixelWidth": 370,
+    "pixelHeight": 423,
+    "anchorOffsetXCells": 0.14561010837554933,
+    "anchorOffsetYCells": -0.9156022644042969,
+    "source": "gravitas_tall_plant_dead_kanim:on"
   },
   "gravitas_toilet": {
     "path": "/assets/buildings/sprites/gravitas_toilet.png",
@@ -1387,7 +2167,37 @@
     "pixelHeight": 474,
     "anchorOffsetXCells": 0.048068304061889645,
     "anchorOffsetYCells": -1.10805419921875,
-    "source": "gravitas_toilet_kanim"
+    "source": "gravitas_toilet_kanim:working_loop"
+  },
+  "gravitas_toilet_paper_holder": {
+    "path": "/assets/buildings/sprites/gravitas_toilet_paper_holder.png",
+    "widthCells": 0.34,
+    "heightCells": 0.365,
+    "pixelWidth": 72,
+    "pixelHeight": 77,
+    "anchorOffsetXCells": 0.005999992340803146,
+    "anchorOffsetYCells": 0.014875004291534424,
+    "source": "gravitas_toilet_paper_holder_kanim:on"
+  },
+  "gravitas_top_window": {
+    "path": "/assets/buildings/sprites/gravitas_top_window.png",
+    "widthCells": 2.22,
+    "heightCells": 3.14,
+    "pixelWidth": 448,
+    "pixelHeight": 632,
+    "anchorOffsetXCells": 0.005374969244003296,
+    "anchorOffsetYCells": -1.5042498779296876,
+    "source": "gravitas_top_window_kanim:on"
+  },
+  "gravitas_trash_can": {
+    "path": "/assets/buildings/sprites/gravitas_trash_can.png",
+    "widthCells": 0.46,
+    "heightCells": 0.61,
+    "pixelWidth": 96,
+    "pixelHeight": 126,
+    "anchorOffsetXCells": 0.02453125759959221,
+    "anchorOffsetYCells": -0.10803463697433471,
+    "source": "gravitas_trash_can_kanim:on"
   },
   "gravitas_walls": {
     "path": "/assets/buildings/sprites/gravitas_walls.png",
@@ -1397,7 +2207,7 @@
     "pixelHeight": 236,
     "anchorOffsetXCells": 0.0,
     "anchorOffsetYCells": -0.4995000076293945,
-    "source": "gravitas_walls_kanim"
+    "source": "gravitas_walls_kanim:off"
   },
   "gravitas_window": {
     "path": "/assets/buildings/sprites/gravitas_window.png",
@@ -1407,7 +2217,7 @@
     "pixelHeight": 1236,
     "anchorOffsetXCells": -0.0027500152587890624,
     "anchorOffsetYCells": -2.9957501220703127,
-    "source": "gravitas_window_kanim"
+    "source": "gravitas_window_kanim:on"
   },
   "gunkdump_station": {
     "path": "/assets/buildings/sprites/gunkdump_station.png",
@@ -1417,7 +2227,7 @@
     "pixelHeight": 665,
     "anchorOffsetXCells": 0.0011875152587890625,
     "anchorOffsetYCells": -1.5144783401489257,
-    "source": "gunkdump_station_kanim"
+    "source": "gunkdump_station_kanim:working_loop"
   },
   "handsanitizer": {
     "path": "/assets/buildings/sprites/handsanitizer.png",
@@ -1427,7 +2237,17 @@
     "pixelHeight": 654,
     "anchorOffsetXCells": 0.19288212088189866,
     "anchorOffsetYCells": -1.410183149651295,
-    "source": "handsanitizer_kanim"
+    "source": "handsanitizer_kanim:working_loop"
+  },
+  "hijacked_hq": {
+    "path": "/assets/buildings/sprites/hijacked_hq.png",
+    "widthCells": 6.233323426411658,
+    "heightCells": 5.174027328491211,
+    "pixelWidth": 1251,
+    "pixelHeight": 1039,
+    "anchorOffsetXCells": 0.022332937730154184,
+    "anchorOffsetYCells": -2.5214511489868165,
+    "source": "hijacked_hq_kanim:inactive"
   },
   "hottub": {
     "path": "/assets/buildings/sprites/hottub.png",
@@ -1437,7 +2257,7 @@
     "pixelHeight": 348,
     "anchorOffsetXCells": 0.021374940872192383,
     "anchorOffsetYCells": -0.7153750038146973,
-    "source": "hottub_kanim"
+    "source": "hottub_kanim:working_loop"
   },
   "hqbase": {
     "path": "/assets/buildings/sprites/hqbase.png",
@@ -1447,7 +2267,17 @@
     "pixelHeight": 947,
     "anchorOffsetXCells": 0.03675084407096847,
     "anchorOffsetYCells": -1.440853807257032,
-    "source": "hqbase_kanim"
+    "source": "hqbase_kanim:working_loop"
+  },
+  "ice_berry_bush": {
+    "path": "/assets/buildings/sprites/ice_berry_bush.png",
+    "widthCells": 0.8054591369628906,
+    "heightCells": 1.002547075888375,
+    "pixelWidth": 166,
+    "pixelHeight": 205,
+    "anchorOffsetXCells": 0.15317821280448699,
+    "anchorOffsetYCells": -0.3716306671827334,
+    "source": "ice_berry_bush_kanim:idle_empty"
   },
   "icemelter_kettle": {
     "path": "/assets/buildings/sprites/icemelter_kettle.png",
@@ -1457,7 +2287,17 @@
     "pixelHeight": 440,
     "anchorOffsetXCells": -0.009550243021571418,
     "anchorOffsetYCells": -1.004733874797821,
-    "source": "icemelter_kettle_kanim"
+    "source": "icemelter_kettle_kanim:working_loop"
+  },
+  "icesculpture": {
+    "path": "/assets/buildings/sprites/icesculpture.png",
+    "widthCells": 2.095,
+    "heightCells": 2.135,
+    "pixelWidth": 423,
+    "pixelHeight": 431,
+    "anchorOffsetXCells": 0.009187545776367188,
+    "anchorOffsetYCells": -0.9801249694824219,
+    "source": "icesculpture_kanim:slab"
   },
   "incubator": {
     "path": "/assets/buildings/sprites/incubator.png",
@@ -1467,7 +2307,7 @@
     "pixelHeight": 616,
     "anchorOffsetXCells": 0.11256250381469726,
     "anchorOffsetYCells": -1.3968124771118164,
-    "source": "incubator_kanim"
+    "source": "incubator_kanim:working_loop"
   },
   "inter_asteroid_automation_signal_receiver": {
     "path": "/assets/buildings/sprites/inter_asteroid_automation_signal_receiver.png",
@@ -1477,7 +2317,7 @@
     "pixelHeight": 284,
     "anchorOffsetXCells": 0.008999999761581421,
     "anchorOffsetYCells": -0.6327265167236328,
-    "source": "inter_asteroid_automation_signal_receiver_kanim"
+    "source": "inter_asteroid_automation_signal_receiver_kanim:on"
   },
   "inter_asteroid_automation_signal_sender": {
     "path": "/assets/buildings/sprites/inter_asteroid_automation_signal_sender.png",
@@ -1487,7 +2327,7 @@
     "pixelHeight": 301,
     "anchorOffsetXCells": -0.009500001966953277,
     "anchorOffsetYCells": -0.692796859741211,
-    "source": "inter_asteroid_automation_signal_sender_kanim"
+    "source": "inter_asteroid_automation_signal_sender_kanim:on"
   },
   "job_station": {
     "path": "/assets/buildings/sprites/job_station.png",
@@ -1497,7 +2337,7 @@
     "pixelHeight": 475,
     "anchorOffsetXCells": 0.06943748474121093,
     "anchorOffsetYCells": -0.9925000286102295,
-    "source": "job_station_kanim"
+    "source": "job_station_kanim:working_loop"
   },
   "juicer": {
     "path": "/assets/buildings/sprites/juicer.png",
@@ -1507,7 +2347,7 @@
     "pixelHeight": 720,
     "anchorOffsetXCells": 0.02476326284185234,
     "anchorOffsetYCells": -1.748042664527893,
-    "source": "juicer_kanim"
+    "source": "juicer_kanim:working_loop"
   },
   "jukebot": {
     "path": "/assets/buildings/sprites/jukebot.png",
@@ -1517,7 +2357,7 @@
     "pixelHeight": 688,
     "anchorOffsetXCells": -0.04850006103515625,
     "anchorOffsetYCells": -1.4767603752424474,
-    "source": "jukebot_kanim"
+    "source": "jukebot_kanim:working_loop"
   },
   "kiln": {
     "path": "/assets/buildings/sprites/kiln.png",
@@ -1527,7 +2367,7 @@
     "pixelHeight": 502,
     "anchorOffsetXCells": -0.056668469978237684,
     "anchorOffsetYCells": -1.1032212591171264,
-    "source": "kiln_kanim"
+    "source": "kiln_kanim:working_loop"
   },
   "ladder": {
     "path": "/assets/buildings/sprites/ladder.png",
@@ -1537,7 +2377,7 @@
     "pixelHeight": 257,
     "anchorOffsetXCells": -0.003499999940395355,
     "anchorOffsetYCells": -0.47793748855590823,
-    "source": "ladder_kanim"
+    "source": "ladder_kanim:off"
   },
   "ladder_plastic": {
     "path": "/assets/buildings/sprites/ladder_plastic.png",
@@ -1547,7 +2387,7 @@
     "pixelHeight": 258,
     "anchorOffsetXCells": 0.006500000059604645,
     "anchorOffsetYCells": -0.46368749618530275,
-    "source": "ladder_plastic_kanim"
+    "source": "ladder_plastic_kanim:off"
   },
   "landing_beacon": {
     "path": "/assets/buildings/sprites/landing_beacon.png",
@@ -1557,7 +2397,7 @@
     "pixelHeight": 718,
     "anchorOffsetXCells": -0.045713905870507006,
     "anchorOffsetYCells": -1.677534077550281,
-    "source": "landing_beacon_kanim"
+    "source": "landing_beacon_kanim:working_loop"
   },
   "limit_valve_gas": {
     "path": "/assets/buildings/sprites/limit_valve_gas.png",
@@ -1567,7 +2407,7 @@
     "pixelHeight": 434,
     "anchorOffsetXCells": -0.031043283846657915,
     "anchorOffsetYCells": -0.9930481757761572,
-    "source": "limit_valve_gas_kanim"
+    "source": "limit_valve_gas_kanim:working_loop"
   },
   "limit_valve_liquid": {
     "path": "/assets/buildings/sprites/limit_valve_liquid.png",
@@ -1577,7 +2417,7 @@
     "pixelHeight": 437,
     "anchorOffsetXCells": -0.02186237411646289,
     "anchorOffsetYCells": -0.9857053640158847,
-    "source": "limit_valve_liquid_kanim"
+    "source": "limit_valve_liquid_kanim:working_loop"
   },
   "limit_valve_solid": {
     "path": "/assets/buildings/sprites/limit_valve_solid.png",
@@ -1587,7 +2427,7 @@
     "pixelHeight": 435,
     "anchorOffsetXCells": -0.02096008710563183,
     "anchorOffsetYCells": -0.9861997003758438,
-    "source": "limit_valve_solid_kanim"
+    "source": "limit_valve_solid_kanim:working_loop"
   },
   "liquid_bottler": {
     "path": "/assets/buildings/sprites/liquid_bottler.png",
@@ -1597,7 +2437,7 @@
     "pixelHeight": 496,
     "anchorOffsetXCells": -0.007691258518083828,
     "anchorOffsetYCells": -1.0584999084472657,
-    "source": "liquid_bottler_kanim"
+    "source": "liquid_bottler_kanim:on"
   },
   "liquidator": {
     "path": "/assets/buildings/sprites/liquidator.png",
@@ -1607,7 +2447,7 @@
     "pixelHeight": 659,
     "anchorOffsetXCells": 0.22639064222574234,
     "anchorOffsetYCells": -1.4346290850760397,
-    "source": "liquidator_kanim"
+    "source": "liquidator_kanim:working_loop"
   },
   "liquidconditioner": {
     "path": "/assets/buildings/sprites/liquidconditioner.png",
@@ -1617,7 +2457,7 @@
     "pixelHeight": 422,
     "anchorOffsetXCells": 0.0025045723888172233,
     "anchorOffsetYCells": -0.9539723064874193,
-    "source": "liquidconditioner_kanim"
+    "source": "liquidconditioner_kanim:working_loop"
   },
   "liquidreservoir": {
     "path": "/assets/buildings/sprites/liquidreservoir.png",
@@ -1627,7 +2467,17 @@
     "pixelHeight": 666,
     "anchorOffsetXCells": 0.05005000114440918,
     "anchorOffsetYCells": -1.425843734741211,
-    "source": "liquidreservoir_kanim"
+    "source": "liquidreservoir_kanim:on"
+  },
+  "logic_and": {
+    "path": "/assets/buildings/sprites/logic_and.png",
+    "widthCells": 2.16,
+    "heightCells": 2.14,
+    "pixelWidth": 436,
+    "pixelHeight": 432,
+    "anchorOffsetXCells": 0.011374969,
+    "anchorOffsetYCells": -0.99612486,
+    "source": "logic_and_kanim"
   },
   "logic_bridge": {
     "path": "/assets/buildings/sprites/logic_bridge.png",
@@ -1637,7 +2487,7 @@
     "pixelHeight": 176,
     "anchorOffsetXCells": -0.030749969482421875,
     "anchorOffsetYCells": -0.5023750114440918,
-    "source": "logic_bridge_kanim"
+    "source": "logic_bridge_kanim:off"
   },
   "logic_ribbon_bridge": {
     "path": "/assets/buildings/sprites/logic_ribbon_bridge.png",
@@ -1647,7 +2497,7 @@
     "pixelHeight": 224,
     "anchorOffsetXCells": -0.0027500152587890624,
     "anchorOffsetYCells": -0.5213749885559082,
-    "source": "logic_ribbon_bridge_kanim"
+    "source": "logic_ribbon_bridge_kanim:off"
   },
   "lonely_dupe_home": {
     "path": "/assets/buildings/sprites/lonely_dupe_home.png",
@@ -1657,7 +2507,7 @@
     "pixelHeight": 1362,
     "anchorOffsetXCells": -0.227012663052883,
     "anchorOffsetYCells": -3.2604143945026136,
-    "source": "lonely_dupe_home_kanim"
+    "source": "lonely_dupe_home_kanim:working_loop"
   },
   "machineshop": {
     "path": "/assets/buildings/sprites/machineshop.png",
@@ -1667,7 +2517,7 @@
     "pixelHeight": 468,
     "anchorOffsetXCells": -0.04662497043609619,
     "anchorOffsetYCells": -0.9173750686645508,
-    "source": "machineshop_kanim"
+    "source": "machineshop_kanim:working_loop"
   },
   "manual_radbolt_generator": {
     "path": "/assets/buildings/sprites/manual_radbolt_generator.png",
@@ -1677,7 +2527,7 @@
     "pixelHeight": 680,
     "anchorOffsetXCells": 0.04936749579059324,
     "anchorOffsetYCells": -1.5844423449186298,
-    "source": "manual_radbolt_generator_kanim"
+    "source": "manual_radbolt_generator_kanim:working_loop"
   },
   "masseur": {
     "path": "/assets/buildings/sprites/masseur.png",
@@ -1687,7 +2537,7 @@
     "pixelHeight": 483,
     "anchorOffsetXCells": 0.015822677798569204,
     "anchorOffsetYCells": -1.0150692291278391,
-    "source": "masseur_kanim"
+    "source": "masseur_kanim:working_loop"
   },
   "massiveheatsink": {
     "path": "/assets/buildings/sprites/massiveheatsink.png",
@@ -1697,7 +2547,7 @@
     "pixelHeight": 869,
     "anchorOffsetXCells": 0.06082941280619707,
     "anchorOffsetYCells": -1.9302499389648438,
-    "source": "massiveheatsink_kanim"
+    "source": "massiveheatsink_kanim:working_loop"
   },
   "material_research_centre": {
     "path": "/assets/buildings/sprites/material_research_centre.png",
@@ -1707,7 +2557,17 @@
     "pixelHeight": 664,
     "anchorOffsetXCells": 0.04661121368408203,
     "anchorOffsetYCells": -1.4967343521118164,
-    "source": "material_research_centre_kanim"
+    "source": "material_research_centre_kanim:working_loop"
+  },
+  "meallice": {
+    "path": "/assets/buildings/sprites/meallice.png",
+    "widthCells": 0.79,
+    "heightCells": 0.995,
+    "pixelWidth": 162,
+    "pixelHeight": 203,
+    "anchorOffsetXCells": -0.06212498664855957,
+    "anchorOffsetYCells": -0.34075000762939456,
+    "source": "meallice_kanim:idle_empty"
   },
   "mechanical_surfboard": {
     "path": "/assets/buildings/sprites/mechanical_surfboard.png",
@@ -1717,7 +2577,7 @@
     "pixelHeight": 725,
     "anchorOffsetXCells": 0.12498099262891657,
     "anchorOffsetYCells": -1.688707757217344,
-    "source": "mechanical_surfboard_kanim"
+    "source": "mechanical_surfboard_kanim:working_loop"
   },
   "medical_cot": {
     "path": "/assets/buildings/sprites/medical_cot.png",
@@ -1727,7 +2587,7 @@
     "pixelHeight": 406,
     "anchorOffsetXCells": 0.02837503433227539,
     "anchorOffsetYCells": -0.8082008463086094,
-    "source": "medical_cot_kanim"
+    "source": "medical_cot_kanim:working_loop"
   },
   "medicine_nuclear": {
     "path": "/assets/buildings/sprites/medicine_nuclear.png",
@@ -1737,7 +2597,7 @@
     "pixelHeight": 685,
     "anchorOffsetXCells": 0.020575225918265688,
     "anchorOffsetYCells": -1.5712500195205212,
-    "source": "medicine_nuclear_kanim"
+    "source": "medicine_nuclear_kanim:working_loop"
   },
   "mercurylight": {
     "path": "/assets/buildings/sprites/mercurylight.png",
@@ -1747,7 +2607,7 @@
     "pixelHeight": 220,
     "anchorOffsetXCells": 0.00141510009765625,
     "anchorOffsetYCells": -0.5513128471374512,
-    "source": "mercurylight_kanim"
+    "source": "mercurylight_kanim:on"
   },
   "metalrefinery": {
     "path": "/assets/buildings/sprites/metalrefinery.png",
@@ -1757,7 +2617,7 @@
     "pixelHeight": 813,
     "anchorOffsetXCells": -0.014624977111816406,
     "anchorOffsetYCells": -1.922671159851384,
-    "source": "metalrefinery_kanim"
+    "source": "metalrefinery_kanim:working_loop"
   },
   "microbemusher": {
     "path": "/assets/buildings/sprites/microbemusher.png",
@@ -1767,7 +2627,7 @@
     "pixelHeight": 834,
     "anchorOffsetXCells": 0.464028455905771,
     "anchorOffsetYCells": -1.8290456097491847,
-    "source": "microbemusher_kanim"
+    "source": "microbemusher_kanim:working_loop"
   },
   "milk_separator": {
     "path": "/assets/buildings/sprites/milk_separator.png",
@@ -1777,7 +2637,7 @@
     "pixelHeight": 877,
     "anchorOffsetXCells": 0.09443750381469726,
     "anchorOffsetYCells": -2.0509966659545897,
-    "source": "milk_separator_kanim"
+    "source": "milk_separator_kanim:working_loop"
   },
   "milking_station": {
     "path": "/assets/buildings/sprites/milking_station.png",
@@ -1787,7 +2647,7 @@
     "pixelHeight": 869,
     "anchorOffsetXCells": 0.052145293889974485,
     "anchorOffsetYCells": -2.0236875295639036,
-    "source": "milking_station_kanim"
+    "source": "milking_station_kanim:working_loop"
   },
   "milking_station_aquatic": {
     "path": "/assets/buildings/sprites/milking_station_aquatic.png",
@@ -1797,7 +2657,7 @@
     "pixelHeight": 808,
     "anchorOffsetXCells": 0.023987210488494382,
     "anchorOffsetYCells": -1.541362648477018,
-    "source": "milking_station_aquatic_kanim"
+    "source": "milking_station_aquatic_kanim:working_loop"
   },
   "milkpress": {
     "path": "/assets/buildings/sprites/milkpress.png",
@@ -1807,7 +2667,7 @@
     "pixelHeight": 649,
     "anchorOffsetXCells": -0.06207497696857899,
     "anchorOffsetYCells": -1.4842279360748376,
-    "source": "milkpress_kanim"
+    "source": "milkpress_kanim:working_loop"
   },
   "mineraldeoxidizer": {
     "path": "/assets/buildings/sprites/mineraldeoxidizer.png",
@@ -1817,7 +2677,7 @@
     "pixelHeight": 600,
     "anchorOffsetXCells": -0.024911059171051308,
     "anchorOffsetYCells": -1.3678840174386062,
-    "source": "mineraldeoxidizer_kanim"
+    "source": "mineraldeoxidizer_kanim:working_loop"
   },
   "minifridge": {
     "path": "/assets/buildings/sprites/minifridge.png",
@@ -1827,7 +2687,7 @@
     "pixelHeight": 213,
     "anchorOffsetXCells": 0.0015553323438138734,
     "anchorOffsetYCells": -0.45005810928243,
-    "source": "minifridge_kanim"
+    "source": "minifridge_kanim:on"
   },
   "minigaspump": {
     "path": "/assets/buildings/sprites/minigaspump.png",
@@ -1837,7 +2697,7 @@
     "pixelHeight": 403,
     "anchorOffsetXCells": -0.01212498426437378,
     "anchorOffsetYCells": -0.9278124761581421,
-    "source": "minigaspump_kanim"
+    "source": "minigaspump_kanim:working_loop"
   },
   "miniwaterpump": {
     "path": "/assets/buildings/sprites/miniwaterpump.png",
@@ -1847,7 +2707,37 @@
     "pixelHeight": 420,
     "anchorOffsetXCells": 0.031111560706745253,
     "anchorOffsetYCells": -0.9490796068385282,
-    "source": "miniwaterpump_kanim"
+    "source": "miniwaterpump_kanim:working_loop"
+  },
+  "minnow_imperative_poi_a": {
+    "path": "/assets/buildings/sprites/minnow_imperative_poi_a.png",
+    "widthCells": 1.1453854370393675,
+    "heightCells": 1.6912858272492297,
+    "pixelWidth": 234,
+    "pixelHeight": 343,
+    "anchorOffsetXCells": 0.0015248422418608243,
+    "anchorOffsetYCells": -0.988245568410301,
+    "source": "minnow_imperative_poi_a_kanim:on"
+  },
+  "minnow_imperative_poi_b": {
+    "path": "/assets/buildings/sprites/minnow_imperative_poi_b.png",
+    "widthCells": 1.1453854370393675,
+    "heightCells": 1.7076140955674046,
+    "pixelWidth": 234,
+    "pixelHeight": 346,
+    "anchorOffsetXCells": 0.011524842241860823,
+    "anchorOffsetYCells": -0.9600814342512136,
+    "source": "minnow_imperative_poi_b_kanim:on"
+  },
+  "minnow_imperative_poi_c": {
+    "path": "/assets/buildings/sprites/minnow_imperative_poi_c.png",
+    "widthCells": 1.1453854370393675,
+    "heightCells": 1.7076140955674046,
+    "pixelWidth": 234,
+    "pixelHeight": 346,
+    "anchorOffsetXCells": 0.011524842241860823,
+    "anchorOffsetYCells": -0.9600814342512136,
+    "source": "minnow_imperative_poi_c_kanim:on"
   },
   "missile_fabricator": {
     "path": "/assets/buildings/sprites/missile_fabricator.png",
@@ -1857,7 +2747,7 @@
     "pixelHeight": 1152,
     "anchorOffsetXCells": 0.29327834993600843,
     "anchorOffsetYCells": -2.7825142139196397,
-    "source": "missile_fabricator_kanim"
+    "source": "missile_fabricator_kanim:working_loop"
   },
   "missile_launcher": {
     "path": "/assets/buildings/sprites/missile_launcher.png",
@@ -1867,7 +2757,7 @@
     "pixelHeight": 837,
     "anchorOffsetXCells": -0.014870667697066438,
     "anchorOffsetYCells": -2.02144962310791,
-    "source": "missile_launcher_kanim"
+    "source": "missile_launcher_kanim:working_pre"
   },
   "mission_control_station": {
     "path": "/assets/buildings/sprites/mission_control_station.png",
@@ -1877,7 +2767,47 @@
     "pixelHeight": 714,
     "anchorOffsetXCells": 0.13149999618530273,
     "anchorOffsetYCells": -1.688943535614584,
-    "source": "mission_control_station_kanim"
+    "source": "mission_control_station_kanim:working_loop"
+  },
+  "monument_base_a": {
+    "path": "/assets/buildings/sprites/monument_base_a.png",
+    "widthCells": 5.35,
+    "heightCells": 5.385,
+    "pixelWidth": 1074,
+    "pixelHeight": 1081,
+    "anchorOffsetXCells": -0.0386248779296875,
+    "anchorOffsetYCells": -2.6254375000298023,
+    "source": "monument_base_a_kanim:option_a"
+  },
+  "monument_mid_a": {
+    "path": "/assets/buildings/sprites/monument_mid_a.png",
+    "widthCells": 8.09,
+    "heightCells": 6.385,
+    "pixelWidth": 1622,
+    "pixelHeight": 1281,
+    "anchorOffsetXCells": 0.890579833984375,
+    "anchorOffsetYCells": -3.0891229248046876,
+    "source": "monument_mid_a_kanim:option_a"
+  },
+  "monument_upper_a": {
+    "path": "/assets/buildings/sprites/monument_upper_a.png",
+    "widthCells": 7.5,
+    "heightCells": 5.555,
+    "pixelWidth": 1504,
+    "pixelHeight": 1115,
+    "anchorOffsetXCells": -0.22117083743214608,
+    "anchorOffsetYCells": -2.363296875059605,
+    "source": "monument_upper_a_kanim:option_a"
+  },
+  "muckroot": {
+    "path": "/assets/buildings/sprites/muckroot.png",
+    "widthCells": 1.0,
+    "heightCells": 1.6,
+    "pixelWidth": 204,
+    "pixelHeight": 324,
+    "anchorOffsetXCells": 0.03737500786781311,
+    "anchorOffsetYCells": -0.5722499990463257,
+    "source": "muckroot_kanim:idle"
   },
   "multi_dupe_table": {
     "path": "/assets/buildings/sprites/multi_dupe_table.png",
@@ -1887,7 +2817,7 @@
     "pixelHeight": 288,
     "anchorOffsetXCells": 0.02737510681152344,
     "anchorOffsetYCells": -0.5720781326293946,
-    "source": "multi_dupe_table_kanim"
+    "source": "multi_dupe_table_kanim:on"
   },
   "object_dispenser": {
     "path": "/assets/buildings/sprites/object_dispenser.png",
@@ -1897,7 +2827,7 @@
     "pixelHeight": 442,
     "anchorOffsetXCells": 0.19914064407348633,
     "anchorOffsetYCells": -0.9592890167236328,
-    "source": "object_dispenser_kanim"
+    "source": "object_dispenser_kanim:on"
   },
   "oilchange_station": {
     "path": "/assets/buildings/sprites/oilchange_station.png",
@@ -1907,7 +2837,7 @@
     "pixelHeight": 741,
     "anchorOffsetXCells": -0.11455463409423829,
     "anchorOffsetYCells": -1.6881522679328917,
-    "source": "oilchange_station_kanim"
+    "source": "oilchange_station_kanim:working_loop"
   },
   "oilrefinery": {
     "path": "/assets/buildings/sprites/oilrefinery.png",
@@ -1917,7 +2847,7 @@
     "pixelHeight": 805,
     "anchorOffsetXCells": -0.0022498082525449093,
     "anchorOffsetYCells": -1.8972814559936524,
-    "source": "oilrefinery_kanim"
+    "source": "oilrefinery_kanim:working_loop"
   },
   "orb_transporter": {
     "path": "/assets/buildings/sprites/orb_transporter.png",
@@ -1927,7 +2857,7 @@
     "pixelHeight": 395,
     "anchorOffsetXCells": 0.005669189393520355,
     "anchorOffsetYCells": -0.8956751152253127,
-    "source": "orb_transporter_kanim"
+    "source": "orb_transporter_kanim:working_loop"
   },
   "orbital_research_station": {
     "path": "/assets/buildings/sprites/orbital_research_station.png",
@@ -1937,7 +2867,7 @@
     "pixelHeight": 655,
     "anchorOffsetXCells": 0.026312522888183594,
     "anchorOffsetYCells": -1.4936249351501465,
-    "source": "orbital_research_station_kanim"
+    "source": "orbital_research_station_kanim:working_loop"
   },
   "orescrubber": {
     "path": "/assets/buildings/sprites/orescrubber.png",
@@ -1947,7 +2877,7 @@
     "pixelHeight": 660,
     "anchorOffsetXCells": 0.1524738547755949,
     "anchorOffsetYCells": -1.4971884203214803,
-    "source": "orescrubber_kanim"
+    "source": "orescrubber_kanim:working_loop"
   },
   "outhouse": {
     "path": "/assets/buildings/sprites/outhouse.png",
@@ -1957,7 +2887,17 @@
     "pixelHeight": 640,
     "anchorOffsetXCells": -0.01562792918004618,
     "anchorOffsetYCells": -1.4394275298066208,
-    "source": "outhouse_kanim"
+    "source": "outhouse_kanim:working_loop"
+  },
+  "oxy_fern": {
+    "path": "/assets/buildings/sprites/oxy_fern.png",
+    "widthCells": 1.1726017807592848,
+    "heightCells": 1.1236838025633482,
+    "pixelWidth": 239,
+    "pixelHeight": 229,
+    "anchorOffsetXCells": 0.019006820442097023,
+    "anchorOffsetYCells": -0.3559080829826996,
+    "source": "oxy_fern_kanim:idle_empty"
   },
   "oxy_sconce": {
     "path": "/assets/buildings/sprites/oxy_sconce.png",
@@ -1967,7 +2907,7 @@
     "pixelHeight": 166,
     "anchorOffsetXCells": -0.010382843017578126,
     "anchorOffsetYCells": -0.32793746948242186,
-    "source": "oxy_sconce_kanim"
+    "source": "oxy_sconce_kanim:on"
   },
   "oxygen_checkpoint_arrow": {
     "path": "/assets/buildings/sprites/oxygen_checkpoint_arrow.png",
@@ -1977,7 +2917,7 @@
     "pixelHeight": 464,
     "anchorOffsetXCells": -0.10737503051757813,
     "anchorOffsetYCells": -1.0560325813293456,
-    "source": "oxygen_checkpoint_arrow_kanim"
+    "source": "oxygen_checkpoint_arrow_kanim:working_loop"
   },
   "oxygen_mask_locker": {
     "path": "/assets/buildings/sprites/oxygen_mask_locker.png",
@@ -1987,7 +2927,7 @@
     "pixelHeight": 431,
     "anchorOffsetXCells": -0.04674999237060547,
     "anchorOffsetYCells": -0.9717783527076245,
-    "source": "oxygen_mask_locker_kanim"
+    "source": "oxygen_mask_locker_kanim:on"
   },
   "oxygen_mask_station": {
     "path": "/assets/buildings/sprites/oxygen_mask_station.png",
@@ -1997,7 +2937,7 @@
     "pixelHeight": 659,
     "anchorOffsetXCells": -0.06212497711181641,
     "anchorOffsetYCells": -1.432264404296875,
-    "source": "oxygen_mask_station_kanim"
+    "source": "oxygen_mask_station_kanim:working_loop"
   },
   "oxylite_refinery": {
     "path": "/assets/buildings/sprites/oxylite_refinery.png",
@@ -2007,7 +2947,7 @@
     "pixelHeight": 688,
     "anchorOffsetXCells": 0.05543752670288086,
     "anchorOffsetYCells": -1.5041250610351562,
-    "source": "oxylite_refinery_kanim"
+    "source": "oxylite_refinery_kanim:working_loop"
   },
   "painting_off": {
     "path": "/assets/buildings/sprites/painting_off.png",
@@ -2017,7 +2957,7 @@
     "pixelHeight": 410,
     "anchorOffsetXCells": 0.0002499847486615181,
     "anchorOffsetYCells": -0.9965000152587891,
-    "source": "painting_off_kanim"
+    "source": "painting_off_kanim:off"
   },
   "painting_tall_off": {
     "path": "/assets/buildings/sprites/painting_tall_off.png",
@@ -2027,7 +2967,7 @@
     "pixelHeight": 613,
     "anchorOffsetXCells": -0.006999999992549419,
     "anchorOffsetYCells": -1.4987500762939454,
-    "source": "painting_tall_off_kanim"
+    "source": "painting_tall_off_kanim:off"
   },
   "painting_wide_off": {
     "path": "/assets/buildings/sprites/painting_wide_off.png",
@@ -2037,7 +2977,7 @@
     "pixelHeight": 438,
     "anchorOffsetXCells": 0.0076249389722943305,
     "anchorOffsetYCells": -0.9986250305175781,
-    "source": "painting_wide_off_kanim"
+    "source": "painting_wide_off_kanim:off"
   },
   "parcel_delivery": {
     "path": "/assets/buildings/sprites/parcel_delivery.png",
@@ -2047,7 +2987,7 @@
     "pixelHeight": 563,
     "anchorOffsetXCells": 0.3168294906616211,
     "anchorOffsetYCells": -1.1959374237060547,
-    "source": "parcel_delivery_kanim"
+    "source": "parcel_delivery_kanim:idle"
   },
   "parksign": {
     "path": "/assets/buildings/sprites/parksign.png",
@@ -2057,7 +2997,27 @@
     "pixelHeight": 484,
     "anchorOffsetXCells": -0.0002500000037252903,
     "anchorOffsetYCells": -1.0616552336327731,
-    "source": "parksign_kanim"
+    "source": "parksign_kanim:working_loop"
+  },
+  "parrotfish_coral": {
+    "path": "/assets/buildings/sprites/parrotfish_coral.png",
+    "widthCells": 1.505,
+    "heightCells": 1.41,
+    "pixelWidth": 305,
+    "pixelHeight": 286,
+    "anchorOffsetXCells": 0.02187506103888154,
+    "anchorOffsetYCells": -1.0062812042236329,
+    "source": "parrotfish_coral_kanim:idle_empty"
+  },
+  "pedestal": {
+    "path": "/assets/buildings/sprites/pedestal.png",
+    "widthCells": 1.44,
+    "heightCells": 1.38,
+    "pixelWidth": 292,
+    "pixelHeight": 280,
+    "anchorOffsetXCells": -0.03262503027915955,
+    "anchorOffsetYCells": -0.4928750157356262,
+    "source": "pedestal_kanim:pedestal"
   },
   "planterbox": {
     "path": "/assets/buildings/sprites/planterbox.png",
@@ -2067,7 +3027,7 @@
     "pixelHeight": 279,
     "anchorOffsetXCells": 0.014250011444091796,
     "anchorOffsetYCells": -0.5102641351515195,
-    "source": "planterbox_kanim"
+    "source": "planterbox_kanim:on"
   },
   "plantmatter_compressor": {
     "path": "/assets/buildings/sprites/plantmatter_compressor.png",
@@ -2077,7 +3037,7 @@
     "pixelHeight": 706,
     "anchorOffsetXCells": 0.15393749237060547,
     "anchorOffsetYCells": -1.6426408775036088,
-    "source": "plantmatter_compressor_kanim"
+    "source": "plantmatter_compressor_kanim:working_loop"
   },
   "planttender": {
     "path": "/assets/buildings/sprites/planttender.png",
@@ -2087,7 +3047,7 @@
     "pixelHeight": 662,
     "anchorOffsetXCells": 0.05462504386901856,
     "anchorOffsetYCells": -1.4730904218199925,
-    "source": "planttender_kanim"
+    "source": "planttender_kanim:working_loop"
   },
   "plasticrefinery": {
     "path": "/assets/buildings/sprites/plasticrefinery.png",
@@ -2097,7 +3057,107 @@
     "pixelHeight": 656,
     "anchorOffsetXCells": 0.12553631194631065,
     "anchorOffsetYCells": -1.373939811620762,
-    "source": "plasticrefinery_kanim"
+    "source": "plasticrefinery_kanim:working_loop"
+  },
+  "podmelon": {
+    "path": "/assets/buildings/sprites/podmelon.png",
+    "widthCells": 1.42,
+    "heightCells": 1.9809365844726563,
+    "pixelWidth": 288,
+    "pixelHeight": 401,
+    "anchorOffsetXCells": -0.03,
+    "anchorOffsetYCells": -0.5367537154862657,
+    "source": "podmelon_kanim:idle"
+  },
+  "poi_1x1_crate": {
+    "path": "/assets/buildings/sprites/poi_1x1_crate.png",
+    "widthCells": 1.23,
+    "heightCells": 1.245,
+    "pixelWidth": 250,
+    "pixelHeight": 253,
+    "anchorOffsetXCells": 0.050112037658691405,
+    "anchorOffsetYCells": -0.5430000305175782,
+    "source": "poi_1x1_crate_kanim:on"
+  },
+  "poi_chair": {
+    "path": "/assets/buildings/sprites/poi_chair.png",
+    "widthCells": 3.197739562988281,
+    "heightCells": 1.7070122528076173,
+    "pixelWidth": 644,
+    "pixelHeight": 346,
+    "anchorOffsetXCells": -0.0004950714111328125,
+    "anchorOffsetYCells": -0.785379753112793,
+    "source": "poi_chair_kanim:on"
+  },
+  "poi_couch": {
+    "path": "/assets/buildings/sprites/poi_couch.png",
+    "widthCells": 5.0362499237060545,
+    "heightCells": 1.757874984741211,
+    "pixelWidth": 1012,
+    "pixelHeight": 356,
+    "anchorOffsetXCells": -0.002124977111816406,
+    "anchorOffsetYCells": -0.7859375381469726,
+    "source": "poi_couch_kanim:on"
+  },
+  "poi_fireextinguisher": {
+    "path": "/assets/buildings/sprites/poi_fireextinguisher.png",
+    "widthCells": 1.175,
+    "heightCells": 1.775,
+    "pixelWidth": 239,
+    "pixelHeight": 359,
+    "anchorOffsetXCells": -0.01653125762939453,
+    "anchorOffsetYCells": -0.9810625457763672,
+    "source": "poi_fireextinguisher_kanim:on"
+  },
+  "poi_murphybed": {
+    "path": "/assets/buildings/sprites/poi_murphybed.png",
+    "widthCells": 6.48,
+    "heightCells": 4.21828140258789,
+    "pixelWidth": 1300,
+    "pixelHeight": 848,
+    "anchorOffsetXCells": -0.346468505859375,
+    "anchorOffsetYCells": -1.9555156707763672,
+    "source": "poi_murphybed_kanim:on"
+  },
+  "poi_shelf_long": {
+    "path": "/assets/buildings/sprites/poi_shelf_long.png",
+    "widthCells": 2.6,
+    "heightCells": 1.1082500171661378,
+    "pixelWidth": 524,
+    "pixelHeight": 226,
+    "anchorOffsetXCells": 0.00350006103515625,
+    "anchorOffsetYCells": -0.49500002384185793,
+    "source": "poi_shelf_long_kanim:on"
+  },
+  "poi_shelf_short": {
+    "path": "/assets/buildings/sprites/poi_shelf_short.png",
+    "widthCells": 1.71,
+    "heightCells": 1.1169999408721925,
+    "pixelWidth": 346,
+    "pixelHeight": 228,
+    "anchorOffsetXCells": -0.03312495470046997,
+    "anchorOffsetYCells": -0.49362501621246335,
+    "source": "poi_shelf_short_kanim:on"
+  },
+  "poi_toolshelf": {
+    "path": "/assets/buildings/sprites/poi_toolshelf.png",
+    "widthCells": 2.15,
+    "heightCells": 2.59,
+    "pixelWidth": 434,
+    "pixelHeight": 522,
+    "anchorOffsetXCells": -0.012616562843322753,
+    "anchorOffsetYCells": -0.878734359741211,
+    "source": "poi_toolshelf_kanim:on"
+  },
+  "pollinator_plant": {
+    "path": "/assets/buildings/sprites/pollinator_plant.png",
+    "widthCells": 0.5421050238594762,
+    "heightCells": 0.6480548356470536,
+    "pixelWidth": 113,
+    "pixelHeight": 134,
+    "anchorOffsetXCells": 0.05215578913674108,
+    "anchorOffsetYCells": -0.14463631655278733,
+    "source": "pollinator_plant_kanim:idle_empty"
   },
   "porta_pod_y": {
     "path": "/assets/buildings/sprites/porta_pod_y.png",
@@ -2107,7 +3167,97 @@
     "pixelHeight": 777,
     "anchorOffsetXCells": 0.033884576951804204,
     "anchorOffsetYCells": -1.1991647904832927,
-    "source": "porta_pod_y_kanim"
+    "source": "porta_pod_y_kanim:working_loop"
+  },
+  "poster_ceres_7x5": {
+    "path": "/assets/buildings/sprites/poster_ceres_7x5.png",
+    "widthCells": 5.179454226493835,
+    "heightCells": 7.191817935705185,
+    "pixelWidth": 1040,
+    "pixelHeight": 1443,
+    "anchorOffsetXCells": 0.009916051149375563,
+    "anchorOffsetYCells": -3.5668671055436425,
+    "source": "poster_ceres_7x5_kanim:art_7x5"
+  },
+  "potted_bulb": {
+    "path": "/assets/buildings/sprites/potted_bulb.png",
+    "widthCells": 1.28,
+    "heightCells": 1.3372827745298854,
+    "pixelWidth": 260,
+    "pixelHeight": 272,
+    "anchorOffsetXCells": 0.005249992311000824,
+    "anchorOffsetYCells": -0.5114836203644518,
+    "source": "potted_bulb_kanim:idle"
+  },
+  "potted_cactus": {
+    "path": "/assets/buildings/sprites/potted_cactus.png",
+    "widthCells": 1.238875002861023,
+    "heightCells": 1.3,
+    "pixelWidth": 252,
+    "pixelHeight": 264,
+    "anchorOffsetXCells": -0.011687500476837158,
+    "anchorOffsetYCells": -0.4600000190734863,
+    "source": "potted_cactus_kanim:idle"
+  },
+  "potted_cups": {
+    "path": "/assets/buildings/sprites/potted_cups.png",
+    "widthCells": 1.2695882491390227,
+    "heightCells": 1.3701309657634704,
+    "pixelWidth": 258,
+    "pixelHeight": 279,
+    "anchorOffsetXCells": -0.030803952625720398,
+    "anchorOffsetYCells": -0.4905439961528174,
+    "source": "potted_cups_kanim:idle"
+  },
+  "potted_cylindricafan": {
+    "path": "/assets/buildings/sprites/potted_cylindricafan.png",
+    "widthCells": 1.499805621363339,
+    "heightCells": 1.3370031322396243,
+    "pixelWidth": 304,
+    "pixelHeight": 272,
+    "anchorOffsetXCells": -0.005479162175615784,
+    "anchorOffsetYCells": -0.5478677609091682,
+    "source": "potted_cylindricafan_kanim:idle"
+  },
+  "potted_evilflower": {
+    "path": "/assets/buildings/sprites/potted_evilflower.png",
+    "widthCells": 1.1532500076293946,
+    "heightCells": 1.3452576836495427,
+    "pixelWidth": 235,
+    "pixelHeight": 274,
+    "anchorOffsetXCells": -0.0016250115633010863,
+    "anchorOffsetYCells": -0.4955439086418483,
+    "source": "potted_evilflower_kanim:idle"
+  },
+  "potted_ice_flower": {
+    "path": "/assets/buildings/sprites/potted_ice_flower.png",
+    "widthCells": 1.4241616356860607,
+    "heightCells": 1.4424939007126978,
+    "pixelWidth": 289,
+    "pixelHeight": 293,
+    "anchorOffsetXCells": 0.046216974953945854,
+    "anchorOffsetYCells": -0.5709969541710461,
+    "source": "potted_ice_flower_kanim:idle"
+  },
+  "potted_leafy": {
+    "path": "/assets/buildings/sprites/potted_leafy.png",
+    "widthCells": 1.3391249942779542,
+    "heightCells": 1.3172499465942382,
+    "pixelWidth": 272,
+    "pixelHeight": 268,
+    "anchorOffsetXCells": -0.035187487602233884,
+    "anchorOffsetYCells": -0.4832499885559082,
+    "source": "potted_leafy_kanim:idle"
+  },
+  "prehistoric_fern": {
+    "path": "/assets/buildings/sprites/prehistoric_fern.png",
+    "widthCells": 1.7635198972281068,
+    "heightCells": 1.653666661977768,
+    "pixelWidth": 357,
+    "pixelHeight": 335,
+    "anchorOffsetXCells": 0.11610498790058771,
+    "anchorOffsetYCells": -0.6129140335910495,
+    "source": "prehistoric_fern_kanim:idle_empty"
   },
   "presence_sensor": {
     "path": "/assets/buildings/sprites/presence_sensor.png",
@@ -2117,7 +3267,17 @@
     "pixelHeight": 327,
     "anchorOffsetXCells": 0.014475443280825857,
     "anchorOffsetYCells": -0.6799272929196013,
-    "source": "presence_sensor_kanim"
+    "source": "presence_sensor_kanim:on"
+  },
+  "pressureswitch": {
+    "path": "/assets/buildings/sprites/pressureswitch.png",
+    "widthCells": 1.12,
+    "heightCells": 1.3609374809265136,
+    "pixelWidth": 228,
+    "pixelHeight": 277,
+    "anchorOffsetXCells": -0.005249999761581421,
+    "anchorOffsetYCells": -0.6335312557220459,
+    "source": "pressureswitch_kanim:on_up_pre"
   },
   "pumpgas": {
     "path": "/assets/buildings/sprites/pumpgas.png",
@@ -2127,7 +3287,7 @@
     "pixelHeight": 483,
     "anchorOffsetXCells": -0.015920948036339838,
     "anchorOffsetYCells": -1.0395639129380243,
-    "source": "pumpgas_kanim"
+    "source": "pumpgas_kanim:working_loop"
   },
   "pumpliquid": {
     "path": "/assets/buildings/sprites/pumpliquid.png",
@@ -2137,7 +3297,17 @@
     "pixelHeight": 549,
     "anchorOffsetXCells": -0.07040214366004875,
     "anchorOffsetYCells": -0.747689064506622,
-    "source": "pumpliquid_kanim"
+    "source": "pumpliquid_kanim:working_loop"
+  },
+  "purpleroot": {
+    "path": "/assets/buildings/sprites/purpleroot.png",
+    "widthCells": 1.095,
+    "heightCells": 1.25,
+    "pixelWidth": 223,
+    "pixelHeight": 254,
+    "anchorOffsetXCells": -0.00037500739097595214,
+    "anchorOffsetYCells": -0.42454301357269286,
+    "source": "purpleroot_kanim:idle_empty"
   },
   "radbolt_battery": {
     "path": "/assets/buildings/sprites/radbolt_battery.png",
@@ -2147,7 +3317,7 @@
     "pixelHeight": 677,
     "anchorOffsetXCells": -0.009749984741210938,
     "anchorOffsetYCells": -1.5167812347412108,
-    "source": "radbolt_battery_kanim"
+    "source": "radbolt_battery_kanim:on"
   },
   "radbolt_joint_plate": {
     "path": "/assets/buildings/sprites/radbolt_joint_plate.png",
@@ -2157,7 +3327,7 @@
     "pixelHeight": 250,
     "anchorOffsetXCells": -0.158515625,
     "anchorOffsetYCells": -0.5094999313354492,
-    "source": "radbolt_joint_plate_kanim"
+    "source": "radbolt_joint_plate_kanim:on"
   },
   "radiation_collector": {
     "path": "/assets/buildings/sprites/radiation_collector.png",
@@ -2167,7 +3337,7 @@
     "pixelHeight": 492,
     "anchorOffsetXCells": 0.035681240178668076,
     "anchorOffsetYCells": -0.7659489649656237,
-    "source": "radiation_collector_kanim"
+    "source": "radiation_collector_kanim:working_loop"
   },
   "radiation_lamp": {
     "path": "/assets/buildings/sprites/radiation_lamp.png",
@@ -2177,7 +3347,7 @@
     "pixelHeight": 967,
     "anchorOffsetXCells": 1.0689375153183938,
     "anchorOffsetYCells": -0.49,
-    "source": "radiation_lamp_kanim"
+    "source": "radiation_lamp_kanim:on"
   },
   "rail_gun": {
     "path": "/assets/buildings/sprites/rail_gun.png",
@@ -2187,7 +3357,7 @@
     "pixelHeight": 1273,
     "anchorOffsetXCells": -0.03024993896484375,
     "anchorOffsetYCells": -2.9335930841888693,
-    "source": "rail_gun_kanim"
+    "source": "rail_gun_kanim:working_loop"
   },
   "railgun_emptier": {
     "path": "/assets/buildings/sprites/railgun_emptier.png",
@@ -2197,7 +3367,7 @@
     "pixelHeight": 688,
     "anchorOffsetXCells": -0.06000001549720764,
     "anchorOffsetYCells": -1.5955937385559082,
-    "source": "railgun_emptier_kanim"
+    "source": "railgun_emptier_kanim:working_loop"
   },
   "rancherstation": {
     "path": "/assets/buildings/sprites/rancherstation.png",
@@ -2207,7 +3377,7 @@
     "pixelHeight": 654,
     "anchorOffsetXCells": 0.03162499904632568,
     "anchorOffsetYCells": -1.423000030517578,
-    "source": "rancherstation_kanim"
+    "source": "rancherstation_kanim:working_loop"
   },
   "rancherstation_aquatic": {
     "path": "/assets/buildings/sprites/rancherstation_aquatic.png",
@@ -2217,7 +3387,7 @@
     "pixelHeight": 716,
     "anchorOffsetXCells": 0.016125121116638184,
     "anchorOffsetYCells": -1.4894999694824218,
-    "source": "rancherstation_aquatic_kanim"
+    "source": "rancherstation_aquatic_kanim:working_loop"
   },
   "rationbox": {
     "path": "/assets/buildings/sprites/rationbox.png",
@@ -2227,7 +3397,7 @@
     "pixelHeight": 328,
     "anchorOffsetXCells": 0.01581256151199341,
     "anchorOffsetYCells": -0.7082867413461205,
-    "source": "rationbox_kanim"
+    "source": "rationbox_kanim:on"
   },
   "rehydrator": {
     "path": "/assets/buildings/sprites/rehydrator.png",
@@ -2237,7 +3407,7 @@
     "pixelHeight": 493,
     "anchorOffsetXCells": -0.02768745422379773,
     "anchorOffsetYCells": -1.1112894439700205,
-    "source": "rehydrator_kanim"
+    "source": "rehydrator_kanim:working_loop"
   },
   "relocator_dropoff": {
     "path": "/assets/buildings/sprites/relocator_dropoff.png",
@@ -2247,7 +3417,7 @@
     "pixelHeight": 628,
     "anchorOffsetXCells": 0.017437515258789064,
     "anchorOffsetYCells": -1.4839999771118164,
-    "source": "relocator_dropoff_kanim"
+    "source": "relocator_dropoff_kanim:off"
   },
   "relocator_dropoff_02": {
     "path": "/assets/buildings/sprites/relocator_dropoff_02.png",
@@ -2257,7 +3427,7 @@
     "pixelHeight": 660,
     "anchorOffsetXCells": 0.03049997806549072,
     "anchorOffsetYCells": -1.5655000534653665,
-    "source": "relocator_dropoff_02_kanim"
+    "source": "relocator_dropoff_02_kanim:on"
   },
   "relocator_pickup": {
     "path": "/assets/buildings/sprites/relocator_pickup.png",
@@ -2267,7 +3437,7 @@
     "pixelHeight": 648,
     "anchorOffsetXCells": -0.0007602572441101074,
     "anchorOffsetYCells": -1.5360929718613625,
-    "source": "relocator_pickup_kanim"
+    "source": "relocator_pickup_kanim:on"
   },
   "research_center": {
     "path": "/assets/buildings/sprites/research_center.png",
@@ -2277,7 +3447,7 @@
     "pixelHeight": 464,
     "anchorOffsetXCells": 0.024614529949612916,
     "anchorOffsetYCells": -0.9411175180226564,
-    "source": "research_center_kanim"
+    "source": "research_center_kanim:working_loop"
   },
   "research_center2": {
     "path": "/assets/buildings/sprites/research_center2.png",
@@ -2287,7 +3457,7 @@
     "pixelHeight": 686,
     "anchorOffsetXCells": 0.14712958525982686,
     "anchorOffsetYCells": -1.5095845274158637,
-    "source": "research_center2_kanim"
+    "source": "research_center2_kanim:working_loop"
   },
   "research_space": {
     "path": "/assets/buildings/sprites/research_space.png",
@@ -2297,7 +3467,37 @@
     "pixelHeight": 918,
     "anchorOffsetXCells": 0.013125,
     "anchorOffsetYCells": -2.107125005722046,
-    "source": "research_space_kanim"
+    "source": "research_space_kanim:working_loop"
+  },
+  "research_unlock": {
+    "path": "/assets/buildings/sprites/research_unlock.png",
+    "widthCells": 2.575313590129838,
+    "heightCells": 3.6009999203681944,
+    "pixelWidth": 520,
+    "pixelHeight": 725,
+    "anchorOffsetXCells": 0.09065673498343699,
+    "anchorOffsetYCells": -1.5988749635219575,
+    "source": "research_unlock_kanim:working_loop"
+  },
+  "research_unlock_aquatic": {
+    "path": "/assets/buildings/sprites/research_unlock_aquatic.png",
+    "widthCells": 3.025,
+    "heightCells": 3.656251022815704,
+    "pixelWidth": 609,
+    "pixelHeight": 736,
+    "anchorOffsetXCells": 0.007621216773986817,
+    "anchorOffsetYCells": -1.5712494122982026,
+    "source": "research_unlock_aquatic_kanim:working_loop"
+  },
+  "research_unlock_dino": {
+    "path": "/assets/buildings/sprites/research_unlock_dino.png",
+    "widthCells": 2.9157543325424196,
+    "heightCells": 3.873089096546173,
+    "pixelWidth": 588,
+    "pixelHeight": 779,
+    "anchorOffsetXCells": -0.05275219678878784,
+    "anchorOffsetYCells": -1.6571695172786713,
+    "source": "research_unlock_dino_kanim:working_loop"
   },
   "respeccer": {
     "path": "/assets/buildings/sprites/respeccer.png",
@@ -2307,7 +3507,147 @@
     "pixelHeight": 668,
     "anchorOffsetXCells": -0.09560825860530826,
     "anchorOffsetYCells": -1.54625,
-    "source": "respeccer_kanim"
+    "source": "respeccer_kanim:working_loop"
+  },
+  "robo_command_capsule": {
+    "path": "/assets/buildings/sprites/robo_command_capsule.png",
+    "widthCells": 5.13,
+    "heightCells": 5.1747501182556155,
+    "pixelWidth": 1030,
+    "pixelHeight": 1039,
+    "anchorOffsetXCells": 0.0045571279525756835,
+    "anchorOffsetYCells": -2.465750093460083,
+    "source": "robo_command_capsule_kanim:grounded"
+  },
+  "robot_rocket_control_station": {
+    "path": "/assets/buildings/sprites/robot_rocket_control_station.png",
+    "widthCells": 3.2649187326431273,
+    "heightCells": 4.191875057220459,
+    "pixelWidth": 657,
+    "pixelHeight": 843,
+    "anchorOffsetXCells": 0.01941563367843628,
+    "anchorOffsetYCells": -1.974312562942505,
+    "source": "robot_rocket_control_station_kanim:grounded"
+  },
+  "rocket_battery_pack": {
+    "path": "/assets/buildings/sprites/rocket_battery_pack.png",
+    "widthCells": 3.6739023080933837,
+    "heightCells": 2.184499969482422,
+    "pixelWidth": 739,
+    "pixelHeight": 441,
+    "anchorOffsetXCells": 0.2653260319167748,
+    "anchorOffsetYCells": -1.0269999885559082,
+    "source": "rocket_battery_pack_kanim:grounded"
+  },
+  "rocket_biodiesel_engine": {
+    "path": "/assets/buildings/sprites/rocket_biodiesel_engine.png",
+    "widthCells": 6.5406671905517575,
+    "heightCells": 5.064374876022339,
+    "pixelWidth": 1313,
+    "pixelHeight": 1017,
+    "anchorOffsetXCells": -0.007916374206542969,
+    "anchorOffsetYCells": -2.529562439918518,
+    "source": "rocket_biodiesel_engine_kanim:grounded"
+  },
+  "rocket_cluster_hydrogen_engine": {
+    "path": "/assets/buildings/sprites/rocket_cluster_hydrogen_engine.png",
+    "widthCells": 6.925,
+    "heightCells": 5.870148468017578,
+    "pixelWidth": 1389,
+    "pixelHeight": 1179,
+    "anchorOffsetXCells": 0.13262494087219237,
+    "anchorOffsetYCells": -2.1779256439208985,
+    "source": "rocket_cluster_hydrogen_engine_kanim:grounded"
+  },
+  "rocket_cluster_liquid_fuel_tank": {
+    "path": "/assets/buildings/sprites/rocket_cluster_liquid_fuel_tank.png",
+    "widthCells": 4.9,
+    "heightCells": 5.586374969482422,
+    "pixelWidth": 984,
+    "pixelHeight": 1122,
+    "anchorOffsetXCells": -0.004875121116638184,
+    "anchorOffsetYCells": -2.4384374237060547,
+    "source": "rocket_cluster_liquid_fuel_tank_kanim:grounded"
+  },
+  "rocket_cluster_oxidizer_tank": {
+    "path": "/assets/buildings/sprites/rocket_cluster_oxidizer_tank.png",
+    "widthCells": 4.885,
+    "heightCells": 5.2868749618530275,
+    "pixelWidth": 981,
+    "pixelHeight": 1062,
+    "anchorOffsetXCells": -0.01337502956390381,
+    "anchorOffsetYCells": -2.588187427520752,
+    "source": "rocket_cluster_oxidizer_tank_kanim:grounded"
+  },
+  "rocket_cluster_oxidizer_tank_liquid": {
+    "path": "/assets/buildings/sprites/rocket_cluster_oxidizer_tank_liquid.png",
+    "widthCells": 4.99,
+    "heightCells": 2.287762954011791,
+    "pixelWidth": 1002,
+    "pixelHeight": 462,
+    "anchorOffsetXCells": -0.034625000953674316,
+    "anchorOffsetYCells": -1.1582436145468387,
+    "source": "rocket_cluster_oxidizer_tank_liquid_kanim:grounded"
+  },
+  "rocket_cluster_petroleum_engine": {
+    "path": "/assets/buildings/sprites/rocket_cluster_petroleum_engine.png",
+    "widthCells": 7.238499908447266,
+    "heightCells": 5.58728141784668,
+    "pixelWidth": 1452,
+    "pixelHeight": 1122,
+    "anchorOffsetXCells": 0.046570358276367185,
+    "anchorOffsetYCells": -2.4354841995239256,
+    "source": "rocket_cluster_petroleum_engine_kanim:grounded"
+  },
+  "rocket_cluster_steam_engine": {
+    "path": "/assets/buildings/sprites/rocket_cluster_steam_engine.png",
+    "widthCells": 7.025,
+    "heightCells": 5.159374847412109,
+    "pixelWidth": 1409,
+    "pixelHeight": 1036,
+    "anchorOffsetXCells": -0.001501830816268921,
+    "anchorOffsetYCells": -2.5233124542236327,
+    "source": "rocket_cluster_steam_engine_kanim:grounded"
+  },
+  "rocket_cluster_storage_gas": {
+    "path": "/assets/buildings/sprites/rocket_cluster_storage_gas.png",
+    "widthCells": 4.9513748931884765,
+    "heightCells": 5.195,
+    "pixelWidth": 995,
+    "pixelHeight": 1043,
+    "anchorOffsetXCells": -0.16246875762939453,
+    "anchorOffsetYCells": -2.511499938964844,
+    "source": "rocket_cluster_storage_gas_kanim:grounded"
+  },
+  "rocket_cluster_storage_liquid": {
+    "path": "/assets/buildings/sprites/rocket_cluster_storage_liquid.png",
+    "widthCells": 4.9534686660766605,
+    "heightCells": 5.2,
+    "pixelWidth": 995,
+    "pixelHeight": 1044,
+    "anchorOffsetXCells": 0.025359401702880858,
+    "anchorOffsetYCells": -2.4861247634887693,
+    "source": "rocket_cluster_storage_liquid_kanim:grounded"
+  },
+  "rocket_cluster_storage_solid": {
+    "path": "/assets/buildings/sprites/rocket_cluster_storage_solid.png",
+    "widthCells": 6.451750030517578,
+    "heightCells": 5.16,
+    "pixelWidth": 1295,
+    "pixelHeight": 1036,
+    "anchorOffsetXCells": -0.15112510681152344,
+    "anchorOffsetYCells": -2.5340001219511032,
+    "source": "rocket_cluster_storage_solid_kanim:grounded"
+  },
+  "rocket_co2_engine": {
+    "path": "/assets/buildings/sprites/rocket_co2_engine.png",
+    "widthCells": 3.6821718978881837,
+    "heightCells": 2.354359359741211,
+    "pixelWidth": 741,
+    "pixelHeight": 475,
+    "anchorOffsetXCells": -0.030023441314697266,
+    "anchorOffsetYCells": -0.9328203201293945,
+    "source": "rocket_co2_engine_kanim:grounded"
   },
   "rocket_command_module": {
     "path": "/assets/buildings/sprites/rocket_command_module.png",
@@ -2317,7 +3657,7 @@
     "pixelHeight": 1077,
     "anchorOffsetXCells": -0.018062502145767212,
     "anchorOffsetYCells": -2.4617683057137767,
-    "source": "rocket_command_module_kanim"
+    "source": "rocket_command_module_kanim:working_loop"
   },
   "rocket_floor_plug": {
     "path": "/assets/buildings/sprites/rocket_floor_plug.png",
@@ -2327,7 +3667,7 @@
     "pixelHeight": 207,
     "anchorOffsetXCells": 0.003312506675720215,
     "anchorOffsetYCells": -0.43324988672137804,
-    "source": "rocket_floor_plug_kanim"
+    "source": "rocket_floor_plug_kanim:working_loop"
   },
   "rocket_floor_plug_gas": {
     "path": "/assets/buildings/sprites/rocket_floor_plug_gas.png",
@@ -2337,7 +3677,7 @@
     "pixelHeight": 220,
     "anchorOffsetXCells": -0.00968752384185791,
     "anchorOffsetYCells": -0.4454997854083808,
-    "source": "rocket_floor_plug_gas_kanim"
+    "source": "rocket_floor_plug_gas_kanim:working_loop"
   },
   "rocket_floor_plug_gas_out": {
     "path": "/assets/buildings/sprites/rocket_floor_plug_gas_out.png",
@@ -2347,7 +3687,7 @@
     "pixelHeight": 218,
     "anchorOffsetXCells": -0.008749961853027344,
     "anchorOffsetYCells": -0.46218751072883607,
-    "source": "rocket_floor_plug_gas_out_kanim"
+    "source": "rocket_floor_plug_gas_out_kanim:working_loop"
   },
   "rocket_floor_plug_liquid": {
     "path": "/assets/buildings/sprites/rocket_floor_plug_liquid.png",
@@ -2357,7 +3697,7 @@
     "pixelHeight": 217,
     "anchorOffsetXCells": 0.003562521934509277,
     "anchorOffsetYCells": -0.45805876118382455,
-    "source": "rocket_floor_plug_liquid_kanim"
+    "source": "rocket_floor_plug_liquid_kanim:working_loop"
   },
   "rocket_floor_plug_liquid_out": {
     "path": "/assets/buildings/sprites/rocket_floor_plug_liquid_out.png",
@@ -2367,7 +3707,7 @@
     "pixelHeight": 221,
     "anchorOffsetXCells": -0.008749961853027344,
     "anchorOffsetYCells": -0.46853126645088194,
-    "source": "rocket_floor_plug_liquid_out_kanim"
+    "source": "rocket_floor_plug_liquid_out_kanim:working_loop"
   },
   "rocket_floor_plug_solid": {
     "path": "/assets/buildings/sprites/rocket_floor_plug_solid.png",
@@ -2377,7 +3717,7 @@
     "pixelHeight": 214,
     "anchorOffsetXCells": -0.009437508583068847,
     "anchorOffsetYCells": -0.43037483971566415,
-    "source": "rocket_floor_plug_solid_kanim"
+    "source": "rocket_floor_plug_solid_kanim:working_loop"
   },
   "rocket_floor_plug_solid_out": {
     "path": "/assets/buildings/sprites/rocket_floor_plug_solid_out.png",
@@ -2387,7 +3727,7 @@
     "pixelHeight": 221,
     "anchorOffsetXCells": -0.008749961853027344,
     "anchorOffsetYCells": -0.4696875107288361,
-    "source": "rocket_floor_plug_solid_out_kanim"
+    "source": "rocket_floor_plug_solid_out_kanim:working_loop"
   },
   "rocket_habitat_medium_module": {
     "path": "/assets/buildings/sprites/rocket_habitat_medium_module.png",
@@ -2397,7 +3737,67 @@
     "pixelHeight": 868,
     "anchorOffsetXCells": -0.04418756008148193,
     "anchorOffsetYCells": -1.8719592154026032,
-    "source": "rocket_habitat_medium_module_kanim"
+    "source": "rocket_habitat_medium_module_kanim:open"
+  },
+  "rocket_hep_engine": {
+    "path": "/assets/buildings/sprites/rocket_hep_engine.png",
+    "widthCells": 6.4231875610351565,
+    "heightCells": 5.365434646606445,
+    "pixelWidth": 1289,
+    "pixelHeight": 1078,
+    "anchorOffsetXCells": 0.06496864318847656,
+    "anchorOffsetYCells": -2.4734672927856445,
+    "source": "rocket_hep_engine_kanim:grounded"
+  },
+  "rocket_hydrogen_engine": {
+    "path": "/assets/buildings/sprites/rocket_hydrogen_engine.png",
+    "widthCells": 6.925,
+    "heightCells": 5.869773712158203,
+    "pixelWidth": 1389,
+    "pixelHeight": 1178,
+    "anchorOffsetXCells": 0.13262518405914306,
+    "anchorOffsetYCells": -2.177738265991211,
+    "source": "rocket_hydrogen_engine_kanim:grounded"
+  },
+  "rocket_interior_port_gas_in": {
+    "path": "/assets/buildings/sprites/rocket_interior_port_gas_in.png",
+    "widthCells": 1.095,
+    "heightCells": 1.35,
+    "pixelWidth": 223,
+    "pixelHeight": 274,
+    "anchorOffsetXCells": -0.018875007629394532,
+    "anchorOffsetYCells": -0.49374996185302733,
+    "source": "rocket_interior_port_gas_in_kanim:gas_in"
+  },
+  "rocket_interior_port_gas_out": {
+    "path": "/assets/buildings/sprites/rocket_interior_port_gas_out.png",
+    "widthCells": 1.095,
+    "heightCells": 1.35,
+    "pixelWidth": 223,
+    "pixelHeight": 274,
+    "anchorOffsetXCells": -0.03387500762939453,
+    "anchorOffsetYCells": -0.4990000534057617,
+    "source": "rocket_interior_port_gas_out_kanim:gas_out"
+  },
+  "rocket_interior_port_liquid_in": {
+    "path": "/assets/buildings/sprites/rocket_interior_port_liquid_in.png",
+    "widthCells": 1.095,
+    "heightCells": 1.35,
+    "pixelWidth": 223,
+    "pixelHeight": 274,
+    "anchorOffsetXCells": -0.02887500762939453,
+    "anchorOffsetYCells": -0.5337499618530274,
+    "source": "rocket_interior_port_liquid_in_kanim:liquid_in"
+  },
+  "rocket_interior_port_liquid_out": {
+    "path": "/assets/buildings/sprites/rocket_interior_port_liquid_out.png",
+    "widthCells": 1.095,
+    "heightCells": 1.35,
+    "pixelWidth": 223,
+    "pixelHeight": 274,
+    "anchorOffsetXCells": -0.03887500762939453,
+    "anchorOffsetYCells": -0.5297499465942382,
+    "source": "rocket_interior_port_liquid_out_kanim:liquid_out"
   },
   "rocket_launchpad": {
     "path": "/assets/buildings/sprites/rocket_launchpad.png",
@@ -2407,7 +3807,17 @@
     "pixelHeight": 530,
     "anchorOffsetXCells": 0.01149993896484375,
     "anchorOffsetYCells": -1.2169374847412109,
-    "source": "rocket_launchpad_kanim"
+    "source": "rocket_launchpad_kanim:on"
+  },
+  "rocket_liquid_fuel_tank": {
+    "path": "/assets/buildings/sprites/rocket_liquid_fuel_tank.png",
+    "widthCells": 5.005,
+    "heightCells": 5.288156242370605,
+    "pixelWidth": 1005,
+    "pixelHeight": 1062,
+    "anchorOffsetXCells": -0.043499999046325684,
+    "anchorOffsetYCells": -2.588828067779541,
+    "source": "rocket_liquid_fuel_tank_kanim:grounded"
   },
   "rocket_loader_extension": {
     "path": "/assets/buildings/sprites/rocket_loader_extension.png",
@@ -2417,7 +3827,7 @@
     "pixelHeight": 431,
     "anchorOffsetXCells": 0.03300521850585938,
     "anchorOffsetYCells": -0.9869999694824219,
-    "source": "rocket_loader_extension_kanim"
+    "source": "rocket_loader_extension_kanim:on"
   },
   "rocket_nosecone": {
     "path": "/assets/buildings/sprites/rocket_nosecone.png",
@@ -2427,7 +3837,167 @@
     "pixelHeight": 676,
     "anchorOffsetXCells": -0.01912501484155655,
     "anchorOffsetYCells": -1.391178183555603,
-    "source": "rocket_nosecone_kanim"
+    "source": "rocket_nosecone_kanim:working_loop"
+  },
+  "rocket_nosecone_default": {
+    "path": "/assets/buildings/sprites/rocket_nosecone_default.png",
+    "widthCells": 4.495,
+    "heightCells": 2.345,
+    "pixelWidth": 903,
+    "pixelHeight": 473,
+    "anchorOffsetXCells": 0.015773377418518066,
+    "anchorOffsetYCells": -1.0222500324249268,
+    "source": "rocket_nosecone_default_kanim:grounded"
+  },
+  "rocket_nosecone_gathering": {
+    "path": "/assets/buildings/sprites/rocket_nosecone_gathering.png",
+    "widthCells": 4.32,
+    "heightCells": 4.723947077925667,
+    "pixelWidth": 868,
+    "pixelHeight": 949,
+    "anchorOffsetXCells": 0.014249938949942588,
+    "anchorOffsetYCells": -2.2482235484995763,
+    "source": "rocket_nosecone_gathering_kanim:grounded"
+  },
+  "rocket_orbital_deploy_cargo_module": {
+    "path": "/assets/buildings/sprites/rocket_orbital_deploy_cargo_module.png",
+    "widthCells": 3.21,
+    "heightCells": 2.253312473297119,
+    "pixelWidth": 646,
+    "pixelHeight": 455,
+    "anchorOffsetXCells": 0.006874939203262329,
+    "anchorOffsetYCells": -1.0109687328338623,
+    "source": "rocket_orbital_deploy_cargo_module_kanim:loading1"
+  },
+  "rocket_oxidizer_tank": {
+    "path": "/assets/buildings/sprites/rocket_oxidizer_tank.png",
+    "widthCells": 4.885,
+    "heightCells": 5.2868749618530275,
+    "pixelWidth": 981,
+    "pixelHeight": 1062,
+    "anchorOffsetXCells": -0.01337502956390381,
+    "anchorOffsetYCells": -2.588187427520752,
+    "source": "rocket_oxidizer_tank_kanim:grounded"
+  },
+  "rocket_oxidizer_tank_liquid": {
+    "path": "/assets/buildings/sprites/rocket_oxidizer_tank_liquid.png",
+    "widthCells": 5.06,
+    "heightCells": 5.487874984741211,
+    "pixelWidth": 1016,
+    "pixelHeight": 1102,
+    "anchorOffsetXCells": -0.043499999046325684,
+    "anchorOffsetYCells": -2.5410625076293947,
+    "source": "rocket_oxidizer_tank_liquid_kanim:grounded"
+  },
+  "rocket_oxidizer_tank_small": {
+    "path": "/assets/buildings/sprites/rocket_oxidizer_tank_small.png",
+    "widthCells": 4.131384963989258,
+    "heightCells": 2.2307870752708983,
+    "pixelWidth": 831,
+    "pixelHeight": 451,
+    "anchorOffsetXCells": 0.004920585774816573,
+    "anchorOffsetYCells": -0.998089151372202,
+    "source": "rocket_oxidizer_tank_small_kanim:grounded"
+  },
+  "rocket_petro_engine_small": {
+    "path": "/assets/buildings/sprites/rocket_petro_engine_small.png",
+    "widthCells": 3.3823090186715126,
+    "heightCells": 4.307355633974075,
+    "pixelWidth": 681,
+    "pixelHeight": 866,
+    "anchorOffsetXCells": -0.011283521809618833,
+    "anchorOffsetYCells": -2.0528220456838606,
+    "source": "rocket_petro_engine_small_kanim:grounded"
+  },
+  "rocket_petroleum_engine": {
+    "path": "/assets/buildings/sprites/rocket_petroleum_engine.png",
+    "widthCells": 7.303499908447265,
+    "heightCells": 5.646875,
+    "pixelWidth": 1465,
+    "pixelHeight": 1134,
+    "anchorOffsetXCells": 0.046500015258789065,
+    "anchorOffsetYCells": -2.432312469482422,
+    "source": "rocket_petroleum_engine_kanim:grounded"
+  },
+  "rocket_pioneer_cargo_lander": {
+    "path": "/assets/buildings/sprites/rocket_pioneer_cargo_lander.png",
+    "widthCells": 3.4374582208680384,
+    "heightCells": 3.7099848528037547,
+    "pixelWidth": 692,
+    "pixelHeight": 746,
+    "anchorOffsetXCells": -0.021799249242342285,
+    "anchorOffsetYCells": -1.313382665150857,
+    "source": "rocket_pioneer_cargo_lander_kanim:grounded"
+  },
+  "rocket_pioneer_cargo_module": {
+    "path": "/assets/buildings/sprites/rocket_pioneer_cargo_module.png",
+    "widthCells": 3.215,
+    "heightCells": 3.337187566757202,
+    "pixelWidth": 647,
+    "pixelHeight": 672,
+    "anchorOffsetXCells": -0.004374969601631164,
+    "anchorOffsetYCells": -1.5549062776565552,
+    "source": "rocket_pioneer_cargo_module_kanim:loaded"
+  },
+  "rocket_puft_pod": {
+    "path": "/assets/buildings/sprites/rocket_puft_pod.png",
+    "widthCells": 3.16,
+    "heightCells": 3.22,
+    "pixelWidth": 636,
+    "pixelHeight": 648,
+    "anchorOffsetXCells": -0.0020000000298023225,
+    "anchorOffsetYCells": -1.5221249389648437,
+    "source": "rocket_puft_pod_kanim:grounded"
+  },
+  "rocket_research_module": {
+    "path": "/assets/buildings/sprites/rocket_research_module.png",
+    "widthCells": 6.8575,
+    "heightCells": 5.299624862670899,
+    "pixelWidth": 1376,
+    "pixelHeight": 1064,
+    "anchorOffsetXCells": -0.047249984741210935,
+    "anchorOffsetYCells": -2.45893741607666,
+    "source": "rocket_research_module_kanim:grounded"
+  },
+  "rocket_research_module_small": {
+    "path": "/assets/buildings/sprites/rocket_research_module_small.png",
+    "widthCells": 4.2572500610351565,
+    "heightCells": 2.1296250343322756,
+    "pixelWidth": 856,
+    "pixelHeight": 430,
+    "anchorOffsetXCells": -0.05150001525878906,
+    "anchorOffsetYCells": -1.001437520980835,
+    "source": "rocket_research_module_small_kanim:grounded"
+  },
+  "rocket_scanner_module": {
+    "path": "/assets/buildings/sprites/rocket_scanner_module.png",
+    "widthCells": 5.440248290967779,
+    "heightCells": 5.215874862670899,
+    "pixelWidth": 1093,
+    "pixelHeight": 1048,
+    "anchorOffsetXCells": -0.1951241454838896,
+    "anchorOffsetYCells": -2.502562446594238,
+    "source": "rocket_scanner_module_kanim:grounded"
+  },
+  "rocket_scout_cargo_lander": {
+    "path": "/assets/buildings/sprites/rocket_scout_cargo_lander.png",
+    "widthCells": 3.456251202962692,
+    "heightCells": 3.2736663731954194,
+    "pixelWidth": 696,
+    "pixelHeight": 659,
+    "anchorOffsetXCells": -0.00042563505068187623,
+    "anchorOffsetYCells": -1.4901535610865404,
+    "source": "rocket_scout_cargo_lander_kanim:grounded"
+  },
+  "rocket_scout_cargo_module": {
+    "path": "/assets/buildings/sprites/rocket_scout_cargo_module.png",
+    "widthCells": 4.176127763204277,
+    "heightCells": 3.241207479685545,
+    "pixelWidth": 840,
+    "pixelHeight": 653,
+    "anchorOffsetXCells": 0.0005264784954488277,
+    "anchorOffsetYCells": -1.4172712448984384,
+    "source": "rocket_scout_cargo_module_kanim:loaded"
   },
   "rocket_small_steam": {
     "path": "/assets/buildings/sprites/rocket_small_steam.png",
@@ -2437,7 +4007,87 @@
     "pixelHeight": 3852,
     "anchorOffsetXCells": -0.0035628086514770986,
     "anchorOffsetYCells": -8.985261900946497,
-    "source": "rocket_small_steam_kanim"
+    "source": "rocket_small_steam_kanim:grounded"
+  },
+  "rocket_solar_panel_module": {
+    "path": "/assets/buildings/sprites/rocket_solar_panel_module.png",
+    "widthCells": 3.999375,
+    "heightCells": 1.23,
+    "pixelWidth": 804,
+    "pixelHeight": 250,
+    "anchorOffsetXCells": 0.0036875152587890624,
+    "anchorOffsetYCells": -0.5,
+    "source": "rocket_solar_panel_module_kanim:grounded"
+  },
+  "rocket_solid_booster": {
+    "path": "/assets/buildings/sprites/rocket_solid_booster.png",
+    "widthCells": 7.660249938964844,
+    "heightCells": 5.816249790191651,
+    "pixelWidth": 1537,
+    "pixelHeight": 1168,
+    "anchorOffsetXCells": -0.024250030517578125,
+    "anchorOffsetYCells": -2.2996249866485594,
+    "source": "rocket_solid_booster_kanim:grounded"
+  },
+  "rocket_steam_engine": {
+    "path": "/assets/buildings/sprites/rocket_steam_engine.png",
+    "widthCells": 7.12,
+    "heightCells": 5.2422499847412105,
+    "pixelWidth": 1428,
+    "pixelHeight": 1053,
+    "anchorOffsetXCells": 0.009750000238418578,
+    "anchorOffsetYCells": -2.5313750076293946,
+    "source": "rocket_steam_engine_kanim:grounded"
+  },
+  "rocket_storage_gas": {
+    "path": "/assets/buildings/sprites/rocket_storage_gas.png",
+    "widthCells": 5.195343627929687,
+    "heightCells": 5.195,
+    "pixelWidth": 1044,
+    "pixelHeight": 1043,
+    "anchorOffsetXCells": -0.04048439025878906,
+    "anchorOffsetYCells": -2.511499938964844,
+    "source": "rocket_storage_gas_kanim:grounded"
+  },
+  "rocket_storage_gas_small": {
+    "path": "/assets/buildings/sprites/rocket_storage_gas_small.png",
+    "widthCells": 3.275,
+    "heightCells": 3.235,
+    "pixelWidth": 659,
+    "pixelHeight": 651,
+    "anchorOffsetXCells": 0.03700003147125244,
+    "anchorOffsetYCells": -1.5218748474121093,
+    "source": "rocket_storage_gas_small_kanim:grounded"
+  },
+  "rocket_storage_liquid": {
+    "path": "/assets/buildings/sprites/rocket_storage_liquid.png",
+    "widthCells": 4.655,
+    "heightCells": 5.2,
+    "pixelWidth": 935,
+    "pixelHeight": 1044,
+    "anchorOffsetXCells": -0.16146288871765135,
+    "anchorOffsetYCells": -2.4861247634887693,
+    "source": "rocket_storage_liquid_kanim:grounded"
+  },
+  "rocket_storage_liquid_small": {
+    "path": "/assets/buildings/sprites/rocket_storage_liquid_small.png",
+    "widthCells": 3.166546931266785,
+    "heightCells": 3.16,
+    "pixelWidth": 638,
+    "pixelHeight": 636,
+    "anchorOffsetXCells": -0.04739843606948853,
+    "anchorOffsetYCells": -1.4921249389648437,
+    "source": "rocket_storage_liquid_small_kanim:grounded"
+  },
+  "rocket_storage_live": {
+    "path": "/assets/buildings/sprites/rocket_storage_live.png",
+    "widthCells": 5.02,
+    "heightCells": 5.28,
+    "pixelWidth": 1008,
+    "pixelHeight": 1060,
+    "anchorOffsetXCells": -0.02712493896484375,
+    "anchorOffsetYCells": -2.5549998474121094,
+    "source": "rocket_storage_live_kanim:grounded"
   },
   "rocket_storage_live_small": {
     "path": "/assets/buildings/sprites/rocket_storage_live_small.png",
@@ -2447,7 +4097,47 @@
     "pixelHeight": 197,
     "anchorOffsetXCells": -0.004875544980168342,
     "anchorOffsetYCells": -0.38618750758469106,
-    "source": "rocket_storage_live_small_kanim"
+    "source": "rocket_storage_live_small_kanim:open"
+  },
+  "rocket_storage_solid": {
+    "path": "/assets/buildings/sprites/rocket_storage_solid.png",
+    "widthCells": 6.455750064849854,
+    "heightCells": 5.16,
+    "pixelWidth": 1296,
+    "pixelHeight": 1036,
+    "anchorOffsetXCells": -0.14912508964538573,
+    "anchorOffsetYCells": -2.5340001219511032,
+    "source": "rocket_storage_solid_kanim:grounded"
+  },
+  "rocket_storage_solid_small": {
+    "path": "/assets/buildings/sprites/rocket_storage_solid_small.png",
+    "widthCells": 4.171124954223632,
+    "heightCells": 3.19,
+    "pixelWidth": 839,
+    "pixelHeight": 642,
+    "anchorOffsetXCells": -0.08656246185302735,
+    "anchorOffsetYCells": -1.5196251219511032,
+    "source": "rocket_storage_solid_small_kanim:grounded"
+  },
+  "rocket_sugar_engine": {
+    "path": "/assets/buildings/sprites/rocket_sugar_engine.png",
+    "widthCells": 3.6147187650203705,
+    "heightCells": 3.5,
+    "pixelWidth": 727,
+    "pixelHeight": 704,
+    "anchorOffsetXCells": -0.17460938274860383,
+    "anchorOffsetYCells": -1.3572345542907716,
+    "source": "rocket_sugar_engine_kanim:grounded"
+  },
+  "rocket_tourist": {
+    "path": "/assets/buildings/sprites/rocket_tourist.png",
+    "widthCells": 5.76,
+    "heightCells": 5.239875068664551,
+    "pixelWidth": 1156,
+    "pixelHeight": 1052,
+    "anchorOffsetXCells": 0.0007500000298023224,
+    "anchorOffsetYCells": -2.5246875953674315,
+    "source": "rocket_tourist_kanim:grounded"
   },
   "rockrefinery": {
     "path": "/assets/buildings/sprites/rockrefinery.png",
@@ -2457,7 +4147,7 @@
     "pixelHeight": 867,
     "anchorOffsetXCells": -0.012874984741210937,
     "anchorOffsetYCells": -1.996264271226508,
-    "source": "rockrefinery_kanim"
+    "source": "rockrefinery_kanim:working_loop"
   },
   "rust_deoxidizer": {
     "path": "/assets/buildings/sprites/rust_deoxidizer.png",
@@ -2467,7 +4157,27 @@
     "pixelHeight": 643,
     "anchorOffsetXCells": 0.013133373260498047,
     "anchorOffsetYCells": -1.4730571013689064,
-    "source": "rust_deoxidizer_kanim"
+    "source": "rust_deoxidizer_kanim:working_loop"
+  },
+  "salty_sticks": {
+    "path": "/assets/buildings/sprites/salty_sticks.png",
+    "widthCells": 0.8100679368052767,
+    "heightCells": 0.8080652984287964,
+    "pixelWidth": 167,
+    "pixelHeight": 166,
+    "anchorOffsetXCells": -0.011621268586154372,
+    "anchorOffsetYCells": -0.231372572840478,
+    "source": "salty_sticks_kanim:idle_empty"
+  },
+  "satellite1": {
+    "path": "/assets/buildings/sprites/satellite1.png",
+    "widthCells": 2.76,
+    "heightCells": 3.260749969482422,
+    "pixelWidth": 556,
+    "pixelHeight": 657,
+    "anchorOffsetXCells": -0.05325004577636719,
+    "anchorOffsetYCells": -1.366124954223633,
+    "source": "satellite1_kanim:working_loop"
   },
   "sauna": {
     "path": "/assets/buildings/sprites/sauna.png",
@@ -2477,7 +4187,97 @@
     "pixelHeight": 785,
     "anchorOffsetXCells": -0.021687484681606292,
     "anchorOffsetYCells": -1.80368233125424,
-    "source": "sauna_kanim"
+    "source": "sauna_kanim:working_loop"
+  },
+  "sculpture": {
+    "path": "/assets/buildings/sprites/sculpture.png",
+    "widthCells": 1.21,
+    "heightCells": 3.235,
+    "pixelWidth": 246,
+    "pixelHeight": 651,
+    "anchorOffsetXCells": -0.0016250228881835938,
+    "anchorOffsetYCells": -1.455625,
+    "source": "sculpture_kanim:slab"
+  },
+  "sculpture_1x2": {
+    "path": "/assets/buildings/sprites/sculpture_1x2.png",
+    "widthCells": 1.14,
+    "heightCells": 2.21,
+    "pixelWidth": 232,
+    "pixelHeight": 446,
+    "anchorOffsetXCells": 0.012000007629394531,
+    "anchorOffsetYCells": -0.9628125,
+    "source": "sculpture_1x2_kanim:slab"
+  },
+  "sculpture_marble": {
+    "path": "/assets/buildings/sprites/sculpture_marble.png",
+    "widthCells": 1.93,
+    "heightCells": 3.31,
+    "pixelWidth": 390,
+    "pixelHeight": 666,
+    "anchorOffsetXCells": 0.017874984741210936,
+    "anchorOffsetYCells": -1.5125311279296876,
+    "source": "sculpture_marble_kanim:slab"
+  },
+  "sculpture_metal": {
+    "path": "/assets/buildings/sprites/sculpture_metal.png",
+    "widthCells": 1.2,
+    "heightCells": 3.245,
+    "pixelWidth": 244,
+    "pixelHeight": 653,
+    "anchorOffsetXCells": 0.018109397888183595,
+    "anchorOffsetYCells": -1.4739999389648437,
+    "source": "sculpture_metal_kanim:slab"
+  },
+  "sculpture_wood": {
+    "path": "/assets/buildings/sprites/sculpture_wood.png",
+    "widthCells": 1.165,
+    "heightCells": 1.24,
+    "pixelWidth": 237,
+    "pixelHeight": 252,
+    "anchorOffsetXCells": 0.02174999237060547,
+    "anchorOffsetYCells": -0.4646875,
+    "source": "sculpture_wood_kanim:slab"
+  },
+  "sea_fairy_plant": {
+    "path": "/assets/buildings/sprites/sea_fairy_plant.png",
+    "widthCells": 0.49,
+    "heightCells": 0.59,
+    "pixelWidth": 102,
+    "pixelHeight": 122,
+    "anchorOffsetXCells": 0.048656253814697265,
+    "anchorOffsetYCells": -0.14125,
+    "source": "sea_fairy_plant_kanim:idle_empty"
+  },
+  "setpiece_desk": {
+    "path": "/assets/buildings/sprites/setpiece_desk.png",
+    "widthCells": 3.08,
+    "heightCells": 2.083625011444092,
+    "pixelWidth": 620,
+    "pixelHeight": 421,
+    "anchorOffsetXCells": 0.07099999904632569,
+    "anchorOffsetYCells": -0.8423124790191651,
+    "source": "setpiece_desk_kanim:working_loop"
+  },
+  "setpiece_light": {
+    "path": "/assets/buildings/sprites/setpiece_light.png",
+    "widthCells": 0.94,
+    "heightCells": 1.2420539539051243,
+    "pixelWidth": 192,
+    "pixelHeight": 253,
+    "anchorOffsetXCells": 0.0036249923706054687,
+    "anchorOffsetYCells": -0.46797303830622694,
+    "source": "setpiece_light_kanim:on"
+  },
+  "setpiece_locker": {
+    "path": "/assets/buildings/sprites/setpiece_locker.png",
+    "widthCells": 1.14,
+    "heightCells": 2.385,
+    "pixelWidth": 232,
+    "pixelHeight": 481,
+    "anchorOffsetXCells": -0.03724998474121094,
+    "anchorOffsetYCells": -1.0382500457763673,
+    "source": "setpiece_locker_kanim:working_loop"
   },
   "shearing_station": {
     "path": "/assets/buildings/sprites/shearing_station.png",
@@ -2487,7 +4287,7 @@
     "pixelHeight": 662,
     "anchorOffsetXCells": -0.03833374194800854,
     "anchorOffsetYCells": -1.5676510079009471,
-    "source": "shearing_station_kanim"
+    "source": "shearing_station_kanim:working_loop"
   },
   "shearing_station_aquatic": {
     "path": "/assets/buildings/sprites/shearing_station_aquatic.png",
@@ -2497,7 +4297,7 @@
     "pixelHeight": 729,
     "anchorOffsetXCells": 0.10285510938838228,
     "anchorOffsetYCells": -1.5092547723287157,
-    "source": "shearing_station_aquatic_kanim"
+    "source": "shearing_station_aquatic_kanim:working_loop"
   },
   "shelf_wooden": {
     "path": "/assets/buildings/sprites/shelf_wooden.png",
@@ -2507,7 +4307,27 @@
     "pixelHeight": 92,
     "anchorOffsetXCells": 0.0075,
     "anchorOffsetYCells": -0.06774999618530274,
-    "source": "shelf_wooden_kanim"
+    "source": "shelf_wooden_kanim:off"
+  },
+  "shockworm": {
+    "path": "/assets/buildings/sprites/shockworm.png",
+    "widthCells": 1.2391676411825414,
+    "heightCells": 1.486108669190154,
+    "pixelWidth": 252,
+    "pixelHeight": 302,
+    "anchorOffsetXCells": -0.02958382059127075,
+    "anchorOffsetYCells": -0.9575518054507899,
+    "source": "shockworm_kanim:idle"
+  },
+  "skeleton_poi": {
+    "path": "/assets/buildings/sprites/skeleton_poi.png",
+    "widthCells": 1.24,
+    "heightCells": 2.66,
+    "pixelWidth": 252,
+    "pixelHeight": 536,
+    "anchorOffsetXCells": -0.011250015199184418,
+    "anchorOffsetYCells": -1.154375,
+    "source": "skeleton_poi_kanim:off"
   },
   "sludge_press": {
     "path": "/assets/buildings/sprites/sludge_press.png",
@@ -2517,7 +4337,7 @@
     "pixelHeight": 707,
     "anchorOffsetXCells": -0.05520313262938927,
     "anchorOffsetYCells": -1.6006598229239573,
-    "source": "sludge_press_kanim"
+    "source": "sludge_press_kanim:working_loop"
   },
   "smartstoragelocker": {
     "path": "/assets/buildings/sprites/smartstoragelocker.png",
@@ -2527,7 +4347,7 @@
     "pixelHeight": 516,
     "anchorOffsetXCells": -0.0029999923706054686,
     "anchorOffsetYCells": -1.1628750097751617,
-    "source": "smartstoragelocker_kanim"
+    "source": "smartstoragelocker_kanim:on"
   },
   "smoker": {
     "path": "/assets/buildings/sprites/smoker.png",
@@ -2537,7 +4357,7 @@
     "pixelHeight": 560,
     "anchorOffsetXCells": 0.007875475107033481,
     "anchorOffsetYCells": -1.2945041879088939,
-    "source": "smoker_kanim"
+    "source": "smoker_kanim:working_loop"
   },
   "sodamaker": {
     "path": "/assets/buildings/sprites/sodamaker.png",
@@ -2547,7 +4367,7 @@
     "pixelHeight": 436,
     "anchorOffsetXCells": -0.11678984960919479,
     "anchorOffsetYCells": -0.9797499704360962,
-    "source": "sodamaker_kanim"
+    "source": "sodamaker_kanim:working_loop"
   },
   "solar_panel": {
     "path": "/assets/buildings/sprites/solar_panel.png",
@@ -2557,7 +4377,7 @@
     "pixelHeight": 848,
     "anchorOffsetXCells": -0.18725141227245332,
     "anchorOffsetYCells": -1.967350977882743,
-    "source": "solar_panel_kanim"
+    "source": "solar_panel_kanim:working_loop"
   },
   "spaceheater": {
     "path": "/assets/buildings/sprites/spaceheater.png",
@@ -2567,7 +4387,7 @@
     "pixelHeight": 478,
     "anchorOffsetXCells": -0.02362499952316284,
     "anchorOffsetYCells": -0.9525625038146973,
-    "source": "spaceheater_kanim"
+    "source": "spaceheater_kanim:working_loop"
   },
   "spice_grinder": {
     "path": "/assets/buildings/sprites/spice_grinder.png",
@@ -2577,7 +4397,17 @@
     "pixelHeight": 709,
     "anchorOffsetXCells": 0.006092056035995484,
     "anchorOffsetYCells": -1.6988272101772088,
-    "source": "spice_grinder_kanim"
+    "source": "spice_grinder_kanim:working_loop"
+  },
+  "spike_fruit": {
+    "path": "/assets/buildings/sprites/spike_fruit.png",
+    "widthCells": 0.2860011611069115,
+    "heightCells": 0.45513187711881187,
+    "pixelWidth": 62,
+    "pixelHeight": 96,
+    "anchorOffsetXCells": -0.0028291476311613907,
+    "anchorOffsetYCells": -0.17285726645337263,
+    "source": "spike_fruit_kanim:idle_empty"
   },
   "steamturbine": {
     "path": "/assets/buildings/sprites/steamturbine.png",
@@ -2587,7 +4417,7 @@
     "pixelHeight": 1590,
     "anchorOffsetXCells": 0.04487500017791149,
     "anchorOffsetYCells": -1.262133284599688,
-    "source": "steamturbine_kanim"
+    "source": "steamturbine_kanim:working_loop"
   },
   "storagelocker": {
     "path": "/assets/buildings/sprites/storagelocker.png",
@@ -2597,7 +4427,7 @@
     "pixelHeight": 498,
     "anchorOffsetXCells": -0.01381251484155655,
     "anchorOffsetYCells": -1.0932499837875367,
-    "source": "storagelocker_kanim"
+    "source": "storagelocker_kanim:on"
   },
   "storagetile": {
     "path": "/assets/buildings/sprites/storagetile.png",
@@ -2607,7 +4437,7 @@
     "pixelHeight": 238,
     "anchorOffsetXCells": -0.003874969482421875,
     "anchorOffsetYCells": -0.515625,
-    "source": "storagetile_kanim"
+    "source": "storagetile_kanim:on"
   },
   "storagewood": {
     "path": "/assets/buildings/sprites/storagewood.png",
@@ -2617,7 +4447,7 @@
     "pixelHeight": 440,
     "anchorOffsetXCells": 0.020848760604858397,
     "anchorOffsetYCells": -0.9863317640431342,
-    "source": "storagewood_kanim"
+    "source": "storagewood_kanim:on"
   },
   "sublimation_station": {
     "path": "/assets/buildings/sprites/sublimation_station.png",
@@ -2627,7 +4457,7 @@
     "pixelHeight": 406,
     "anchorOffsetXCells": -0.027544052849346627,
     "anchorOffsetYCells": -0.9356508747121586,
-    "source": "sublimation_station_kanim"
+    "source": "sublimation_station_kanim:working_loop"
   },
   "suit_maker": {
     "path": "/assets/buildings/sprites/suit_maker.png",
@@ -2637,7 +4467,7 @@
     "pixelHeight": 618,
     "anchorOffsetXCells": -0.10123356137610244,
     "anchorOffsetYCells": -1.3184579186679581,
-    "source": "suit_maker_kanim"
+    "source": "suit_maker_kanim:working_loop"
   },
   "sun_lamp": {
     "path": "/assets/buildings/sprites/sun_lamp.png",
@@ -2647,7 +4477,7 @@
     "pixelHeight": 860,
     "anchorOffsetXCells": -0.405355876495596,
     "anchorOffsetYCells": -2.0476875591278074,
-    "source": "sun_lamp_kanim"
+    "source": "sun_lamp_kanim:on"
   },
   "super_snazzy_suit_alteration_station": {
     "path": "/assets/buildings/sprites/super_snazzy_suit_alteration_station.png",
@@ -2657,7 +4487,7 @@
     "pixelHeight": 690,
     "anchorOffsetXCells": -0.022065330448151173,
     "anchorOffsetYCells": -1.5560531480999196,
-    "source": "super_snazzy_suit_alteration_station_kanim"
+    "source": "super_snazzy_suit_alteration_station_kanim:working_loop"
   },
   "supermaterial_refinery": {
     "path": "/assets/buildings/sprites/supermaterial_refinery.png",
@@ -2667,7 +4497,7 @@
     "pixelHeight": 1087,
     "anchorOffsetXCells": 0.3456994270824362,
     "anchorOffsetYCells": -2.538371418551833,
-    "source": "supermaterial_refinery_kanim"
+    "source": "supermaterial_refinery_kanim:working_loop"
   },
   "sushi_station": {
     "path": "/assets/buildings/sprites/sushi_station.png",
@@ -2677,7 +4507,47 @@
     "pixelHeight": 472,
     "anchorOffsetXCells": -0.030125060975551607,
     "anchorOffsetYCells": -1.0588134956359863,
-    "source": "sushi_station_kanim"
+    "source": "sushi_station_kanim:working_loop"
+  },
+  "swampcrop": {
+    "path": "/assets/buildings/sprites/swampcrop.png",
+    "widthCells": 0.349193115234375,
+    "heightCells": 0.1401690673828125,
+    "pixelWidth": 74,
+    "pixelHeight": 33,
+    "anchorOffsetXCells": 0.013893955168314279,
+    "anchorOffsetYCells": 0.0009799673245288432,
+    "source": "swampcrop_kanim:idle_empty"
+  },
+  "swamplily": {
+    "path": "/assets/buildings/sprites/swamplily.png",
+    "widthCells": 0.9547789474085436,
+    "heightCells": 0.9989380933372308,
+    "pixelWidth": 195,
+    "pixelHeight": 204,
+    "anchorOffsetXCells": 0.0400323933382748,
+    "anchorOffsetYCells": -0.36005886831507156,
+    "source": "swamplily_kanim:idle_empty"
+  },
+  "swamptuber": {
+    "path": "/assets/buildings/sprites/swamptuber.png",
+    "widthCells": 1.045,
+    "heightCells": 1.845,
+    "pixelWidth": 213,
+    "pixelHeight": 373,
+    "anchorOffsetXCells": -0.001328887939453125,
+    "anchorOffsetYCells": -0.8053189086914062,
+    "source": "swamptuber_kanim:idle"
+  },
+  "sweep_bot": {
+    "path": "/assets/buildings/sprites/sweep_bot.png",
+    "widthCells": 1.34,
+    "heightCells": 1.2082758120071433,
+    "pixelWidth": 272,
+    "pixelHeight": 246,
+    "anchorOffsetXCells": 0.08387502670288086,
+    "anchorOffsetYCells": -0.5428879143184189,
+    "source": "sweep_bot_kanim:idle_loop"
   },
   "sweep_bot_base_station": {
     "path": "/assets/buildings/sprites/sweep_bot_base_station.png",
@@ -2687,7 +4557,27 @@
     "pixelHeight": 474,
     "anchorOffsetXCells": -0.04895312309265137,
     "anchorOffsetYCells": -1.0657657480239868,
-    "source": "sweep_bot_base_station_kanim"
+    "source": "sweep_bot_base_station_kanim:on"
+  },
+  "syrup_tree": {
+    "path": "/assets/buildings/sprites/syrup_tree.png",
+    "widthCells": 1.1893750190734864,
+    "heightCells": 2.5408750319480897,
+    "pixelWidth": 242,
+    "pixelHeight": 513,
+    "anchorOffsetXCells": 0.03593750953674316,
+    "anchorOffsetYCells": -1.0850625145435333,
+    "source": "syrup_tree_kanim:idle_empty"
+  },
+  "table_breakroom": {
+    "path": "/assets/buildings/sprites/table_breakroom.png",
+    "widthCells": 3.147250061035156,
+    "heightCells": 1.8485000228881836,
+    "pixelWidth": 634,
+    "pixelHeight": 374,
+    "anchorOffsetXCells": 0.001875,
+    "anchorOffsetYCells": -0.8195000267028809,
+    "source": "table_breakroom_kanim:off"
   },
   "telephone": {
     "path": "/assets/buildings/sprites/telephone.png",
@@ -2697,7 +4587,7 @@
     "pixelHeight": 462,
     "anchorOffsetXCells": 0.02236072063446045,
     "anchorOffsetYCells": -1.0953750133514404,
-    "source": "telephone_kanim"
+    "source": "telephone_kanim:on"
   },
   "telescope": {
     "path": "/assets/buildings/sprites/telescope.png",
@@ -2707,7 +4597,7 @@
     "pixelHeight": 1259,
     "anchorOffsetXCells": 0.044875037670135495,
     "anchorOffsetYCells": -2.998414998672438,
-    "source": "telescope_kanim"
+    "source": "telescope_kanim:working_loop"
   },
   "telescope_low": {
     "path": "/assets/buildings/sprites/telescope_low.png",
@@ -2717,7 +4607,7 @@
     "pixelHeight": 600,
     "anchorOffsetXCells": -0.11540089465677739,
     "anchorOffsetYCells": -1.4173378556966783,
-    "source": "telescope_low_kanim"
+    "source": "telescope_low_kanim:working_loop"
   },
   "temporal_tear_opener": {
     "path": "/assets/buildings/sprites/temporal_tear_opener.png",
@@ -2727,7 +4617,17 @@
     "pixelHeight": 808,
     "anchorOffsetXCells": 0.18502558456629004,
     "anchorOffsetYCells": -1.960612960604136,
-    "source": "temporal_tear_opener_kanim"
+    "source": "temporal_tear_opener_kanim:working_loop"
+  },
+  "thalassaire_coral": {
+    "path": "/assets/buildings/sprites/thalassaire_coral.png",
+    "widthCells": 4.234761798146886,
+    "heightCells": 2.7632819693572857,
+    "pixelWidth": 851,
+    "pixelHeight": 557,
+    "anchorOffsetXCells": 0.006317003225788938,
+    "anchorOffsetYCells": -1.1760421391967701,
+    "source": "thalassaire_coral_kanim:oxygen_idle_loop"
   },
   "thermalblock": {
     "path": "/assets/buildings/sprites/thermalblock.png",
@@ -2737,7 +4637,7 @@
     "pixelHeight": 313,
     "anchorOffsetXCells": -0.004892422691482352,
     "anchorOffsetYCells": -0.5018749856948852,
-    "source": "thermalblock_kanim"
+    "source": "thermalblock_kanim:off"
   },
   "toilet_wall": {
     "path": "/assets/buildings/sprites/toilet_wall.png",
@@ -2747,7 +4647,7 @@
     "pixelHeight": 622,
     "anchorOffsetXCells": -0.5705060195922852,
     "anchorOffsetYCells": -1.4695202481746674,
-    "source": "toilet_wall_kanim"
+    "source": "toilet_wall_kanim:working_loop"
   },
   "toiletflush": {
     "path": "/assets/buildings/sprites/toiletflush.png",
@@ -2757,7 +4657,7 @@
     "pixelHeight": 726,
     "anchorOffsetXCells": 0.07131053037743981,
     "anchorOffsetYCells": -1.5032656860351563,
-    "source": "toiletflush_kanim"
+    "source": "toiletflush_kanim:working_loop"
   },
   "transformer": {
     "path": "/assets/buildings/sprites/transformer.png",
@@ -2767,7 +4667,7 @@
     "pixelHeight": 544,
     "anchorOffsetXCells": -0.10339059294201433,
     "anchorOffsetYCells": -1.0629812049865723,
-    "source": "transformer_kanim"
+    "source": "transformer_kanim:working_loop"
   },
   "transformer_small": {
     "path": "/assets/buildings/sprites/transformer_small.png",
@@ -2777,7 +4677,17 @@
     "pixelHeight": 654,
     "anchorOffsetXCells": 0.10856750846809404,
     "anchorOffsetYCells": -1.3380541367868335,
-    "source": "transformer_small_kanim"
+    "source": "transformer_small_kanim:working_loop"
+  },
+  "travel_tube": {
+    "path": "/assets/buildings/sprites/travel_tube.png",
+    "widthCells": 1.1081250229477881,
+    "heightCells": 1.435,
+    "pixelWidth": 226,
+    "pixelHeight": 291,
+    "anchorOffsetXCells": 0.004687496274709701,
+    "anchorOffsetYCells": -0.4796250152587891,
+    "source": "travel_tube_kanim:L"
   },
   "treatment_chair": {
     "path": "/assets/buildings/sprites/treatment_chair.png",
@@ -2787,7 +4697,7 @@
     "pixelHeight": 540,
     "anchorOffsetXCells": -0.07562496185302735,
     "anchorOffsetYCells": -1.1456875228881835,
-    "source": "treatment_chair_kanim"
+    "source": "treatment_chair_kanim:working_loop"
   },
   "tube_launcher": {
     "path": "/assets/buildings/sprites/tube_launcher.png",
@@ -2797,7 +4707,7 @@
     "pixelHeight": 523,
     "anchorOffsetXCells": -0.017437515258789064,
     "anchorOffsetYCells": -1.1474061584472657,
-    "source": "tube_launcher_kanim"
+    "source": "tube_launcher_kanim:working_loop"
   },
   "tube_tile_bridge": {
     "path": "/assets/buildings/sprites/tube_tile_bridge.png",
@@ -2807,7 +4717,17 @@
     "pixelHeight": 304,
     "anchorOffsetXCells": 0.018249984979629517,
     "anchorOffsetYCells": -0.4651250457763672,
-    "source": "tube_tile_bridge_kanim"
+    "source": "tube_tile_bridge_kanim:on"
+  },
+  "tube_worm": {
+    "path": "/assets/buildings/sprites/tube_worm.png",
+    "widthCells": 0.6787618360626198,
+    "heightCells": 0.4500714236549129,
+    "pixelWidth": 140,
+    "pixelHeight": 95,
+    "anchorOffsetXCells": -0.05986970570425797,
+    "anchorOffsetYCells": -0.09976434899264178,
+    "source": "tube_worm_kanim:idle_empty"
   },
   "turbine_reef": {
     "path": "/assets/buildings/sprites/turbine_reef.png",
@@ -2817,7 +4737,7 @@
     "pixelHeight": 446,
     "anchorOffsetXCells": 0.2533233070373535,
     "anchorOffsetYCells": -2.101750011444092,
-    "source": "turbine_reef_kanim"
+    "source": "turbine_reef_kanim:on"
   },
   "underwater_breathing_station": {
     "path": "/assets/buildings/sprites/underwater_breathing_station.png",
@@ -2827,7 +4747,7 @@
     "pixelHeight": 494,
     "anchorOffsetXCells": 0.12631653210502009,
     "anchorOffsetYCells": -1.044968738555908,
-    "source": "underwater_breathing_station_kanim"
+    "source": "underwater_breathing_station_kanim:working_loop"
   },
   "underwater_critter_condo": {
     "path": "/assets/buildings/sprites/underwater_critter_condo.png",
@@ -2837,7 +4757,7 @@
     "pixelHeight": 656,
     "anchorOffsetXCells": 0.03667438871946061,
     "anchorOffsetYCells": -1.4119853946473448,
-    "source": "underwater_critter_condo_kanim"
+    "source": "underwater_critter_condo_kanim:on"
   },
   "underwater_vent": {
     "path": "/assets/buildings/sprites/underwater_vent.png",
@@ -2847,7 +4767,7 @@
     "pixelHeight": 913,
     "anchorOffsetXCells": 0.012625060975551605,
     "anchorOffsetYCells": -2.0684375619888304,
-    "source": "underwater_vent_kanim"
+    "source": "underwater_vent_kanim:idle"
   },
   "underwater_vent_drill": {
     "path": "/assets/buildings/sprites/underwater_vent_drill.png",
@@ -2857,7 +4777,17 @@
     "pixelHeight": 820,
     "anchorOffsetXCells": -0.027662323602708056,
     "anchorOffsetYCells": -2.8719402938605505,
-    "source": "underwater_vent_drill_kanim"
+    "source": "underwater_vent_drill_kanim:working_loop"
+  },
+  "urchin_plant": {
+    "path": "/assets/buildings/sprites/urchin_plant.png",
+    "widthCells": 2.805345017549225,
+    "heightCells": 2.795823684100134,
+    "pixelWidth": 566,
+    "pixelHeight": 564,
+    "anchorOffsetXCells": 0.0605530044654779,
+    "anchorOffsetYCells": -0.979271970354975,
+    "source": "urchin_plant_kanim:idle_empty"
   },
   "utilities_conveyor": {
     "path": "/assets/buildings/sprites/utilities_conveyor.png",
@@ -2867,7 +4797,7 @@
     "pixelHeight": 232,
     "anchorOffsetXCells": 0.021500015258789064,
     "anchorOffsetYCells": -0.4933749771118164,
-    "source": "utilities_conveyor_kanim"
+    "source": "utilities_conveyor_kanim:LRUD"
   },
   "utilities_conveyorbridge": {
     "path": "/assets/buildings/sprites/utilities_conveyorbridge.png",
@@ -2877,7 +4807,7 @@
     "pixelHeight": 203,
     "anchorOffsetXCells": 0.005249999761581421,
     "anchorOffsetYCells": -0.49512500762939454,
-    "source": "utilities_conveyorbridge_kanim"
+    "source": "utilities_conveyorbridge_kanim:off"
   },
   "utilities_gas": {
     "path": "/assets/buildings/sprites/utilities_gas.png",
@@ -2887,7 +4817,7 @@
     "pixelHeight": 229,
     "anchorOffsetXCells": 0.0017499694228172303,
     "anchorOffsetYCells": -0.4979999923706055,
-    "source": "utilities_gas_kanim"
+    "source": "utilities_gas_kanim:LRUD"
   },
   "utilities_gas_insulated": {
     "path": "/assets/buildings/sprites/utilities_gas_insulated.png",
@@ -2897,7 +4827,7 @@
     "pixelHeight": 229,
     "anchorOffsetXCells": 0.0017499694228172303,
     "anchorOffsetYCells": -0.4979999923706055,
-    "source": "utilities_gas_insulated_kanim"
+    "source": "utilities_gas_insulated_kanim:LRUD"
   },
   "utilities_gas_radiant": {
     "path": "/assets/buildings/sprites/utilities_gas_radiant.png",
@@ -2907,7 +4837,7 @@
     "pixelHeight": 229,
     "anchorOffsetXCells": 0.0017499694228172303,
     "anchorOffsetYCells": -0.4979999923706055,
-    "source": "utilities_gas_radiant_kanim"
+    "source": "utilities_gas_radiant_kanim:LRUD"
   },
   "utilities_liquid": {
     "path": "/assets/buildings/sprites/utilities_liquid.png",
@@ -2917,7 +4847,7 @@
     "pixelHeight": 228,
     "anchorOffsetXCells": 0.0013749772310256959,
     "anchorOffsetYCells": -0.4995000076293945,
-    "source": "utilities_liquid_kanim"
+    "source": "utilities_liquid_kanim:LRUD"
   },
   "utilities_liquid_insulated": {
     "path": "/assets/buildings/sprites/utilities_liquid_insulated.png",
@@ -2927,7 +4857,7 @@
     "pixelHeight": 228,
     "anchorOffsetXCells": 0.0013749772310256959,
     "anchorOffsetYCells": -0.4995000076293945,
-    "source": "utilities_liquid_insulated_kanim"
+    "source": "utilities_liquid_insulated_kanim:LRUD"
   },
   "utilities_liquid_radiant": {
     "path": "/assets/buildings/sprites/utilities_liquid_radiant.png",
@@ -2937,7 +4867,7 @@
     "pixelHeight": 228,
     "anchorOffsetXCells": 0.0013749772310256959,
     "anchorOffsetYCells": -0.4995000076293945,
-    "source": "utilities_liquid_radiant_kanim"
+    "source": "utilities_liquid_radiant_kanim:LRUD"
   },
   "utilityelectricbridge": {
     "path": "/assets/buildings/sprites/utilityelectricbridge.png",
@@ -2947,7 +4877,7 @@
     "pixelHeight": 224,
     "anchorOffsetXCells": 0.0025,
     "anchorOffsetYCells": -0.470625,
-    "source": "utilityelectricbridge_kanim"
+    "source": "utilityelectricbridge_kanim:off"
   },
   "utilityelectricbridgeconductive": {
     "path": "/assets/buildings/sprites/utilityelectricbridgeconductive.png",
@@ -2957,7 +4887,7 @@
     "pixelHeight": 191,
     "anchorOffsetXCells": -0.005,
     "anchorOffsetYCells": -0.58875,
-    "source": "utilityelectricbridgeconductive_kanim"
+    "source": "utilityelectricbridgeconductive_kanim:off"
   },
   "utilityelectricbridgerubber": {
     "path": "/assets/buildings/sprites/utilityelectricbridgerubber.png",
@@ -2967,7 +4897,7 @@
     "pixelHeight": 153,
     "anchorOffsetXCells": 0.00125,
     "anchorOffsetYCells": -0.5596562576293945,
-    "source": "utilityelectricbridgerubber_kanim"
+    "source": "utilityelectricbridgerubber_kanim:off"
   },
   "utilitygasbridge": {
     "path": "/assets/buildings/sprites/utilitygasbridge.png",
@@ -2977,7 +4907,7 @@
     "pixelHeight": 224,
     "anchorOffsetXCells": 0.04618749976158142,
     "anchorOffsetYCells": -0.6058750152587891,
-    "source": "utilitygasbridge_kanim"
+    "source": "utilitygasbridge_kanim:off"
   },
   "utilityliquidbridge": {
     "path": "/assets/buildings/sprites/utilityliquidbridge.png",
@@ -2987,7 +4917,7 @@
     "pixelHeight": 185,
     "anchorOffsetXCells": -0.04475006103515625,
     "anchorOffsetYCells": -0.5811249923706054,
-    "source": "utilityliquidbridge_kanim"
+    "source": "utilityliquidbridge_kanim:off"
   },
   "valvegas": {
     "path": "/assets/buildings/sprites/valvegas.png",
@@ -2997,7 +4927,7 @@
     "pixelHeight": 430,
     "anchorOffsetXCells": 0.009374969601631165,
     "anchorOffsetYCells": -1.0108124923706054,
-    "source": "valvegas_kanim"
+    "source": "valvegas_kanim:on"
   },
   "valvegas_logic": {
     "path": "/assets/buildings/sprites/valvegas_logic.png",
@@ -3007,7 +4937,7 @@
     "pixelHeight": 462,
     "anchorOffsetXCells": -0.06512499630451202,
     "anchorOffsetYCells": -0.9740000152587891,
-    "source": "valvegas_logic_kanim"
+    "source": "valvegas_logic_kanim:on"
   },
   "valveliquid": {
     "path": "/assets/buildings/sprites/valveliquid.png",
@@ -3017,7 +4947,7 @@
     "pixelHeight": 496,
     "anchorOffsetXCells": 0.12346574368304573,
     "anchorOffsetYCells": -1.1328670690041327,
-    "source": "valveliquid_kanim"
+    "source": "valveliquid_kanim:on"
   },
   "valveliquid_logic": {
     "path": "/assets/buildings/sprites/valveliquid_logic.png",
@@ -3027,7 +4957,17 @@
     "pixelHeight": 451,
     "anchorOffsetXCells": 0.20161193220338397,
     "anchorOffsetYCells": -0.9535000038146972,
-    "source": "valveliquid_logic_kanim"
+    "source": "valveliquid_logic_kanim:on"
+  },
+  "vendingmachine": {
+    "path": "/assets/buildings/sprites/vendingmachine.png",
+    "widthCells": 2.28,
+    "heightCells": 3.26,
+    "pixelWidth": 460,
+    "pixelHeight": 656,
+    "anchorOffsetXCells": -0.0064999997615814206,
+    "anchorOffsetYCells": -1.4422499084472655,
+    "source": "vendingmachine_kanim:on"
   },
   "ventgas": {
     "path": "/assets/buildings/sprites/ventgas.png",
@@ -3037,7 +4977,7 @@
     "pixelHeight": 240,
     "anchorOffsetXCells": 0.0027261951752007006,
     "anchorOffsetYCells": -0.5007398587377975,
-    "source": "ventgas_kanim"
+    "source": "ventgas_kanim:working_loop"
   },
   "ventgas_powered": {
     "path": "/assets/buildings/sprites/ventgas_powered.png",
@@ -3047,7 +4987,7 @@
     "pixelHeight": 250,
     "anchorOffsetXCells": -0.05056248664855957,
     "anchorOffsetYCells": -0.4756250047683716,
-    "source": "ventgas_powered_kanim"
+    "source": "ventgas_powered_kanim:working_loop"
   },
   "ventliquid": {
     "path": "/assets/buildings/sprites/ventliquid.png",
@@ -3057,7 +4997,17 @@
     "pixelHeight": 265,
     "anchorOffsetXCells": -0.009882827997207641,
     "anchorOffsetYCells": -0.37807817137335176,
-    "source": "ventliquid_kanim"
+    "source": "ventliquid_kanim:working_loop"
+  },
+  "vine_mother": {
+    "path": "/assets/buildings/sprites/vine_mother.png",
+    "widthCells": 1.28,
+    "heightCells": 1.255,
+    "pixelWidth": 260,
+    "pixelHeight": 255,
+    "anchorOffsetXCells": 0.020743438601493837,
+    "anchorOffsetYCells": -0.1819999998807907,
+    "source": "vine_mother_kanim:idle_empty"
   },
   "vulcanizer": {
     "path": "/assets/buildings/sprites/vulcanizer.png",
@@ -3067,7 +5017,7 @@
     "pixelHeight": 686,
     "anchorOffsetXCells": 0.03067807119433283,
     "anchorOffsetYCells": -1.557008282640786,
-    "source": "vulcanizer_kanim"
+    "source": "vulcanizer_kanim:working_loop"
   },
   "walls": {
     "path": "/assets/buildings/sprites/walls.png",
@@ -3077,7 +5027,7 @@
     "pixelHeight": 223,
     "anchorOffsetXCells": 0.00012494469049897816,
     "anchorOffsetYCells": -0.5002498893809979,
-    "source": "walls_kanim"
+    "source": "walls_kanim:off"
   },
   "walls_diagonal_gravitas_purple_white": {
     "path": "/assets/buildings/sprites/walls_diagonal_gravitas_purple_white.png",
@@ -3087,7 +5037,7 @@
     "pixelHeight": 223,
     "anchorOffsetXCells": 0.00012494469049897816,
     "anchorOffsetYCells": -0.5002498893809979,
-    "source": "walls_diagonal_gravitas_purple_white_kanim"
+    "source": "walls_diagonal_gravitas_purple_white_kanim:off"
   },
   "walls_glass": {
     "path": "/assets/buildings/sprites/walls_glass.png",
@@ -3097,7 +5047,7 @@
     "pixelHeight": 223,
     "anchorOffsetXCells": -0.00012494469049897816,
     "anchorOffsetYCells": -0.50087453657796,
-    "source": "walls_glass_kanim"
+    "source": "walls_glass_kanim:off"
   },
   "walls_gravitas_purple": {
     "path": "/assets/buildings/sprites/walls_gravitas_purple.png",
@@ -3107,7 +5057,7 @@
     "pixelHeight": 223,
     "anchorOffsetXCells": 0.00012494469049897816,
     "anchorOffsetYCells": -0.5002498893809979,
-    "source": "walls_gravitas_purple_kanim"
+    "source": "walls_gravitas_purple_kanim:off"
   },
   "warp_conduit_receiver": {
     "path": "/assets/buildings/sprites/warp_conduit_receiver.png",
@@ -3117,7 +5067,7 @@
     "pixelHeight": 542,
     "anchorOffsetXCells": -0.004629568481468596,
     "anchorOffsetYCells": -1.266253433227539,
-    "source": "warp_conduit_receiver_kanim"
+    "source": "warp_conduit_receiver_kanim:working_loop"
   },
   "warp_conduit_sender": {
     "path": "/assets/buildings/sprites/warp_conduit_sender.png",
@@ -3127,7 +5077,17 @@
     "pixelHeight": 681,
     "anchorOffsetXCells": 0.01197334518423304,
     "anchorOffsetYCells": -1.6139330291748046,
-    "source": "warp_conduit_sender_kanim"
+    "source": "warp_conduit_sender_kanim:working_loop"
+  },
+  "warp_portal_sender": {
+    "path": "/assets/buildings/sprites/warp_portal_sender.png",
+    "widthCells": 3.1759442901611328,
+    "heightCells": 3.295624952316284,
+    "pixelWidth": 640,
+    "pixelHeight": 664,
+    "anchorOffsetXCells": -0.016652870178222656,
+    "anchorOffsetYCells": -1.582562470436096,
+    "source": "warp_portal_sender_kanim:idle"
   },
   "wash_basin": {
     "path": "/assets/buildings/sprites/wash_basin.png",
@@ -3137,7 +5097,7 @@
     "pixelHeight": 660,
     "anchorOffsetXCells": 0.01774998426437378,
     "anchorOffsetYCells": -1.4731389552035177,
-    "source": "wash_basin_kanim"
+    "source": "wash_basin_kanim:working_loop"
   },
   "wash_sink": {
     "path": "/assets/buildings/sprites/wash_sink.png",
@@ -3147,7 +5107,7 @@
     "pixelHeight": 647,
     "anchorOffsetXCells": 0.00125,
     "anchorOffsetYCells": -1.4664721071720124,
-    "source": "wash_sink_kanim"
+    "source": "wash_sink_kanim:working_loop"
   },
   "watercooler": {
     "path": "/assets/buildings/sprites/watercooler.png",
@@ -3157,7 +5117,7 @@
     "pixelHeight": 457,
     "anchorOffsetXCells": -0.0008750152587890625,
     "anchorOffsetYCells": -0.9783750076591968,
-    "source": "watercooler_kanim"
+    "source": "watercooler_kanim:off"
   },
   "waterpump": {
     "path": "/assets/buildings/sprites/waterpump.png",
@@ -3167,7 +5127,7 @@
     "pixelHeight": 1534,
     "anchorOffsetXCells": -0.25845926455347695,
     "anchorOffsetYCells": -0.12344577054412553,
-    "source": "waterpump_kanim"
+    "source": "waterpump_kanim:working_loop"
   },
   "waterpurifier": {
     "path": "/assets/buildings/sprites/waterpurifier.png",
@@ -3177,7 +5137,7 @@
     "pixelHeight": 657,
     "anchorOffsetXCells": 0.038153987573913355,
     "anchorOffsetYCells": -1.487865035358709,
-    "source": "waterpurifier_kanim"
+    "source": "waterpurifier_kanim:working_loop"
   },
   "wind_tunnel": {
     "path": "/assets/buildings/sprites/wind_tunnel.png",
@@ -3187,6 +5147,16 @@
     "pixelHeight": 2751,
     "anchorOffsetXCells": 0.03587509155273438,
     "anchorOffsetYCells": -3.0229833877668715,
-    "source": "wind_tunnel_kanim"
+    "source": "wind_tunnel_kanim:working_loop"
+  },
+  "zipper_locker": {
+    "path": "/assets/buildings/sprites/zipper_locker.png",
+    "widthCells": 1.8469791030883789,
+    "heightCells": 2.315,
+    "pixelWidth": 374,
+    "pixelHeight": 467,
+    "anchorOffsetXCells": -0.36211455166339873,
+    "anchorOffsetYCells": -0.9461250305175781,
+    "source": "zipper_locker_kanim:working_loop"
   }
 }

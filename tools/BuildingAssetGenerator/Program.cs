@@ -101,6 +101,7 @@ static bool IsBuildingAsset(string name)
         || value.Equals("door", StringComparison.Ordinal)
         || value.StartsWith("gravitas_door_", StringComparison.Ordinal)
         || value.Equals("conveyer_dropper", StringComparison.Ordinal)
+        || value.Equals("logic_and", StringComparison.Ordinal)
         // These are placed buildings at the ends of transport networks. The
         // network cells themselves are rendered by the utility tile renderer.
         || value.Equals("conveyorin", StringComparison.Ordinal)
