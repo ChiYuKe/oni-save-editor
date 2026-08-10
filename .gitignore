@@ -11,7 +11,6 @@ node_modules
 dist
 dist-ssr
 *.local
-scripts/
 
 # Editor directories and files
 .vscode/*
@@ -19,6 +18,7 @@ scripts/
 .idea
 tools/**/bin/
 tools/**/obj/
+tools/oni-render-assets.json
 .DS_Store
 *.suo
 *.ntvs*

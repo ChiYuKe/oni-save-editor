@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ONI LightBuffer fixture</title>
+  <style>
+    html, body { margin: 0; min-height: 100%; background: #11191d; color: #e9e2cf; font: 14px system-ui; }
+    main { width: 960px; margin: 20px auto; }
+    canvas { display: block; background: #18242a; border: 1px solid #56656a; box-shadow: 0 12px 35px #0008; }
+    p { margin: 10px 0; color: #aebdc0; }
+  </style>
+</head>
+<body>
+  <main>
+    <canvas id="fixture" width="896" height="504"></canvas>
+    <p id="metric">rendering…</p>
+  </main>
+  <script type="module">
+    import { drawOniLightBuffer, oniLightDefinitionForTag, visibleLightCells } from '/src/lib/oniLighting.ts'
+
+    const canvas = document.querySelector('#fixture')
+    const context = canvas.getContext('2d')
+    const width = 32
+    const height = 18
+    const cellSize = 28
+    const cells = Array.from({ length: width * height }, () => ({ elementHash: 0, properties: 0, insulation: 0, strengthInfo: 0, temperature: 293, mass: 0 }))
+    const setProperties = (x, y, properties) => { cells[y * width + x].properties = properties }
+    for (let y = 2; y <= 15; y++) setProperties(15, y, 4)
+    for (let x = 4; x <= 10; x++) setProperties(x, 8, 4)
+    for (let x = 20; x <= 26; x++) setProperties(x, 8, 4 | 16)
+    const cellAt = (x, y) => x >= 0 && y >= 0 && x < width && y < height ? cells[y * width + x] : undefined
+
+    context.fillStyle = '#1a292f'
+    context.fillRect(0, 0, canvas.width, canvas.height)
+    context.strokeStyle = '#ffffff0b'
+    context.lineWidth = 1
+    context.beginPath()
+    for (let x = 0; x <= width; x++) { context.moveTo(x * cellSize, 0); context.lineTo(x * cellSize, canvas.height) }
+    for (let y = 0; y <= height; y++) { context.moveTo(0, y * cellSize); context.lineTo(canvas.width, y * cellSize) }
+    context.stroke()
+    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+      const properties = cellAt(x, y).properties
+      if ((properties & 4) === 0) continue
+      context.fillStyle = (properties & 16) !== 0 ? '#5eaeb977' : '#66757a'
+      context.fillRect(x * cellSize + 1, (height - 1 - y) * cellSize + 1, cellSize - 2, cellSize - 2)
+    }
+
+    const instances = [
+      { x: 9.5, y: 13.5, definition: oniLightDefinitionForTag('FloorLamp') },
+      { x: 23.5, y: 15.25, definition: oniLightDefinitionForTag('CeilingLight') },
+      { x: 19.5, y: 6.5, definition: oniLightDefinitionForTag('MercuryCeilingLight') },
+      { x: 11.5, y: 5.5, definition: oniLightDefinitionForTag('LightBugPurple') },
+    ].filter((item) => item.definition)
+    const rendered = drawOniLightBuffer({ context, lights: instances, width, height, worldHeight: height, cellSize, originX: 0, originY: 0, cellAt })
+    for (const instance of instances) {
+      context.fillStyle = '#fff6d4'
+      context.beginPath()
+      context.arc(instance.x * cellSize, (height - instance.y) * cellSize, 3, 0, Math.PI * 2)
+      context.fill()
+    }
+    const floor = instances[0]
+    const floorVisible = visibleLightCells({ width, height, cellAt }, Math.floor(floor.x + floor.definition.offset[0]), Math.floor(floor.y + floor.definition.offset[1]), floor.definition)
+    const behindOpaqueWall = floorVisible.has(13 * width + 16)
+    const ceiling = instances[1]
+    const ceilingVisible = visibleLightCells({ width, height, cellAt }, Math.floor(ceiling.x + ceiling.definition.offset[0]), Math.floor(ceiling.y + ceiling.definition.offset[1]), ceiling.definition)
+    const throughGlass = ceilingVisible.has(7 * width + 23)
+    const metric = `${rendered} lights · opaque shadow=${!behindOpaqueWall} · transparent pass=${throughGlass} · circle cells=${floorVisible.size} · cone cells=${ceilingVisible.size}`
+    document.querySelector('#metric').textContent = metric
+    document.body.dataset.metric = metric
+  </script>
+</body>
+</html>

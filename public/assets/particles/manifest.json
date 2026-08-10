@@ -1,0 +1,12 @@
+{
+  "fallingWater": {
+    "file": "water_drip.png",
+    "frames": 4,
+    "rows": 1
+  },
+  "bubbles": {
+    "file": "bubbleObject.png",
+    "frames": 30,
+    "rows": 3
+  }
+}

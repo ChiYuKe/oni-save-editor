@@ -6,6 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "extract:oni-render-assets": "python tools/extract_oni_render_assets.py",
+    "extract:oni-particle-assets": "python scripts/extract-oni-particle-assets.py",
+    "compare:oni-render": "python tools/compare_oni_render.py",
+    "generate:substances": "node scripts/generate-oni-substance-manifest.mjs",
     "lint": "oxlint",
     "preview": "vite preview"
   },

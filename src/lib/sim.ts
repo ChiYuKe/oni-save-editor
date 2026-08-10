@@ -13,6 +13,12 @@ export interface SimCell {
   mass: number
 }
 
+export interface SimBackwallCell {
+  elementHash: number
+  mass: number
+  temperature: number
+}
+
 export interface SimData {
   version: number
   width: number
@@ -83,6 +89,21 @@ export function readSimCell(data: SimData, view: DataView, x: number, y: number)
 
 export function getSimCell(data: SimData, x: number, y: number): SimCell | undefined {
   return readSimCell(data, new DataView(data.bytes.buffer, data.bytes.byteOffset, data.bytes.byteLength), x, y)
+}
+
+export function readSimBackwall(data: SimData, view: DataView, x: number, y: number): SimBackwallCell | undefined {
+  if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= data.width || y >= data.height) return undefined
+  const offset = data.backwallOffset + (y * data.width + x) * data.backwallSize
+  if (data.backwallSize < SIM_BACKWALL_SIZE) {
+    return { elementHash: view.getUint16(offset, true), mass: 0, temperature: 0 }
+  }
+  // SIMSAVE's BackwallData is 12 bytes: ushort element hash, two bytes
+  // of alignment, then mass and temperature floats.
+  return {
+    elementHash: view.getUint16(offset, true),
+    mass: view.getFloat32(offset + 4, true),
+    temperature: view.getFloat32(offset + 8, true),
+  }
 }
 
 /**

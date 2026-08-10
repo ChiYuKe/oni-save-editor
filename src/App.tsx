@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type Dispatch, type SetStateAction } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type SetStateAction } from 'react'
 import {
   AlertTriangle,
   Archive,
@@ -55,9 +55,15 @@ import {
   worldSize,
 } from './lib/editor'
 import type { SavedObjectGroup, SavedObjectInstance, Value } from './lib/model'
-import { SIM_DISEASE_SIZE, getSimElementProfile, getWorldCell, readSimCell, setWorldCells, type SimCell } from './lib/sim'
+import { SIM_DISEASE_SIZE, getSimElementProfile, getWorldCell, readSimBackwall, readSimCell, setWorldCells, type SimCell } from './lib/sim'
 import { BLOCK_TILE_TEXTURES, blockTileCellKey, blockTileConnectionBits, blockTileTextureForTag, drawBlockTile } from './lib/blockTiles'
-import { createTerrainBoundaryPath, createTerrainCellPath } from './lib/terrainMasks'
+import {
+  TERRAIN_MASK_ATLAS_URL,
+  createTerrainBoundaryPath,
+  createTerrainCellPath,
+  createTerrainMaskSets,
+  type TerrainMaskSets,
+} from './lib/terrainMasks'
 import {
   UTILITY_DEFINITIONS,
   drawUtilityTile,
@@ -71,9 +77,15 @@ import {
 } from './lib/utilityTiles'
 import { parseYamlTemplate, templateVisualElementForName, type TemplateEntity, type YamlTemplate } from './lib/yamlTemplates'
 import { oniBuildingDefinitionForAnimation, oniBuildingDefinitionForTag, type OniBuildingDefinition } from './lib/oniBuildingDefs.generated'
+import { ONI_SCENE_LAYER_ORDER, ONI_WORLD_ZONE_COLORS, oniWorldRenderer } from './lib/oniRenderer'
+import { ONI_SUBSTANCE_MATERIALS } from './lib/oniSubstances.generated'
+import { drawMinionKanim, loadMinionKanimAssets, type MinionKanimAssets } from './lib/oniMinionKanim'
+import { drawOniLightBuffer, oniLightDefinitionForTag, type OniLightInstance } from './lib/oniLighting'
+import { drawOniSavedParticles, loadOniParticleTextures } from './lib/oniParticles'
+import { oniStateMachineState } from './lib/oniStateMachines'
 
 type View = 'overview' | 'map' | 'dupes' | 'objects'
-type MapLayer = 'grid' | 'biome' | 'minions' | 'buildings' | 'geysers' | 'power' | 'plumbing' | 'ventilation' | 'automation' | 'shipment' | 'gas' | 'liquid' | 'ground' | 'backwall'
+type MapLayer = 'grid' | 'biome' | 'minions' | 'entities' | 'buildings' | 'geysers' | 'power' | 'plumbing' | 'ventilation' | 'automation' | 'shipment' | 'gas' | 'liquid' | 'ground' | 'backwall'
 type MapOverlay = 'none' | 'temperature' | 'mass' | 'disease' | 'visibility' | 'spawnable' | 'damage'
 type MapLayerVisibility = Record<MapLayer, boolean>
 type MapEdit = { x: number; y: number; before: SimCell; after: SimCell }
@@ -82,7 +94,10 @@ type MapSelection = { start: { x: number; y: number }; end: { x: number; y: numb
 type MapTool = 'inspect' | 'move' | 'paint' | 'erase' | 'eyedropper' | 'fill' | 'rectangle' | 'line'
 type MapCellUpdate = { x: number; y: number; patch: Partial<SimCell> }
 type MapViewport = { zoomPercent: number; pan: { x: number; y: number } }
-const DEFAULT_MAP_VIEWPORT: MapViewport = { zoomPercent: 50, pan: { x: 0, y: 0 } }
+// Start at the source grid's full extent. A save can place its active asteroid
+// far away from the global grid centre, so a magnified centred view may contain
+// only unexplored fog even though the colony data rendered correctly.
+const DEFAULT_MAP_VIEWPORT: MapViewport = { zoomPercent: 0, pan: { x: 0, y: 0 } }
 const MAP_CELL_PIXELS = 4
 const MAP_ZOOM_MIN = 1
 const MAP_ZOOM_MAX = 16
@@ -111,115 +126,15 @@ type RotatableVisualizer = {
   offsetXCells: number
   offsetYCells: number
 }
-type ZoneColor = { r: number; g: number; b: number }
-
 function assetPath(path: string): string {
   if (!path.startsWith('/')) return path
   return `${import.meta.env.BASE_URL.replace(/\/$/, '')}${path}`
 }
 
-// SubworldZoneRenderData.zoneColours from the game build used by the bridge.
-// Zone 7 is Space in the game and intentionally has no foreground tint here.
-const WORLD_ZONE_COLORS: Record<number, ZoneColor> = {
-  0: { r: 145, g: 198, b: 213 }, // Frozen
-  1: { r: 135, g: 82, b: 160 }, // Crystal
-  2: { r: 123, g: 151, b: 75 }, // Slime
-  3: { r: 236, g: 189, b: 89 }, // Sandstone
-  4: { r: 201, g: 152, b: 181 }, // Caustic
-  5: { r: 222, g: 90, b: 59 }, // Magma
-  6: { r: 201, g: 152, b: 181 }, // Oil
-  8: { r: 201, g: 201, b: 151 }, // Ocean
-  9: { r: 236, g: 90, b: 110 }, // Rust
-  10: { r: 110, g: 236, b: 110 }, // Forest
-  11: { r: 145, g: 198, b: 213 }, // Radioactive
-  12: { r: 145, g: 198, b: 213 }, // Swamp
-  13: { r: 145, g: 198, b: 213 }, // Wasteland
-  14: { r: 173, g: 222, b: 212 }, // Rocket interior
- 15: { r: 100, g: 100, b: 222 }, // Metallic
- 16: { r: 222, g: 100, b: 222 }, // Barren
- 17: { r: 100, g: 222, b: 100 }, // Moo
- 18: { r: 100, g: 100, b: 222 },
- 19: { r: 222, g: 100, b: 222 },
- 20: { r: 100, g: 222, b: 100 },
- 24: { r: 201, g: 152, b: 181 },
- 25: { r: 63, g: 28, b: 6 },
- 26: { r: 142, g: 192, b: 57 },
-  27: { r: 192, g: 100, b: 16 }, // Current DLC zone
-}
-
 // The game samples these layers from the bgarray Texture2DArray. The values
 // match SubworldZoneRenderData.zoneTextureArrayIndices in the game source.
-const ZONE_TEXTURE_ARRAY_INDICES = [
-  0, 1, 2, 3, 4, 5, 5, 3, 6, 7,
-  8, 9, 10, 11, 12, 7, 3, 13, 0, 0,
-  0, 14, 15, 16, 4, 6, 18, 17,
-]
-const BIOME_BACKGROUND_WORLD_CELLS = 20
-
-function zoneColorForType(zoneType: number): ZoneColor | undefined {
-  return WORLD_ZONE_COLORS[zoneType]
-}
-
-function zoneTextureIndexForType(zoneType: number): number | undefined {
-  if (zoneType === 7 || zoneType === 255) return undefined
-  return ZONE_TEXTURE_ARRAY_INDICES[zoneType] ?? 0
-}
-
 function biomeBackgroundAsset(textureIndex: number): string {
   return `/assets/background/biomes/slice-${textureIndex.toString().padStart(2, '0')}.png`
-}
-
-function drawBiomeBackground(
-  context: CanvasRenderingContext2D,
-  worldZones: Uint8Array,
-  width: number,
-  height: number,
-  cellSize: number,
-  originX: number,
-  originY: number,
-  range: { minX: number; maxX: number; minRow: number; maxRow: number },
-  backgrounds: Record<number, HTMLImageElement>,
-): void {
-  const paths = new Map<number, Path2D>()
-  const fallbackColors = new Map<number, ZoneColor>()
-  for (let canvasY = range.minRow; canvasY <= range.maxRow; canvasY++) {
-    const y = height - 1 - canvasY
-    for (let x = range.minX; x <= range.maxX; x++) {
-      const zoneType = worldZones[y * width + x] ?? 7
-      const textureIndex = zoneTextureIndexForType(zoneType)
-      if (textureIndex === undefined) continue
-      const path = paths.get(textureIndex) ?? new Path2D()
-      path.rect(originX + x * cellSize, originY + canvasY * cellSize, cellSize + .25, cellSize + .25)
-      paths.set(textureIndex, path)
-      if (!fallbackColors.has(textureIndex)) {
-        const color = zoneColorForType(zoneType)
-        if (color) fallbackColors.set(textureIndex, color)
-      }
-    }
-  }
-
-  context.save()
-  context.globalAlpha = .84
-  context.imageSmoothingEnabled = true
-  for (const [textureIndex, path] of paths) {
-    const image = backgrounds[textureIndex]
-    if (image?.naturalWidth && image.naturalHeight) {
-      const scale = (cellSize * BIOME_BACKGROUND_WORLD_CELLS) / image.naturalWidth
-      const pattern = context.createPattern(image, 'repeat')
-      if (pattern) {
-        // Anchor the pattern to the map origin so panning moves the texture
-        // with the world instead of making it slide under the cursor.
-        pattern.setTransform(new DOMMatrix([scale, 0, 0, scale, originX, originY]))
-        context.fillStyle = pattern
-        context.fill(path)
-        continue
-      }
-    }
-    const fallback = fallbackColors.get(textureIndex) ?? { r: 36, g: 43, b: 48 }
-    context.fillStyle = `rgb(${fallback.r}, ${fallback.g}, ${fallback.b})`
-    context.fill(path)
-  }
-  context.restore()
 }
 
 function pointInPolygon(x: number, y: number, vertices: Array<{ x: number; y: number }>): boolean {
@@ -445,6 +360,7 @@ const BUILDING_DEFINITION_OVERRIDES: Record<string, OniBuildingDefinition> = {
     width: 2,
     height: 2,
     animation: 'logic_and_kanim',
+    defaultAnim: 'off',
     sceneLayer: 'LogicGates',
     foregroundLayer: 'BuildingFront',
     objectLayer: 'LogicGate',
@@ -463,7 +379,9 @@ function buildingTextureLookupKeys(tag: string): string[] {
   const alias = BUILDING_TAG_ALIASES[key]
   const definition = oniBuildingDefinitionForSaveTag(tag)
   const animation = definition?.animation.replace(/_kanim$/i, '').toLowerCase()
-  return [...new Set([key, alias, definition?.id.toLowerCase(), animation].filter((candidate): candidate is string => Boolean(candidate)))]
+  const prefabKey = `${key}__prefab`
+  const definitionPrefabKey = definition ? `${definition.id.toLowerCase()}__prefab` : undefined
+  return [...new Set([prefabKey, definitionPrefabKey, key, alias, definition?.id.toLowerCase(), animation].filter((candidate): candidate is string => Boolean(candidate)))]
 }
 
 function buildingTextureForTag(tag: string, generated: Record<string, BuildingTextureDefinition> = {}): BuildingTextureDefinition | undefined {
@@ -479,8 +397,8 @@ function buildingTextureForTag(tag: string, generated: Record<string, BuildingTe
 function doorControlTextureForInstance(tag: string, instance: SavedObjectInstance, generated: Record<string, BuildingTextureDefinition>): BuildingTextureDefinition | undefined {
   const definition = oniBuildingDefinitionForSaveTag(tag)
   const animation = definition?.animation.replace(/_kanim$/i, '').toLowerCase()
-  if (animation !== 'door_poi_internal') return undefined
   const door = instance.components.find((component) => component.typeName.split(/[.+]/).pop()?.toLowerCase() === 'door')
+  if (!animation || !door) return undefined
   const controlState = door?.value?.members.find((member) => member.name === 'controlState')?.value
   // Door.ControlState in the game source: Auto = 0, Opened = 1, Locked = 2.
   // Auto starts in Door.Controller.closed, matching POIDoorInternal's explicit
@@ -489,6 +407,7 @@ function doorControlTextureForInstance(tag: string, instance: SavedObjectInstanc
     ? controlState.v === 1 ? 'open' : controlState.v === 2 ? 'locked' : 'closed'
     : 'closed'
   return generated[`${animation}__${state}`]
+    ?? (state === 'locked' ? generated[`${animation}__closed`] : undefined)
 }
 
 function buildingTextureForInstance(tag: string, instance: SavedObjectInstance, generated: Record<string, BuildingTextureDefinition> = {}): BuildingTextureDefinition | undefined {
@@ -503,6 +422,19 @@ function hasSimpleComponent(instance: SavedObjectInstance, typeName: string): bo
   })
 }
 
+function oniLightIsEnabled(instance: SavedObjectInstance, requiresActive: boolean): boolean {
+  if (!requiresActive) return true
+  const stateController = component(instance, 'StateMachineController')
+  const lightControllerState = oniStateMachineState(stateController?.details, 'LightController')
+  if (lightControllerState) return /(?:^|\.)on$/i.test(lightControllerState)
+  // LightController.on calls Operational.SetActive(true). Operational's current
+  // boolean is not serialized, but OnSerializing flushes the current interval
+  // into activeTime/inactiveTime, so a positive current-cycle active interval is
+  // the source-backed state available in a save file.
+  const operational = component(instance, 'Operational')?.value
+  return (scalarNumber(member(operational, 'activeTime')?.value) ?? 0) > 0
+}
+
 function isGeyserInstance(groupTag: string, instance: SavedObjectInstance, texture: GeyserTextureDefinition | undefined): boolean {
   return Boolean(texture)
     || /geyser|fountain/i.test(groupTag)
@@ -513,6 +445,51 @@ function instanceOrientation(instance: SavedObjectInstance): number {
   const component = instance.components.find((item) => item.typeName.split(/[.+]/).pop()?.toLowerCase() === 'rotatable')
   const member = component?.value?.members.find((item) => item.name === 'orientation')
   return member?.value.kind === 'enum' ? member.value.v : 0
+}
+
+function minionAccessoryGuids(instance: SavedObjectInstance): string[] {
+  const accessorizer = component(instance, 'Accessorizer')?.value
+  const accessories = member(accessorizer, 'accessories')?.value
+  if (accessories?.kind !== 'list') return []
+  return accessories.items.flatMap((item) => {
+    if (item.kind !== 'object') return []
+    const guidReference = member(item, 'guid')?.value
+    if (guidReference?.kind !== 'object') return []
+    const guid = member(guidReference, 'Guid')?.value
+    return guid?.kind === 'string' && guid.v ? [guid.v] : []
+  })
+}
+
+function numericValue(value: Value | undefined): number | undefined {
+  return value?.kind === 'sbyte' || value?.kind === 'byte' || value?.kind === 'int16' || value?.kind === 'uint16'
+    || value?.kind === 'int32' || value?.kind === 'uint32' || value?.kind === 'enum' ? value.v : undefined
+}
+
+function minionWearableAnimNames(instance: SavedObjectInstance): string[] {
+  const wearables = member(component(instance, 'WearableAccessorizer')?.value, 'wearables')?.value
+  if (wearables?.kind !== 'dict') return []
+  let highestType = -1
+  let selected: Value | undefined
+  wearables.keys.forEach((key, index) => {
+    const type = numericValue(key)
+    if (type !== undefined && type > highestType) {
+      highestType = type
+      selected = wearables.values[index]
+    }
+  })
+  if (selected?.kind !== 'object') return []
+  const animNames = member(selected, 'animNames')?.value
+  return animNames?.kind === 'list' ? animNames.items.flatMap((item) => item.kind === 'string' && item.v ? [item.v] : []) : []
+}
+
+function saveMinionWearableAnimNames(save: ParsedSave): string[] {
+  const minions = save.manager?.groups.find((group) => group.tag === 'Minion')?.instances ?? []
+  return [...new Set(minions.flatMap(minionWearableAnimNames))].sort()
+}
+
+function minionFacesLeft(instance: SavedObjectInstance): boolean {
+  const value = member(component(instance, 'Facing')?.value, 'facingLeft')?.value
+  return value?.kind === 'boolean' ? value.v : false
 }
 
 function rotatableVisualizerForTag(tag: string): RotatableVisualizer | undefined {
@@ -538,6 +515,27 @@ type MapObjectRenderEntry = {
   order: number
 }
 
+const TERRAIN_SCENE_LAYER = ONI_SCENE_LAYER_ORDER.Ground
+
+function utilitySceneLayer(family: UtilityFamily): number {
+  switch (family) {
+    case 'gas': return ONI_SCENE_LAYER_ORDER.GasConduits
+    case 'liquid': return ONI_SCENE_LAYER_ORDER.LiquidConduits
+    case 'solid': return ONI_SCENE_LAYER_ORDER.SolidConduits
+    case 'electrical': return ONI_SCENE_LAYER_ORDER.Wires
+    case 'logic': return ONI_SCENE_LAYER_ORDER.LogicWires
+  }
+}
+
+function mapObjectSceneLayer(group: SavedObjectGroup): number {
+  if (group.tag === 'Minion') return ONI_SCENE_LAYER_ORDER.Creatures
+  if (blockTileTextureForTag(group.tag)) return ONI_SCENE_LAYER_ORDER.TileMain
+  const utilityFamily = utilityFamilyForTag(group.tag)
+  if (utilityFamily) return utilitySceneLayer(utilityFamily)
+  const definition = oniBuildingDefinitionForSaveTag(group.tag)
+  return ONI_SCENE_LAYER_ORDER[definition?.sceneLayer ?? ''] ?? ONI_SCENE_LAYER_ORDER.Building
+}
+
 /**
  * Unity renders the game's orthographic scene from larger Z toward smaller Z.
  * Grid.GetLayerZ makes higher/front SceneLayer values increasingly negative,
@@ -550,6 +548,8 @@ function mapObjectsInRenderOrder(save: ParsedSave): MapObjectRenderEntry[] {
     for (const instance of group.instances) entries.push({ group, instance, order: order++ })
   }
   return entries.sort((left, right) => {
+    const layerDelta = mapObjectSceneLayer(left.group) - mapObjectSceneLayer(right.group)
+    if (layerDelta) return layerDelta
     const leftZ = Number.isFinite(left.instance.position.z) ? left.instance.position.z : 0
     const rightZ = Number.isFinite(right.instance.position.z) ? right.instance.position.z : 0
     return rightZ - leftZ || left.order - right.order
@@ -673,14 +673,15 @@ function utilityMapLayerForFamily(family: UtilityFamily): Extract<MapLayer, 'pow
   }
 }
 
-function mapEntityLayerIsVisible(visibleLayers: MapLayerVisibility, isGeyser: boolean, utilityFamily: UtilityFamily | undefined): boolean {
+function mapEntityLayerIsVisible(visibleLayers: MapLayerVisibility, isGeyser: boolean, isCreature: boolean, utilityFamily: UtilityFamily | undefined): boolean {
   if (isGeyser) return visibleLayers.geysers
+  if (isCreature) return visibleLayers.entities
   if (utilityFamily) return visibleLayers[utilityMapLayerForFamily(utilityFamily)]
   return visibleLayers.buildings
 }
 
 function mapEntityLayersAreVisible(visibleLayers: MapLayerVisibility): boolean {
-  return visibleLayers.buildings || visibleLayers.geysers || visibleLayers.power || visibleLayers.plumbing
+  return visibleLayers.entities || visibleLayers.buildings || visibleLayers.geysers || visibleLayers.power || visibleLayers.plumbing
     || visibleLayers.ventilation || visibleLayers.automation || visibleLayers.shipment
 }
 
@@ -688,6 +689,7 @@ const MAP_LAYERS: Array<{ id: MapLayer; label: string; detail: string }> = [
   { id: 'grid', label: '网格', detail: '编辑器辅助' },
   { id: 'biome', label: '群落色', detail: 'WorldZone.Tint' },
   { id: 'minions', label: '复制人', detail: 'SceneLayer.Creatures' },
+  { id: 'entities', label: '生物 / 实体', detail: 'IEntityConfig KAnim' },
   { id: 'buildings', label: '建筑', detail: 'SceneLayer.Building' },
   { id: 'geysers', label: '喷泉', detail: 'SceneLayer.Geyser' },
   { id: 'power', label: '电力', detail: 'SceneLayer.Wires' },
@@ -713,6 +715,7 @@ const DEFAULT_MAP_LAYER_VISIBILITY: MapLayerVisibility = {
   grid: false,
   biome: true,
   minions: true,
+  entities: true,
   buildings: true,
   geysers: true,
   power: true,
@@ -720,7 +723,10 @@ const DEFAULT_MAP_LAYER_VISIBILITY: MapLayerVisibility = {
   ventilation: true,
   automation: true,
   shipment: true,
-  gas: true,
+  // The normal game camera does not tint every gas cell. Gas visualization is
+  // an overlay the user can enable explicitly; keeping it on made the entire
+  // colony and all transparent building pixels look cyan.
+  gas: false,
   liquid: true,
   ground: true,
   backwall: false,
@@ -894,6 +900,18 @@ function App() {
       setLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    if (!import.meta.env.DEV || new URLSearchParams(window.location.search).get('fixture') !== '1') return
+    let active = true
+    void fetch('/__oni_fixture__').then(async (response) => {
+      if (!response.ok) throw new Error(`本地视觉测试存档读取失败：HTTP ${response.status}`)
+      const encodedName = response.headers.get('X-Fixture-Name')
+      const name = encodedName ? decodeURIComponent(encodedName) : 'visual-fixture.sav'
+      if (active) await loadFile(new File([await response.arrayBuffer()], name))
+    }).catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : '本地视觉测试存档读取失败。') })
+    return () => { active = false }
+  }, [loadFile])
 
   const updateSave = useCallback((update: (current: ParsedSave) => void) => {
     setSave((current) => {
@@ -2317,13 +2335,6 @@ function utilityDisplayConnections(
   return (fallbackBits | physicalBits) & 0xf
 }
 
-function terrainMaterialOrder(hash: number | undefined): number {
-  if (hash === undefined) return Number.NEGATIVE_INFINITY
-  const element = elementForHash(hash)
-  if (element.state !== 'solid') return Number.NEGATIVE_INFINITY
-  return element.terrainOrder ?? element.hash
-}
-
 function floodFillCoordinates(
   sim: NonNullable<ParsedSave['simData']>,
   width: number,
@@ -2360,8 +2371,15 @@ function floodFillCoordinates(
 }
 
 function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, onViewportChange, selectedCell, selection, previewCells, previewVersion, onCell, onSelectionChange, onShape, onStrokeStart, onStrokeEnd }: { save: ParsedSave; visibleLayers: MapLayerVisibility; overlay: MapOverlay; tool: MapTool; brushSize: number; viewport: MapViewport; onViewportChange: Dispatch<SetStateAction<MapViewport>>; selectedCell: { x: number; y: number } | null; selection: MapSelection | null; previewCells: Map<string, MapPreviewCell>; previewVersion: number; onCell: (x: number, y: number) => void; onSelectionChange: (selection: MapSelection | null) => void; onShape: (start: { x: number; y: number }, end: { x: number; y: number }) => void; onStrokeStart: () => void; onStrokeEnd: () => void }) {
+  const backgroundCanvasRef = useRef<HTMLCanvasElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const entityBackCanvasRef = useRef<HTMLCanvasElement>(null)
+  const entityFrontCanvasRef = useRef<HTMLCanvasElement>(null)
+  const fluidBaseCanvasRef = useRef<HTMLCanvasElement>(null)
   const fluidCanvasRef = useRef<HTMLCanvasElement>(null)
+  const particleCanvasRef = useRef<HTMLCanvasElement>(null)
+  const lightCanvasRef = useRef<HTMLCanvasElement>(null)
+  const fogCanvasRef = useRef<HTMLCanvasElement>(null)
   const gridCanvasRef = useRef<HTMLCanvasElement>(null)
   const overlayRef = useRef<HTMLCanvasElement>(null)
   const canvasLayerRef = useRef<HTMLDivElement>(null)
@@ -2370,6 +2388,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
   const selectionDraftCountRef = useRef<HTMLElement>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
   const wheelZoomRef = useRef<{ targetPercent: number; clientX: number; clientY: number; timer: number } | null>(null)
+  const focusedSaveRef = useRef<ParsedSave | null>(null)
   const initialGroupTagsRef = useRef((save.manager?.groups ?? []).map((group) => group.tag.trim().toLowerCase()))
   const renderCacheRef = useRef<{ bytes: Uint8Array | null; cells: Map<number, SimCell | undefined>; paths: Map<string, Path2D>; zoneBytes: Uint8Array | null; zones: Uint8Array | null }>({ bytes: null, cells: new Map(), paths: new Map(), zoneBytes: null, zones: null })
   const pointerRef = useRef<{ mode: 'pan' | 'select' | 'brush' | 'shape' | 'point'; startX: number; startY: number; panX: number; panY: number; moved: boolean; lastCell: { x: number; y: number } | null; startCell: { x: number; y: number } | null } | null>(null)
@@ -2378,10 +2397,13 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
   const fillRegionCacheRef = useRef<{ bytes: Uint8Array | null; regions: Map<number, Array<{ x: number; y: number }>> }>({ bytes: null, regions: new Map() })
   const spacePanRef = useRef(false)
   const [textures, setTextures] = useState<Record<string, HTMLImageElement>>({})
+  const [terrainMaskSets, setTerrainMaskSets] = useState<TerrainMaskSets | null>(null)
   const [biomeBackgrounds, setBiomeBackgrounds] = useState<Record<number, HTMLImageElement>>({})
   const [geyserTextures, setGeyserTextures] = useState<Record<string, HTMLImageElement>>({})
   const [buildingTextures, setBuildingTextures] = useState<Record<string, HTMLImageElement>>({})
   const [generatedBuildingDefinitions, setGeneratedBuildingDefinitions] = useState<Record<string, BuildingTextureDefinition>>({})
+  const [minionKanimAssets, setMinionKanimAssets] = useState<MinionKanimAssets | null>(null)
+  const minionWearableNames = useMemo(() => saveMinionWearableAnimNames(save), [save])
   const { zoomPercent, pan } = viewport
   const setZoomPercent = (nextZoomPercent: number) => onViewportChange((current) => ({ ...current, zoomPercent: nextZoomPercent }))
   const setPan = (nextPan: { x: number; y: number }) => onViewportChange((current) => ({ ...current, pan: nextPan }))
@@ -2413,6 +2435,53 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
   const viewportPixelHeight = Math.max(1, Math.ceil(viewportSize.height * devicePixelRatio))
   const mapSeed = worldSeed(save)
   const mapCoordinate = worldCoordinate(save)
+
+  const focusVisibleMap = useCallback(() => {
+    const visible = worldGrid(save, 'GridVisible')?.bytes
+    if (!visible || !size.width || !size.height || !viewportSize.width || !viewportSize.height) {
+      onViewportChange(DEFAULT_MAP_VIEWPORT)
+      return
+    }
+    let minX = size.width
+    let minY = size.height
+    let maxX = -1
+    let maxY = -1
+    for (let y = 0; y < size.height; y++) {
+      for (let x = 0; x < size.width; x++) {
+        if (!visible[y * size.width + x]) continue
+        minX = Math.min(minX, x)
+        maxX = Math.max(maxX, x)
+        minY = Math.min(minY, y)
+        maxY = Math.max(maxY, y)
+      }
+    }
+    if (maxX < minX || maxY < minY) {
+      onViewportChange(DEFAULT_MAP_VIEWPORT)
+      return
+    }
+    const marginCells = 12
+    const visibleWidth = Math.min(size.width, maxX - minX + 1 + marginCells * 2)
+    const visibleHeight = Math.min(size.height, maxY - minY + 1 + marginCells * 2)
+    const targetCellSize = Math.min(viewportSize.width / visibleWidth, viewportSize.height / visibleHeight)
+    const targetZoom = Math.max(MAP_ZOOM_MIN, Math.min(MAP_ZOOM_MAX, targetCellSize / fitCellSize))
+    const targetPercent = Math.round((targetZoom - MAP_ZOOM_MIN) / (MAP_ZOOM_MAX - MAP_ZOOM_MIN) * 100)
+    const displaySize = fitCellSize * targetZoom
+    const centerX = (minX + maxX + 1) / 2
+    const centerCanvasY = size.height - (minY + maxY + 1) / 2
+    onViewportChange({
+      zoomPercent: targetPercent,
+      pan: {
+        x: (size.width / 2 - centerX) * displaySize,
+        y: (size.height / 2 - centerCanvasY) * displaySize,
+      },
+    })
+  }, [fitCellSize, onViewportChange, save, size.height, size.width, viewportSize.height, viewportSize.width])
+
+  useEffect(() => {
+    if (!viewportSize.width || !viewportSize.height || focusedSaveRef.current === save) return
+    focusedSaveRef.current = save
+    focusVisibleMap()
+  }, [focusVisibleMap, save, viewportSize.height, viewportSize.width])
 
   const cachedSimCell = (sim: NonNullable<ParsedSave['simData']>, view: DataView, x: number, y: number): SimCell | undefined => {
     const cache = renderCacheRef.current
@@ -2557,6 +2626,14 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
 
   useEffect(() => {
     let active = true
+    void loadMinionKanimAssets(minionWearableNames)
+      .then((assets) => { if (active) setMinionKanimAssets(assets) })
+      .catch(() => { /* Keep the fallback marker if source KAnim assets are unavailable. */ })
+    return () => { active = false }
+  }, [minionWearableNames])
+
+  useEffect(() => {
+    let active = true
     const loadManifest = async (path: string): Promise<Record<string, BuildingTextureDefinition>> => {
       const response = await fetch(assetPath(path))
       return response.ok ? await response.json() as Record<string, BuildingTextureDefinition> : {}
@@ -2612,8 +2689,25 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
 
   useEffect(() => {
     let active = true
-    const paths = ELEMENTS.map((element) => element.texture).filter((path): path is string => Boolean(path))
+    const paths = [...new Set([
+      ...ELEMENTS.map((element) => element.texture).filter((path): path is string => Boolean(path)),
+      ...ONI_SUBSTANCE_MATERIALS.map((material) => material.textureUrl).filter(Boolean),
+      '/assets/render/crackAlpha.png',
+      '/assets/render/melt.png',
+      '/assets/render/mudmelt.png',
+      '/assets/render/normal_metal.png',
+      '/assets/render/gasSteam01.png',
+      '/assets/render/skullgas.png',
+    ])]
     void loadAssetImages(paths).then((images) => { if (active) setTextures(images) })
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    loadAssetImage(TERRAIN_MASK_ATLAS_URL, (image) => {
+      if (active) setTerrainMaskSets(createTerrainMaskSets(image))
+    })
     return () => { active = false }
   }, [])
 
@@ -2645,6 +2739,48 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
   }, [])
 
   useEffect(() => {
+    const canvas = backgroundCanvasRef.current
+    const sim = save.simData
+    if (!canvas || !sim || !size.width || !size.height || !viewportSize.width || !viewportSize.height) return
+    if (canvas.width !== viewportPixelWidth) canvas.width = viewportPixelWidth
+    if (canvas.height !== viewportPixelHeight) canvas.height = viewportPixelHeight
+    const context = canvas.getContext('2d')
+    if (!context) return
+    context.clearRect(0, 0, canvas.width, canvas.height)
+    const cellSize = renderCellSize
+    const range = visibleMapRange(size.width, size.height, cellSize, originX, originY, canvas.width, canvas.height)
+    const view = new DataView(sim.bytes.buffer, sim.bytes.byteOffset, sim.bytes.byteLength)
+    if (visibleLayers.biome) {
+      oniWorldRenderer.renderBiome({
+        context,
+        worldZones: cachedWorldZoneMap(sim),
+        width: size.width,
+        height: size.height,
+        cellSize,
+        originX,
+        originY,
+        range,
+        backgrounds: biomeBackgrounds,
+      })
+    }
+    if (visibleLayers.backwall) {
+      for (let canvasY = range.minRow; canvasY <= range.maxRow; canvasY++) {
+        const y = size.height - 1 - canvasY
+        for (let x = range.minX; x <= range.maxX; x++) {
+          // Read through the same cache as terrain so changing layers does not
+          // decode the SIM cell a second time.
+          if (!cachedSimCell(sim, view, x + 1, y + 1)) continue
+          const backwall = readSimBackwall(sim, view, x + 1, y + 1)
+          const backwallPresent = backwall ? elementForHash(backwall.elementHash).state === 'solid' : false
+          if (!backwallPresent) continue
+          context.fillStyle = 'rgba(185, 164, 132, .55)'
+          context.fillRect(originX + x * cellSize, originY + canvasY * cellSize, cellSize, cellSize)
+        }
+      }
+    }
+  }, [biomeBackgrounds, cachedWorldZoneMap, originX, originY, renderCellSize, save, size.height, size.width, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers.backwall, visibleLayers.biome])
+
+  useEffect(() => {
     const canvas = canvasRef.current
     const sim = save.simData
     if (!canvas || !sim || !size.width || !size.height || !viewportSize.width || !viewportSize.height) return
@@ -2654,9 +2790,8 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
     const context = canvas.getContext('2d')
     if (!context) return
     context.imageSmoothingEnabled = false
-    // Leave empty cells transparent so the viewport can show the space scene
-    // behind the SIM grid. Terrain, backwalls, fluids, and overlays paint on
-    // top of this layer as usual.
+    // This canvas owns only Ground/Tile terrain and data overlays. Background,
+    // backwalls, fluids, and game objects are retained on independent layers.
     context.clearRect(0, 0, canvas.width, canvas.height)
     const view = new DataView(sim.bytes.buffer, sim.bytes.byteOffset, sim.bytes.byteLength)
     const worldZones = cachedWorldZoneMap(sim)
@@ -2665,7 +2800,6 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
     const spawnableGrid = worldGrid(save, 'GridSpawnable')?.bytes
     const damageGrid = worldGrid(save, 'GridDamage')?.bytes
     const range = visibleMapRange(size.width, size.height, cellSize, originX, originY, canvas.width, canvas.height)
-    const fluidCells: FluidRenderCell[] = []
     const blockTileCells = blockTileCellsByGroup(save)
     const terrainMaskedCells = terrainMaskedCellsByBuilding(save)
     for (const cells of blockTileCells.values()) {
@@ -2673,23 +2807,35 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
     }
     const isTerrainMaskedAt = (x: number, y: number) => terrainMaskedCells.has(blockTileCellKey(x, y))
 
-    if (visibleLayers.biome) {
-      drawBiomeBackground(context, worldZones, size.width, size.height, cellSize, originX, originY, range, biomeBackgrounds)
-    }
-
     const cellAt = (x: number, y: number) => cachedSimCell(sim, view, x + 1, y + 1)
-    const sameLiquidAt = (cell: SimCell, x: number, y: number) => {
-      const neighbour = cellAt(x, y)
-      return Boolean(neighbour && neighbour.elementHash === cell.elementHash && elementForHash(neighbour.elementHash).state === 'liquid')
-    }
-    const solidAt = (x: number, y: number) => {
-      const neighbour = cellAt(x, y)
-      return Boolean(neighbour && elementForHash(neighbour.elementHash).state === 'solid')
-    }
     const simIndexAt = (x: number, y: number) => (y + 1) * sim.width + x + 1
-    const bytesPresent = (offset: number, length: number) => {
-      for (let index = 0; index < length; index++) if (sim.bytes[offset + index] !== 0) return true
-      return false
+    const damageView = damageGrid ? new DataView(damageGrid.buffer, damageGrid.byteOffset, damageGrid.byteLength) : undefined
+    const damageAt = (x: number, y: number) => {
+      const offset = (y * size.width + x) * 4
+      return damageView && offset >= 0 && offset + 4 <= damageView.byteLength ? damageView.getFloat32(offset, true) : 0
+    }
+    const hasBackwallAt = (x: number, y: number) => {
+      const backwall = readSimBackwall(sim, view, x + 1, y + 1)
+      return backwall ? elementForHash(backwall.elementHash).state === 'solid' : false
+    }
+    if (visibleLayers.ground) {
+      oniWorldRenderer.renderTerrain({
+        context,
+        width: size.width,
+        height: size.height,
+        cellSize,
+        originX,
+        originY,
+        range,
+        worldZones,
+        textures,
+        maskSets: terrainMaskSets,
+        cellAt,
+        isTerrainMaskedAt,
+        damageAt,
+        hasBackwallAt,
+        zoneColors: ONI_WORLD_ZONE_COLORS,
+      })
     }
     for (let canvasY = range.minRow; canvasY <= range.maxRow; canvasY++) {
       const y = size.height - 1 - canvasY
@@ -2699,19 +2845,6 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
         const element = elementForHash(cell.elementHash)
         const px = originX + x * cellSize
         const py = originY + canvasY * cellSize
-        const zoneColor = visibleLayers.biome ? zoneColorForType(worldZones[y * size.width + x] ?? 7) : undefined
-        const fluidContactPath = element.state !== 'solid' && visibleLayers.ground && (
-          solidAt(x - 1, y) || solidAt(x + 1, y) || solidAt(x, y - 1) || solidAt(x, y + 1)
-        )
-          ? cachedTerrainPath(sim, `fluid-contact:${x}:${y}`, () => createTerrainBoundaryPath((neighbourX, neighbourY) => !solidAt(neighbourX, neighbourY), x, y))
-          : undefined
-        const backwallOffset = sim.backwallOffset + simIndexAt(x, y) * sim.backwallSize
-        const backwallPresent = bytesPresent(backwallOffset, sim.backwallSize)
-        const backwallIntensity = .35 + (sim.bytes[backwallOffset] / 255) * .45
-        if (visibleLayers.backwall && backwallPresent) {
-          context.fillStyle = `rgba(185, 164, 132, ${backwallIntensity})`
-          context.fillRect(px, py, cellSize, cellSize)
-        }
         const isSolid = element.state === 'solid'
         const elementLayerVisible = element.state === 'solid' && visibleLayers.ground
           || element.state === 'liquid' && visibleLayers.liquid
@@ -2722,122 +2855,12 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
           // Vacuum is transparent in the game; the space scene must remain
           // visible underneath it. Special void cells still keep their fill.
           const showElement = element.state === 'special' || elementLayerVisible
-          if (showElement && (element.state === 'liquid' || element.state === 'gas') && element.fluidMaterial) {
-            fluidCells.push({
-              x,
-              y,
-              px,
-              py,
-              cellSize,
-              cell,
-              style: element.fluidMaterial,
-              state: element.state,
-              surfaceTop: element.state === 'liquid' && !sameLiquidAt(cell, x, y + 1),
-              edgeLeft: element.state === 'liquid' && !sameLiquidAt(cell, x - 1, y),
-              edgeRight: element.state === 'liquid' && !sameLiquidAt(cell, x + 1, y),
-              edgeBottom: element.state === 'liquid' && !sameLiquidAt(cell, x, y - 1),
-              contactPath: fluidContactPath,
-            })
-            drawFluidBase(context, element.fluidMaterial, cell, element.state, px, py, cellSize)
-          } else {
+          if (!(showElement && (element.state === 'liquid' || element.state === 'gas') && element.fluidMaterial)) {
             if (showElement) {
               context.fillStyle = patterns.get(element.texture ?? '') ?? element.color
               context.fillRect(px, py, cellSize, cellSize)
             }
           }
-        }
-        // Completed tiles and door footprints retain their construction
-        // material in the SIM cell. It is not foreground terrain in-game.
-        const isNaturalSolid = visibleLayers.ground && isSolid && !isTerrainMaskedAt(x, y)
-        const materialOrder = terrainMaterialOrder(cell.elementHash)
-        const naturalTerrainOrderAt = (neighbourX: number, neighbourY: number) => isTerrainMaskedAt(neighbourX, neighbourY)
-          ? Number.NEGATIVE_INFINITY
-          : terrainMaterialOrder(cellAt(neighbourX, neighbourY)?.elementHash)
-        const terrainConnected = (neighbourX: number, neighbourY: number) => naturalTerrainOrderAt(neighbourX, neighbourY) >= materialOrder
-        const solidConnected = (neighbourX: number, neighbourY: number) => naturalTerrainOrderAt(neighbourX, neighbourY) > Number.NEGATIVE_INFINITY
-        const terrainBoundary = isNaturalSolid && (!terrainConnected(x - 1, y)
-          || !terrainConnected(x + 1, y)
-          || !terrainConnected(x, y - 1)
-          || !terrainConnected(x, y + 1))
-        const solidBoundary = isNaturalSolid && (!solidConnected(x - 1, y)
-          || !solidConnected(x + 1, y)
-          || !solidConnected(x, y - 1)
-          || !solidConnected(x, y + 1))
-        const terrainPath = terrainBoundary
-          ? cachedTerrainPath(sim, `terrain:${x}:${y}`, () => createTerrainCellPath(terrainConnected, x, y))
-          : undefined
-        const solidPath = solidBoundary
-          ? cachedTerrainPath(sim, `solid:${x}:${y}`, () => createTerrainCellPath(solidConnected, x, y))
-          : undefined
-        const terrainEdgePath = terrainBoundary
-          ? cachedTerrainPath(sim, `terrain-edge:${x}:${y}`, () => createTerrainBoundaryPath(terrainConnected, x, y))
-          : undefined
-        const solidEdgePath = solidBoundary
-          ? cachedTerrainPath(sim, `solid-edge:${x}:${y}`, () => createTerrainBoundaryPath(solidConnected, x, y))
-          : undefined
-        if (isNaturalSolid) {
-          const drawTerrainElement = (fillElement: typeof element, paths: Path2D[]) => {
-            context.save()
-            context.imageSmoothingEnabled = true
-            context.imageSmoothingQuality = 'high'
-            if (paths.length > 0) {
-              context.translate(px, py)
-              context.scale(cellSize, cellSize)
-              paths.forEach((path) => context.clip(path))
-              // Keep the world-space texture transform after installing normalized mask paths.
-              context.setTransform(1, 0, 0, 1, 0, 0)
-            }
-            context.fillStyle = patterns.get(fillElement.texture ?? '') ?? fillElement.color
-            context.fillRect(px, py, cellSize, cellSize)
-            if (zoneColor) {
-              // The game applies the zone colour to the foreground substance,
-              // so natural terrain keeps the colony's palette as well.
-              context.fillStyle = `rgba(${zoneColor.r}, ${zoneColor.g}, ${zoneColor.b}, .16)`
-              context.fillRect(px, py, cellSize, cellSize)
-            }
-            // ONI's ground textures are intentionally subdued below the black contour.
-            context.fillStyle = 'rgba(0, 0, 0, .2)'
-            context.fillRect(px, py, cellSize, cellSize)
-            context.restore()
-          }
-          const drawTerrainOutline = (path: Path2D | undefined) => {
-            if (!path) return
-            context.save()
-            context.translate(px, py)
-            context.scale(cellSize, cellSize)
-            context.strokeStyle = 'rgba(4, 6, 7, .94)'
-            context.lineWidth = Math.max(.8, Math.min(2.5, cellSize * .06)) / Math.max(1, cellSize)
-            context.lineCap = 'round'
-            context.lineJoin = 'round'
-            context.stroke(path)
-            context.restore()
-          }
-          const terrainPaths = [solidPath, terrainPath].filter((path): path is Path2D => path !== undefined)
-          let lowerElement = element
-          if (terrainPath) {
-            lowerElement = [
-              { x: x - 1, y },
-              { x: x + 1, y },
-              { x, y: y - 1 },
-              { x, y: y + 1 },
-            ].map((position) => {
-              if (isTerrainMaskedAt(position.x, position.y)) return undefined
-              const neighbour = cellAt(position.x, position.y)
-              if (!neighbour) return undefined
-              const neighbourElement = elementForHash(neighbour.elementHash)
-              const neighbourOrder = terrainMaterialOrder(neighbour.elementHash)
-              return neighbourOrder < materialOrder ? { element: neighbourElement, order: neighbourOrder } : undefined
-            }).filter((candidate): candidate is { element: typeof element; order: number } => candidate !== undefined)
-              .sort((left, right) => right.order - left.order)[0]?.element ?? element
-          }
-          if (lowerElement !== element) {
-            drawTerrainElement(lowerElement, solidPath ? [solidPath] : [])
-          }
-          drawTerrainElement(element, terrainPaths)
-          drawTerrainOutline(solidEdgePath)
-          drawTerrainOutline(terrainEdgePath)
-        } else if (isSolid) {
-          // Hidden ground remains transparent and reveals the scene background.
         }
         if (overlay === 'temperature') {
           context.fillStyle = temperatureColor(cell.temperature)
@@ -2857,14 +2880,8 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
           context.fillStyle = value > 0 ? `rgba(112, 157, 123, ${.2 + value / 255 * .72})` : 'rgba(16, 23, 25, .84)'
           context.fillRect(px, py, cellSize, cellSize)
         } else if (overlay === 'damage') {
-          const damageOffset = (y * size.width + x) * 4
-          const damageValue = Math.max(
-            damageGrid?.[damageOffset] ?? 0,
-            damageGrid?.[damageOffset + 1] ?? 0,
-            damageGrid?.[damageOffset + 2] ?? 0,
-            damageGrid?.[damageOffset + 3] ?? 0,
-          )
-          context.fillStyle = damageValue > 0 ? `rgba(198, 123, 113, ${.2 + damageValue / 255 * .72})` : 'rgba(16, 23, 25, .84)'
+          const damageValue = Math.max(0, Math.min(1, damageAt(x, y)))
+          context.fillStyle = damageValue > 0 ? `rgba(198, 123, 113, ${.2 + damageValue * .72})` : 'rgba(16, 23, 25, .84)'
           context.fillRect(px, py, cellSize, cellSize)
         } else if (overlay === 'disease') {
           const diseaseOffset = sim.diseaseOffset + simIndexAt(x, y) * SIM_DISEASE_SIZE
@@ -2877,110 +2894,116 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
       }
     }
 
-    if (overlay === 'none') {
-      const regions = fluidRegions(fluidCells)
-      drawFluidRegionBase(context, regions)
-      drawFluidBoundaryGlow(context, fluidBoundaryCells(fluidCells), false)
-      drawFluidSurfaceRuns(context, fluidSurfaceRuns(fluidCells), 0, false)
-    }
+  }, [cachedWorldZoneMap, displayCellSize, originX, originY, overlay, pan.x, pan.y, renderCellSize, save, size.height, size.width, terrainMaskSets, textures, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers])
 
-    context.save()
-    context.setTransform(1, 0, 0, 1, 0, 0)
-    context.globalAlpha = 1
-    context.globalCompositeOperation = 'source-over'
-    context.fillStyle = '#e4b067'
-    if (visibleLayers.minions || mapEntityLayersAreVisible(visibleLayers)) {
-      const utilityCells = buildUtilityCellMap(save)
-      for (const { group, instance } of mapObjectsInRenderOrder(save)) {
-        if (group.tag === 'Minion') {
-          if (!visibleLayers.minions) continue
-          const minionX = Math.round(instance.position.x)
-          const minionY = Math.round(size.height - 1 - instance.position.y)
-          if (minionX >= 0 && minionY >= 0 && minionX < size.width && minionY < size.height) {
-            context.fillRect(originX + minionX * cellSize + 1, originY + minionY * cellSize + 1, cellSize - 2, cellSize - 2)
-          }
-          continue
-        }
-        const blockTileTexture = blockTileTextureForTag(group.tag)
-        const blockTileGroupCells = blockTileTexture ? blockTileCells.get(group) : undefined
-        const utilityTexture = utilityTextureForTag(group.tag)
-        const utilityFamily = utilityFamilyForTag(group.tag)
-        const isBuilding = hasSimpleComponent(instance, 'BuildingComplete')
-        const geyserTexture = geyserTextureForTag(group.tag)
-        const buildingTexture = buildingTextureForInstance(group.tag, instance, generatedBuildingDefinitions)
-        const isGeyser = isGeyserInstance(group.tag, instance, geyserTexture)
-        if (!isBuilding && !isGeyser && !buildingTexture && !blockTileTexture && !utilityTexture) continue
-        if (!mapEntityLayerIsVisible(visibleLayers, isGeyser, utilityFamily)) continue
-        const x = Math.floor(instance.position.x)
-        const y = Math.floor(instance.position.y)
-        const canvasY = size.height - 1 - y
-        if (x < 0 || canvasY < 0 || x >= size.width || canvasY >= size.height) continue
-        const spriteMargin = Math.max(2, Math.ceil(isGeyser
-          ? geyserTexture?.widthCells ?? 1
-          : buildingTexture
-            ? Math.max(buildingTexture.widthCells, buildingTexture.heightCells ?? buildingTexture.widthCells)
-            : 1))
-        if (x < range.minX - spriteMargin || x > range.maxX + spriteMargin || canvasY < range.minRow - spriteMargin || canvasY > range.maxRow + spriteMargin) continue
-        const px = originX + x * cellSize
-        const py = originY + canvasY * cellSize
-        if (utilityTexture) {
-          const image = buildingTextures[utilityTexture.path]
-          if (image) {
-            const connections = utilityDisplayConnections(utilityCells, utilityFamily!, instance, x, y)
-            const anchor = mapObjectAnchor(instance.position.x, instance.position.y, size.height, cellSize, originX, originY)
-            drawUtilityTile(context, image, utilityTexture, connections, anchor.x, anchor.y, cellSize)
-          }
-        } else if (blockTileTexture) {
-          const connectionBits = blockTileConnectionBits(
-            (neighbourX, neighbourY) => blockTileGroupCells?.has(blockTileCellKey(neighbourX, neighbourY)) ?? false,
-            x,
-            y,
-          )
-          const image = buildingTextures[blockTileTexture.path]
-          if (image) {
-            drawBlockTile(context, image, connectionBits, px, py, cellSize)
-          }
-        } else if (isGeyser && !buildingTexture) {
-            const centerX = originX + instance.position.x * cellSize
-            const centerY = originY + (size.height - instance.position.y - .5) * cellSize
-            const image = geyserTexture ? geyserTextures[geyserTexture.path] : undefined
-            if (image && geyserTexture) {
-              drawGeyserTexture(context, image, geyserTexture, cellSize, centerX, centerY)
-            } else {
-              const fallbackX = px + cellSize / 2
-              const fallbackY = py + cellSize / 2
-              const radius = Math.max(2, cellSize * .34)
-              context.fillStyle = 'rgba(112, 190, 203, .9)'
-              context.strokeStyle = '#e8d096'
-              context.lineWidth = Math.max(1, Math.ceil(cellSize / 8))
-              context.beginPath()
-              context.arc(fallbackX, fallbackY, radius, 0, Math.PI * 2)
-              context.fill()
-              context.stroke()
-              context.fillStyle = '#2a5965'
-              context.fillRect(fallbackX - Math.max(1, cellSize * .08), fallbackY - Math.max(1, cellSize * .08), Math.max(2, cellSize * .16), Math.max(2, cellSize * .16))
-            }
-        } else if (buildingTexture) {
+  useEffect(() => {
+    const backCanvas = entityBackCanvasRef.current
+    const frontCanvas = entityFrontCanvasRef.current
+    if (!backCanvas || !frontCanvas || !size.width || !size.height || !viewportSize.width || !viewportSize.height) return
+    for (const canvas of [backCanvas, frontCanvas]) {
+      if (canvas.width !== viewportPixelWidth) canvas.width = viewportPixelWidth
+      if (canvas.height !== viewportPixelHeight) canvas.height = viewportPixelHeight
+      canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height)
+    }
+    if (!visibleLayers.minions && !mapEntityLayersAreVisible(visibleLayers)) return
+    const backContext = backCanvas.getContext('2d')
+    const frontContext = frontCanvas.getContext('2d')
+    if (!backContext || !frontContext) return
+    const cellSize = renderCellSize
+    const range = visibleMapRange(size.width, size.height, cellSize, originX, originY, backCanvas.width, backCanvas.height)
+    const blockTileCells = blockTileCellsByGroup(save)
+    const utilityCells = buildUtilityCellMap(save)
+    for (const context of [backContext, frontContext]) {
+      context.imageSmoothingEnabled = true
+      context.imageSmoothingQuality = 'high'
+      context.globalAlpha = 1
+      context.globalCompositeOperation = 'source-over'
+      context.fillStyle = '#e4b067'
+    }
+    for (const { group, instance } of mapObjectsInRenderOrder(save)) {
+      const sceneLayer = mapObjectSceneLayer(group)
+      const context = sceneLayer < TERRAIN_SCENE_LAYER ? backContext : frontContext
+      if (group.tag === 'Minion') {
+        if (!visibleLayers.minions) continue
+        const minionX = Math.round(instance.position.x)
+        const minionY = Math.round(size.height - 1 - instance.position.y)
+        if (minionX >= 0 && minionY >= 0 && minionX < size.width && minionY < size.height) {
           const anchor = mapObjectAnchor(instance.position.x, instance.position.y, size.height, cellSize, originX, originY)
-          const image = buildingTextures[buildingTexture.path]
-          if (image) {
-            drawGeyserTexture(context, image, buildingTexture, cellSize, anchor.x, anchor.y, instanceOrientation(instance), rotatableVisualizerForTag(group.tag))
+          if (minionKanimAssets) {
+            drawMinionKanim(context, minionKanimAssets, minionAccessoryGuids(instance), minionWearableAnimNames(instance), cellSize, anchor.x, anchor.y, minionFacesLeft(instance))
+          } else {
+            context.fillRect(originX + minionX * cellSize + 1, originY + minionY * cellSize + 1, Math.max(1, cellSize - 2), Math.max(1, cellSize - 2))
           }
         }
+        continue
+      }
+      const blockTileTexture = blockTileTextureForTag(group.tag)
+      const blockTileGroupCells = blockTileTexture ? blockTileCells.get(group) : undefined
+      const utilityTexture = utilityTextureForTag(group.tag)
+      const utilityFamily = utilityFamilyForTag(group.tag)
+      const isBuilding = hasSimpleComponent(instance, 'BuildingComplete')
+      const geyserTexture = geyserTextureForTag(group.tag)
+      const buildingTexture = buildingTextureForInstance(group.tag, instance, generatedBuildingDefinitions)
+      const isGeyser = isGeyserInstance(group.tag, instance, geyserTexture)
+      const isCreature = sceneLayer === ONI_SCENE_LAYER_ORDER.Creatures
+      if (!isBuilding && !isGeyser && !buildingTexture && !blockTileTexture && !utilityTexture) continue
+      if (!mapEntityLayerIsVisible(visibleLayers, isGeyser, isCreature, utilityFamily)) continue
+      const x = Math.floor(instance.position.x)
+      const y = Math.floor(instance.position.y)
+      const canvasY = size.height - 1 - y
+      if (x < 0 || canvasY < 0 || x >= size.width || canvasY >= size.height) continue
+      const spriteMargin = Math.max(2, Math.ceil(isGeyser
+        ? geyserTexture?.widthCells ?? 1
+        : buildingTexture
+          ? Math.max(buildingTexture.widthCells, buildingTexture.heightCells ?? buildingTexture.widthCells)
+          : 1))
+      if (x < range.minX - spriteMargin || x > range.maxX + spriteMargin || canvasY < range.minRow - spriteMargin || canvasY > range.maxRow + spriteMargin) continue
+      const px = originX + x * cellSize
+      const py = originY + canvasY * cellSize
+      if (utilityTexture) {
+        const image = buildingTextures[utilityTexture.path]
+        if (image) {
+          const connections = utilityDisplayConnections(utilityCells, utilityFamily!, instance, x, y)
+          const anchor = mapObjectAnchor(instance.position.x, instance.position.y, size.height, cellSize, originX, originY)
+          drawUtilityTile(context, image, utilityTexture, connections, anchor.x, anchor.y, cellSize)
+        }
+      } else if (blockTileTexture) {
+        const connectionBits = blockTileConnectionBits(
+          (neighbourX, neighbourY) => blockTileGroupCells?.has(blockTileCellKey(neighbourX, neighbourY)) ?? false,
+          x,
+          y,
+        )
+        const image = buildingTextures[blockTileTexture.path]
+        if (image) drawBlockTile(context, image, connectionBits, px, py, cellSize)
+      } else if (isGeyser && !buildingTexture) {
+        const centerX = originX + instance.position.x * cellSize
+        const centerY = originY + (size.height - instance.position.y - .5) * cellSize
+        const image = geyserTexture ? geyserTextures[geyserTexture.path] : undefined
+        if (image && geyserTexture) {
+          drawGeyserTexture(context, image, geyserTexture, cellSize, centerX, centerY)
+        }
+      } else if (buildingTexture) {
+        const anchor = mapObjectAnchor(instance.position.x, instance.position.y, size.height, cellSize, originX, originY)
+        const image = buildingTextures[buildingTexture.path]
+        if (image) drawGeyserTexture(context, image, buildingTexture, cellSize, anchor.x, anchor.y, instanceOrientation(instance), rotatableVisualizerForTag(group.tag))
       }
     }
-    context.restore()
-  }, [biomeBackgrounds, buildingTextures, cachedWorldZoneMap, displayCellSize, generatedBuildingDefinitions, geyserTextures, originX, originY, overlay, pan.x, pan.y, renderCellSize, save, size.height, size.width, textures, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers])
+  }, [buildingTextures, generatedBuildingDefinitions, geyserTextures, minionKanimAssets, originX, originY, renderCellSize, save, size.height, size.width, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers])
 
   useEffect(() => {
     const canvas = fluidCanvasRef.current
+    const baseCanvas = fluidBaseCanvasRef.current
     const sim = save.simData
-    if (!canvas || !sim || !size.width || !size.height || !viewportSize.width || !viewportSize.height) return
+    if (!canvas || !baseCanvas || !sim || !size.width || !size.height || !viewportSize.width || !viewportSize.height) return
     if (canvas.width !== viewportPixelWidth) canvas.width = viewportPixelWidth
     if (canvas.height !== viewportPixelHeight) canvas.height = viewportPixelHeight
+    if (baseCanvas.width !== viewportPixelWidth) baseCanvas.width = viewportPixelWidth
+    if (baseCanvas.height !== viewportPixelHeight) baseCanvas.height = viewportPixelHeight
     const context = canvas.getContext('2d')
-    if (!context) return
+    const baseContext = baseCanvas.getContext('2d')
+    if (!context || !baseContext) return
     context.imageSmoothingEnabled = false
+    baseContext.imageSmoothingEnabled = false
     const view = new DataView(sim.bytes.buffer, sim.bytes.byteOffset, sim.bytes.byteLength)
     const cellSize = renderCellSize
     const range = visibleMapRange(size.width, size.height, cellSize, originX, originY, canvas.width, canvas.height)
@@ -2995,6 +3018,37 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
     }
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const fluidCells: FluidRenderCell[] = []
+    baseContext.clearRect(0, 0, baseCanvas.width, baseCanvas.height)
+    const gasRendered = overlay === 'none' && visibleLayers.gas && oniWorldRenderer.renderGas({
+      context: baseContext,
+      width: size.width,
+      height: size.height,
+      cellSize,
+      originX,
+      originY,
+      range,
+      worldZones: cachedWorldZoneMap(sim),
+      textures,
+      maskSets: terrainMaskSets,
+      cellAt,
+      isTerrainMaskedAt: () => false,
+      zoneColors: ONI_WORLD_ZONE_COLORS,
+    })
+    const liquidRendered = overlay === 'none' && visibleLayers.liquid && oniWorldRenderer.renderLiquid({
+      context: baseContext,
+      width: size.width,
+      height: size.height,
+      cellSize,
+      originX,
+      originY,
+      range,
+      worldZones: cachedWorldZoneMap(sim),
+      textures,
+      maskSets: terrainMaskSets,
+      cellAt,
+      isTerrainMaskedAt: () => false,
+      zoneColors: ONI_WORLD_ZONE_COLORS,
+    })
     if (overlay === 'none') {
       for (let canvasY = range.minRow; canvasY <= range.maxRow; canvasY++) {
         const y = size.height - 1 - canvasY
@@ -3004,6 +3058,8 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
           const element = elementForHash(cell.elementHash)
           const isVisible = element.state === 'gas' && visibleLayers.gas || element.state === 'liquid' && visibleLayers.liquid
           if (!isVisible || !element.fluidMaterial || (element.state !== 'gas' && element.state !== 'liquid')) continue
+          if (element.state === 'gas' && gasRendered) continue
+          if (element.state === 'liquid' && liquidRendered) continue
           const fluidContactPath = visibleLayers.ground && (
             solidAt(x - 1, y) || solidAt(x + 1, y) || solidAt(x, y - 1) || solidAt(x, y + 1)
           )
@@ -3029,6 +3085,10 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
     }
     const surfaceRuns = fluidSurfaceRuns(fluidCells)
     const regions = fluidRegions(fluidCells)
+    for (const fluid of fluidCells) drawFluidBase(baseContext, fluid.style, fluid.cell, fluid.state, fluid.px, fluid.py, fluid.cellSize)
+    drawFluidRegionBase(baseContext, regions)
+    drawFluidBoundaryGlow(baseContext, fluidBoundaryCells(fluidCells), false)
+    drawFluidSurfaceRuns(baseContext, surfaceRuns, 0, false)
     let frame = 0
     let lastFrameTime = -Infinity
     const draw = (time: number) => {
@@ -3048,7 +3108,64 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
     }
     draw(0)
     return () => cancelAnimationFrame(frame)
-  }, [fluidCanvasRef, isSelecting, originX, originY, overlay, renderCellSize, save, size.height, size.width, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers.gas, visibleLayers.ground, visibleLayers.liquid])
+  }, [cachedWorldZoneMap, fluidCanvasRef, isSelecting, originX, originY, overlay, renderCellSize, save, size.height, size.width, terrainMaskSets, textures, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers.gas, visibleLayers.ground, visibleLayers.liquid])
+
+  useEffect(() => {
+    const canvas = particleCanvasRef.current
+    if (!canvas || !size.width || !size.height || !viewportSize.width || !viewportSize.height) return
+    if (canvas.width !== viewportPixelWidth) canvas.width = viewportPixelWidth
+    if (canvas.height !== viewportPixelHeight) canvas.height = viewportPixelHeight
+    const context = canvas.getContext('2d')
+    if (!context) return
+    context.clearRect(0, 0, canvas.width, canvas.height)
+    if (overlay !== 'none') return
+    let cancelled = false
+    void loadOniParticleTextures().then((particleTextures) => {
+      if (cancelled) return
+      context.clearRect(0, 0, canvas.width, canvas.height)
+      drawOniSavedParticles(context, save, particleTextures, {
+        worldHeight: size.height,
+        cellSize: renderCellSize,
+        originX,
+        originY,
+      })
+    }).catch(() => undefined)
+    return () => { cancelled = true }
+  }, [originX, originY, overlay, renderCellSize, save, size.height, size.width, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width])
+
+  useEffect(() => {
+    const canvas = lightCanvasRef.current
+    const sim = save.simData
+    if (!canvas || !sim || !size.width || !size.height || !viewportSize.width || !viewportSize.height) return
+    if (canvas.width !== viewportPixelWidth) canvas.width = viewportPixelWidth
+    if (canvas.height !== viewportPixelHeight) canvas.height = viewportPixelHeight
+    const context = canvas.getContext('2d')
+    if (!context) return
+    context.clearRect(0, 0, canvas.width, canvas.height)
+    if (overlay !== 'none') return
+    const lights: OniLightInstance[] = []
+    for (const group of save.manager?.groups ?? []) {
+      const definition = oniLightDefinitionForTag(group.tag)
+      if (!definition) continue
+      for (const instance of group.instances) {
+        if (!oniLightIsEnabled(instance, definition.requiresActive)) continue
+        if (instance.position.x < 0 || instance.position.y < 0 || instance.position.x >= size.width || instance.position.y >= size.height) continue
+        lights.push({ x: instance.position.x, y: instance.position.y, definition })
+      }
+    }
+    const view = new DataView(sim.bytes.buffer, sim.bytes.byteOffset, sim.bytes.byteLength)
+    drawOniLightBuffer({
+      context,
+      lights,
+      width: size.width,
+      height: size.height,
+      worldHeight: size.height,
+      cellSize: renderCellSize,
+      originX,
+      originY,
+      cellAt: (x, y) => cachedSimCell(sim, view, x + 1, y + 1),
+    })
+  }, [originX, originY, overlay, renderCellSize, save, size.height, size.width, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width])
 
   useEffect(() => {
     const canvas = gridCanvasRef.current
@@ -3075,6 +3192,18 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
     }
     context.stroke()
   }, [displayCellSize, originX, originY, renderCellSize, size.height, size.width, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers.grid])
+
+  useEffect(() => {
+    const canvas = fogCanvasRef.current
+    if (!canvas || !size.width || !size.height || !viewportSize.width || !viewportSize.height) return
+    if (canvas.width !== viewportPixelWidth) canvas.width = viewportPixelWidth
+    if (canvas.height !== viewportPixelHeight) canvas.height = viewportPixelHeight
+    const context = canvas.getContext('2d')
+    if (!context) return
+    context.clearRect(0, 0, canvas.width, canvas.height)
+    if (overlay !== 'none') return
+    drawFogOfWarMask(context, worldGrid(save, 'GridVisible')?.bytes, size.width, size.height, renderCellSize, originX, originY)
+  }, [originX, originY, overlay, renderCellSize, save, size.height, size.width, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width])
 
   useEffect(() => {
     const canvas = overlayRef.current
@@ -3246,6 +3375,34 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
     image.src = assetPath(path)
   })
 
+  const drawFogOfWarMask = (context: CanvasRenderingContext2D, visible: Uint8Array | undefined, worldWidth: number, worldHeight: number, cellSize: number, worldOriginX: number, worldOriginY: number) => {
+    if (!visible || visible.length < worldWidth * worldHeight) return
+    const source = document.createElement('canvas')
+    source.width = worldWidth
+    source.height = worldHeight
+    const sourceContext = source.getContext('2d')
+    if (!sourceContext) return
+    const image = sourceContext.createImageData(worldWidth, worldHeight)
+    for (let canvasY = 0; canvasY < worldHeight; canvasY++) {
+      const worldY = worldHeight - 1 - canvasY
+      for (let x = 0; x < worldWidth; x++) image.data[(canvasY * worldWidth + x) * 4 + 3] = visible[worldY * worldWidth + x]
+    }
+    sourceContext.putImageData(image, 0, 0)
+    const mask = document.createElement('canvas')
+    mask.width = context.canvas.width
+    mask.height = context.canvas.height
+    const maskContext = mask.getContext('2d')
+    if (!maskContext) return
+    maskContext.fillStyle = '#000'
+    maskContext.fillRect(0, 0, mask.width, mask.height)
+    maskContext.globalCompositeOperation = 'destination-out'
+    maskContext.imageSmoothingEnabled = true
+    maskContext.imageSmoothingQuality = 'high'
+    maskContext.drawImage(source, worldOriginX, worldOriginY, worldWidth * cellSize, worldHeight * cellSize)
+    maskContext.globalCompositeOperation = 'source-over'
+    context.drawImage(mask, 0, 0)
+  }
+
   const paintMapBackground = (context: CanvasRenderingContext2D, width: number, height: number, spaceBackground: HTMLImageElement, starfield: HTMLImageElement) => {
     context.fillStyle = '#090d16'
     context.fillRect(0, 0, width, height)
@@ -3316,8 +3473,16 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
 
   const exportCurrentMapImage = async () => {
     const baseCanvas = canvasRef.current
+    const backgroundCanvas = backgroundCanvasRef.current
+    const entityBackCanvas = entityBackCanvasRef.current
+    const entityFrontCanvas = entityFrontCanvasRef.current
+    const fluidBaseCanvas = fluidBaseCanvasRef.current
     const fluidCanvas = fluidCanvasRef.current
-    if (!baseCanvas || !fluidCanvas || !baseCanvas.width || !baseCanvas.height) return
+    const particleCanvas = particleCanvasRef.current
+    const lightCanvas = lightCanvasRef.current
+    const fogCanvas = fogCanvasRef.current
+    const gridCanvas = gridCanvasRef.current
+    if (!baseCanvas || !backgroundCanvas || !entityBackCanvas || !entityFrontCanvas || !fluidBaseCanvas || !fluidCanvas || !particleCanvas || !lightCanvas || !fogCanvas || !gridCanvas || !baseCanvas.width || !baseCanvas.height) return
     const exportCanvas = document.createElement('canvas')
     exportCanvas.width = baseCanvas.width
     exportCanvas.height = baseCanvas.height
@@ -3329,8 +3494,16 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
         loadMapImage('/assets/background/starfield.png'),
       ])
       paintMapBackground(context, exportCanvas.width, exportCanvas.height, spaceBackground, starfield)
-      context.drawImage(baseCanvas, 0, 0)
+      context.drawImage(backgroundCanvas, 0, 0)
+      context.drawImage(entityBackCanvas, 0, 0)
+      context.drawImage(fluidBaseCanvas, 0, 0)
       context.drawImage(fluidCanvas, 0, 0)
+      context.drawImage(baseCanvas, 0, 0)
+      context.drawImage(entityFrontCanvas, 0, 0)
+      context.drawImage(particleCanvas, 0, 0)
+      context.drawImage(lightCanvas, 0, 0)
+      context.drawImage(fogCanvas, 0, 0)
+      context.drawImage(gridCanvas, 0, 0)
       drawMapWatermark(context, exportCanvas.width, exportCanvas.height)
       await downloadMapCanvas(exportCanvas, '缺氧地图-当前视图.png')
     } catch {
@@ -3365,18 +3538,19 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
       const originX = 0
       const originY = 0
       const cellSize = exportCellSize
+      const fullRange = { minX: 0, maxX: size.width - 1, minRow: 0, maxRow: size.height - 1 }
       if (visibleLayers.biome) {
-        drawBiomeBackground(
+        oniWorldRenderer.renderBiome({
           context,
           worldZones,
-          size.width,
-          size.height,
+          width: size.width,
+          height: size.height,
           cellSize,
           originX,
           originY,
-          { minX: 0, maxX: size.width - 1, minRow: 0, maxRow: size.height - 1 },
-          exportBiomeBackgrounds,
-        )
+          range: fullRange,
+          backgrounds: exportBiomeBackgrounds,
+        })
       }
       const patterns = createElementPatterns(context, textures, cellSize, originX, originY + size.height * cellSize)
       const visibleGrid = worldGrid(save, 'GridVisible')?.bytes
@@ -3398,9 +3572,71 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
         return Boolean(neighbour && elementForHash(neighbour.elementHash).state === 'solid')
       }
       const simIndexAt = (x: number, y: number) => (y + 1) * sim.width + x + 1
-      const bytesPresent = (offset: number, length: number) => {
-        for (let index = 0; index < length; index++) if (sim.bytes[offset + index] !== 0) return true
-        return false
+      const damageView = damageGrid ? new DataView(damageGrid.buffer, damageGrid.byteOffset, damageGrid.byteLength) : undefined
+      const damageAt = (x: number, y: number) => {
+        const offset = (y * size.width + x) * 4
+        return damageView && offset >= 0 && offset + 4 <= damageView.byteLength ? damageView.getFloat32(offset, true) : 0
+      }
+      const hasBackwallAt = (x: number, y: number) => {
+        const backwall = readSimBackwall(sim, view, x + 1, y + 1)
+        return backwall ? elementForHash(backwall.elementHash).state === 'solid' : false
+      }
+      const gasRendered = overlay === 'none' && visibleLayers.gas && oniWorldRenderer.renderGas({
+        context,
+        width: size.width,
+        height: size.height,
+        cellSize,
+        originX,
+        originY,
+        range: fullRange,
+        worldZones,
+        textures,
+        maskSets: terrainMaskSets,
+        cellAt,
+        isTerrainMaskedAt,
+        damageAt,
+        hasBackwallAt,
+        zoneColors: ONI_WORLD_ZONE_COLORS,
+      })
+      const liquidRendered = overlay === 'none' && visibleLayers.liquid && oniWorldRenderer.renderLiquid({
+        context,
+        width: size.width,
+        height: size.height,
+        cellSize,
+        originX,
+        originY,
+        range: fullRange,
+        worldZones,
+        textures,
+        maskSets: terrainMaskSets,
+        cellAt,
+        isTerrainMaskedAt,
+        damageAt,
+        hasBackwallAt,
+        zoneColors: ONI_WORLD_ZONE_COLORS,
+      })
+
+      // Data overlays must remain above terrain. In the normal view terrain is
+      // emitted after fluid/backwall passes, matching Ground (29) over Liquid
+      // (29); overlay views render terrain first and paint their data last.
+      if (visibleLayers.ground && overlay !== 'none') {
+        oniWorldRenderer.renderTerrain({
+          context,
+          width: size.width,
+          height: size.height,
+          cellSize,
+          originX,
+          originY,
+          range: fullRange,
+          worldZones,
+          textures,
+          maskSets: terrainMaskSets,
+          cellAt,
+          isTerrainMaskedAt,
+          damageAt,
+          hasBackwallAt,
+          zoneColors: ONI_WORLD_ZONE_COLORS,
+        })
       }
 
       // Render every cell at export resolution. This does not depend on the current
@@ -3413,17 +3649,15 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
           const element = elementForHash(cell.elementHash)
           const px = originX + x * cellSize
           const py = originY + canvasY * cellSize
-          const zoneColor = visibleLayers.biome ? zoneColorForType(worldZones[y * size.width + x] ?? 7) : undefined
           const fluidContactPath = element.state !== 'solid' && visibleLayers.ground && (
             solidAt(x - 1, y) || solidAt(x + 1, y) || solidAt(x, y - 1) || solidAt(x, y + 1)
           )
             ? cachedTerrainPath(sim, `fluid-contact:${x}:${y}`, () => createTerrainBoundaryPath((neighbourX, neighbourY) => !solidAt(neighbourX, neighbourY), x, y))
             : undefined
-          const backwallOffset = sim.backwallOffset + simIndexAt(x, y) * sim.backwallSize
-          const backwallPresent = bytesPresent(backwallOffset, sim.backwallSize)
-          const backwallIntensity = .35 + (sim.bytes[backwallOffset] / 255) * .45
+          const backwall = readSimBackwall(sim, view, x + 1, y + 1)
+          const backwallPresent = backwall ? elementForHash(backwall.elementHash).state === 'solid' : false
           if (visibleLayers.backwall && backwallPresent) {
-            context.fillStyle = `rgba(185, 164, 132, ${backwallIntensity})`
+            context.fillStyle = 'rgba(185, 164, 132, .55)'
             context.fillRect(px, py, cellSize, cellSize)
           }
           const isSolid = element.state === 'solid'
@@ -3432,6 +3666,8 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
             || element.state === 'gas' && visibleLayers.gas
           if (!isSolid) {
             const showElement = element.state === 'special' || elementLayerVisible
+            if (element.state === 'gas' && gasRendered) continue
+            if (element.state === 'liquid' && liquidRendered) continue
             if (showElement && (element.state === 'liquid' || element.state === 'gas') && element.fluidMaterial) {
               fluidCells.push({
                 x,
@@ -3454,72 +3690,6 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
               context.fillRect(px, py, cellSize, cellSize)
             }
           }
-          const isNaturalSolid = visibleLayers.ground && isSolid && !isTerrainMaskedAt(x, y)
-          const materialOrder = terrainMaterialOrder(cell.elementHash)
-          const naturalTerrainOrderAt = (neighbourX: number, neighbourY: number) => isTerrainMaskedAt(neighbourX, neighbourY)
-            ? Number.NEGATIVE_INFINITY
-            : terrainMaterialOrder(cellAt(neighbourX, neighbourY)?.elementHash)
-          const terrainConnected = (neighbourX: number, neighbourY: number) => naturalTerrainOrderAt(neighbourX, neighbourY) >= materialOrder
-          const solidConnected = (neighbourX: number, neighbourY: number) => naturalTerrainOrderAt(neighbourX, neighbourY) > Number.NEGATIVE_INFINITY
-          const terrainBoundary = isNaturalSolid && (!terrainConnected(x - 1, y) || !terrainConnected(x + 1, y) || !terrainConnected(x, y - 1) || !terrainConnected(x, y + 1))
-          const solidBoundary = isNaturalSolid && (!solidConnected(x - 1, y) || !solidConnected(x + 1, y) || !solidConnected(x, y - 1) || !solidConnected(x, y + 1))
-          const terrainPath = terrainBoundary ? cachedTerrainPath(sim, `terrain:${x}:${y}`, () => createTerrainCellPath(terrainConnected, x, y)) : undefined
-          const solidPath = solidBoundary ? cachedTerrainPath(sim, `solid:${x}:${y}`, () => createTerrainCellPath(solidConnected, x, y)) : undefined
-          const terrainEdgePath = terrainBoundary ? cachedTerrainPath(sim, `terrain-edge:${x}:${y}`, () => createTerrainBoundaryPath(terrainConnected, x, y)) : undefined
-          const solidEdgePath = solidBoundary ? cachedTerrainPath(sim, `solid-edge:${x}:${y}`, () => createTerrainBoundaryPath(solidConnected, x, y)) : undefined
-          if (isNaturalSolid) {
-            const drawTerrainElement = (fillElement: typeof element, paths: Path2D[]) => {
-              context.save()
-              context.imageSmoothingEnabled = true
-              context.imageSmoothingQuality = 'high'
-              if (paths.length > 0) {
-                context.translate(px, py)
-                context.scale(cellSize, cellSize)
-                paths.forEach((path) => context.clip(path))
-                context.setTransform(1, 0, 0, 1, 0, 0)
-              }
-              context.fillStyle = patterns.get(fillElement.texture ?? '') ?? fillElement.color
-              context.fillRect(px, py, cellSize, cellSize)
-              if (zoneColor) {
-                context.fillStyle = `rgba(${zoneColor.r}, ${zoneColor.g}, ${zoneColor.b}, .16)`
-                context.fillRect(px, py, cellSize, cellSize)
-              }
-              context.fillStyle = 'rgba(0, 0, 0, .2)'
-              context.fillRect(px, py, cellSize, cellSize)
-              context.restore()
-            }
-            const drawTerrainOutline = (path: Path2D | undefined) => {
-              if (!path) return
-              context.save()
-              context.translate(px, py)
-              context.scale(cellSize, cellSize)
-              context.strokeStyle = 'rgba(4, 6, 7, .94)'
-              context.lineWidth = Math.max(.8, Math.min(2.5, cellSize * .06)) / Math.max(1, cellSize)
-              context.lineCap = 'round'
-              context.lineJoin = 'round'
-              context.stroke(path)
-              context.restore()
-            }
-            const terrainPaths = [solidPath, terrainPath].filter((path): path is Path2D => path !== undefined)
-            let lowerElement = element
-            if (terrainPath) {
-              lowerElement = [{ x: x - 1, y }, { x: x + 1, y }, { x, y: y - 1 }, { x, y: y + 1 }]
-                .map((position) => {
-                  if (isTerrainMaskedAt(position.x, position.y)) return undefined
-                  const neighbour = cellAt(position.x, position.y)
-                  if (!neighbour) return undefined
-                  const neighbourElement = elementForHash(neighbour.elementHash)
-                  const neighbourOrder = terrainMaterialOrder(neighbour.elementHash)
-                  return neighbourOrder < materialOrder ? { element: neighbourElement, order: neighbourOrder } : undefined
-                })
-                .filter((candidate): candidate is { element: typeof element; order: number } => candidate !== undefined)
-                .sort((left, right) => right.order - left.order)[0]?.element ?? element
-            }
-            if (lowerElement !== element) drawTerrainElement(lowerElement, solidPath ? [solidPath] : [])
-            drawTerrainElement(element, terrainPaths)
-            drawTerrainOutline(solidEdgePath)
-            drawTerrainOutline(terrainEdgePath)
-          }
           if (overlay === 'temperature') {
             context.fillStyle = temperatureColor(cell.temperature)
             context.globalAlpha = .72
@@ -3538,9 +3708,8 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
             context.fillStyle = value > 0 ? `rgba(112, 157, 123, ${.2 + value / 255 * .72})` : 'rgba(16, 23, 25, .84)'
             context.fillRect(px, py, cellSize, cellSize)
           } else if (overlay === 'damage') {
-            const damageOffset = (y * size.width + x) * 4
-            const damageValue = Math.max(damageGrid?.[damageOffset] ?? 0, damageGrid?.[damageOffset + 1] ?? 0, damageGrid?.[damageOffset + 2] ?? 0, damageGrid?.[damageOffset + 3] ?? 0)
-            context.fillStyle = damageValue > 0 ? `rgba(198, 123, 113, ${.2 + damageValue / 255 * .72})` : 'rgba(16, 23, 25, .84)'
+            const damageValue = Math.max(0, Math.min(1, damageAt(x, y)))
+            context.fillStyle = damageValue > 0 ? `rgba(198, 123, 113, ${.2 + damageValue * .72})` : 'rgba(16, 23, 25, .84)'
             context.fillRect(px, py, cellSize, cellSize)
           } else if (overlay === 'disease') {
             const diseaseOffset = sim.diseaseOffset + simIndexAt(x, y) * SIM_DISEASE_SIZE
@@ -3551,6 +3720,26 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
             context.fillRect(px, py, cellSize, cellSize)
           }
         }
+      }
+
+      if (visibleLayers.ground && overlay === 'none') {
+        oniWorldRenderer.renderTerrain({
+          context,
+          width: size.width,
+          height: size.height,
+          cellSize,
+          originX,
+          originY,
+          range: fullRange,
+          worldZones,
+          textures,
+          maskSets: terrainMaskSets,
+          cellAt,
+          isTerrainMaskedAt,
+          damageAt,
+          hasBackwallAt,
+          zoneColors: ONI_WORLD_ZONE_COLORS,
+        })
       }
 
       if (overlay === 'none') {
@@ -3568,12 +3757,18 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
         const utilityCells = buildUtilityCellMap(save)
         const tileCells = blockTileCellsByGroup(save)
         for (const { group, instance } of mapObjectsInRenderOrder(save)) {
+          const sceneLayer = mapObjectSceneLayer(group)
           if (group.tag === 'Minion') {
             if (!visibleLayers.minions) continue
             const minionX = Math.round(instance.position.x)
             const minionY = Math.round(size.height - 1 - instance.position.y)
             if (minionX >= 0 && minionY >= 0 && minionX < size.width && minionY < size.height) {
-              context.fillRect(originX + minionX * cellSize + 1, originY + minionY * cellSize + 1, Math.max(1, cellSize - 2), Math.max(1, cellSize - 2))
+              const anchor = mapObjectAnchor(instance.position.x, instance.position.y, size.height, cellSize, originX, originY)
+              if (minionKanimAssets) {
+                drawMinionKanim(context, minionKanimAssets, minionAccessoryGuids(instance), minionWearableAnimNames(instance), cellSize, anchor.x, anchor.y, minionFacesLeft(instance))
+              } else {
+                context.fillRect(originX + minionX * cellSize + 1, originY + minionY * cellSize + 1, Math.max(1, cellSize - 2), Math.max(1, cellSize - 2))
+              }
             }
             continue
           }
@@ -3585,8 +3780,9 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
           const geyserTexture = geyserTextureForTag(group.tag)
           const buildingTexture = buildingTextureForInstance(group.tag, instance, generatedBuildingDefinitions)
           const isGeyser = isGeyserInstance(group.tag, instance, geyserTexture)
+          const isCreature = sceneLayer === ONI_SCENE_LAYER_ORDER.Creatures
           if (!isBuilding && !isGeyser && !buildingTexture && !blockTileTexture && !utilityTexture) continue
-          if (!mapEntityLayerIsVisible(visibleLayers, isGeyser, utilityFamily)) continue
+          if (!mapEntityLayerIsVisible(visibleLayers, isGeyser, isCreature, utilityFamily)) continue
           const x = Math.floor(instance.position.x)
           const y = Math.floor(instance.position.y)
           const canvasY = size.height - 1 - y
@@ -3640,6 +3836,22 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
         }
       }
       context.restore()
+      if (overlay === 'none') {
+        const particleTextures = await loadOniParticleTextures()
+        drawOniSavedParticles(context, save, particleTextures, { worldHeight: size.height, cellSize, originX, originY })
+        const lights: OniLightInstance[] = []
+        for (const group of save.manager?.groups ?? []) {
+          const definition = oniLightDefinitionForTag(group.tag)
+          if (!definition) continue
+          for (const instance of group.instances) {
+            if (!oniLightIsEnabled(instance, definition.requiresActive)) continue
+            if (instance.position.x < 0 || instance.position.y < 0 || instance.position.x >= size.width || instance.position.y >= size.height) continue
+            lights.push({ x: instance.position.x, y: instance.position.y, definition })
+          }
+        }
+        drawOniLightBuffer({ context, lights, width: size.width, height: size.height, worldHeight: size.height, cellSize, originX, originY, cellAt })
+      }
+      if (overlay === 'none') drawFogOfWarMask(context, visibleGrid, size.width, size.height, cellSize, originX, originY)
       drawMapWatermark(context, exportWidth, exportHeight)
       await downloadMapCanvas(exportCanvas, `缺氧地图-全景-${exportCellSize}px.png`)
     } catch {
@@ -3788,11 +4000,25 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
     onPointerCancel={() => { if (pointerRef.current?.mode === 'brush' || pointerRef.current?.mode === 'shape') onStrokeEnd(); if (canvasLayerRef.current) canvasLayerRef.current.style.transform = 'translate3d(0, 0, 0)'; pointerRef.current = null; selectionDraftRef.current = null; visitedBrushCellsRef.current.clear(); updateBrushCell(null); updateSelectionDraftOverlay(null); setIsSelecting(false); setIsPanning(false) }}
   >
     <div ref={canvasLayerRef} className="canvas-layer">
+      <canvas ref={backgroundCanvasRef} className="canvas-background" style={canvasStyle} aria-hidden="true" />
       <canvas
+        className="canvas-terrain"
         ref={canvasRef}
         style={canvasStyle}
       />
+      <canvas ref={entityBackCanvasRef} className="canvas-entities-back" style={canvasStyle} aria-hidden="true" />
+      <canvas
+        ref={entityFrontCanvasRef}
+        className="canvas-entities-front"
+        style={canvasStyle}
+        aria-hidden="true"
+        data-minion-kanim={minionKanimAssets ? 'ready' : 'loading'}
+      />
+      <canvas ref={fluidBaseCanvasRef} className="canvas-fluid-base" style={canvasStyle} aria-hidden="true" />
       <canvas ref={fluidCanvasRef} className="canvas-fluid" style={canvasStyle} aria-hidden="true" />
+      <canvas ref={particleCanvasRef} className="canvas-particles" style={canvasStyle} aria-hidden="true" />
+      <canvas ref={lightCanvasRef} className="canvas-light" style={canvasStyle} aria-hidden="true" />
+      <canvas ref={fogCanvasRef} className="canvas-fog" style={canvasStyle} aria-hidden="true" />
       <canvas ref={gridCanvasRef} className="canvas-grid" style={canvasStyle} aria-hidden="true" />
       <canvas ref={overlayRef} className="canvas-overlay" style={canvasStyle} aria-hidden="true" />
       {activeSelectionBounds && <div
@@ -3815,7 +4041,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
       <input type="range" min="0" max="100" step="1" value={zoomPercent} aria-label="地图缩放" onChange={(event) => setZoomPercentAround(Number(event.target.value))} />
       <output>{zoomPercent}</output>
       <button type="button" title="放大地图" aria-label="放大地图" onClick={() => setZoomPercentAround(zoomPercent + 10)}><Plus size={15} /></button>
-      <button type="button" className="canvas-reset" title="重置视图" aria-label="重置视图" onClick={() => { setZoomPercent(50); setPan({ x: 0, y: 0 }) }}>50</button>
+      <button type="button" className="canvas-reset" title="重置视图" aria-label="重置视图" onClick={focusVisibleMap}>适配</button>
       <button type="button" title="导出当前地图视图" aria-label="导出当前地图视图" onClick={() => { void exportCurrentMapImage() }}><Download size={15} /></button>
       <button type="button" title="导出整张高清全景地图" aria-label="导出整张高清全景地图" onClick={() => { void exportPanoramaImage() }}><Maximize2 size={15} /></button>
     </div>
@@ -3833,19 +4059,44 @@ function DupesView({ save, updateSave, onOpenObject }: { save: ParsedSave; updat
   const group = groupByTag(save, 'Minion')
   const rows = groupRows(group)
   const [selected, setSelected] = useState(0)
+  const [minionKanimAssets, setMinionKanimAssets] = useState<MinionKanimAssets | null>(null)
+  const minionWearableNames = useMemo(() => saveMinionWearableAnimNames(save), [save])
   const active = rows[selected]
+  useEffect(() => {
+    let active = true
+    void loadMinionKanimAssets(minionWearableNames).then((assets) => { if (active) setMinionKanimAssets(assets) }).catch(() => {})
+    return () => { active = false }
+  }, [minionWearableNames])
   return (
     <div className="view-stack">
       <div className="view-intro"><div><p>已解析的殖民者实例</p><strong>{rows.length} 名复制人</strong></div><button className="button button-quiet" type="button" onClick={() => onOpenObject(selected)}><Boxes size={15} />打开对象详情</button></div>
       <section className="surface dupes-layout">
         <div className="dupe-list">
           <div className="list-head"><span>复制人</span><span>位置</span></div>
-          {rows.map((row) => <button key={row.index} className={`dupe-row ${active?.index === row.index ? 'selected' : ''}`} type="button" onClick={() => setSelected(row.index)}><span className="dupe-avatar">{row.name.slice(0, 1)}</span><span className="dupe-name"><strong>{row.name}</strong><small>Minion #{row.index + 1}</small></span><span className="dupe-pos">{formatNumber(row.position.x, 1)}, {formatNumber(row.position.y, 1)}</span><ChevronRight size={15} /></button>)}
+          {rows.map((row) => <button key={row.index} className={`dupe-row ${active?.index === row.index ? 'selected' : ''}`} type="button" onClick={() => setSelected(row.index)}><MinionAvatar instance={row.instance} assets={minionKanimAssets} fallback={row.name.slice(0, 1)} /><span className="dupe-name"><strong>{row.name}</strong><small>Minion #{row.index + 1}</small></span><span className="dupe-pos">{formatNumber(row.position.x, 1)}, {formatNumber(row.position.y, 1)}</span><ChevronRight size={15} /></button>)}
         </div>
         {active && <DupeInspector instance={active.instance} updateSave={updateSave} />}
       </section>
     </div>
   )
+}
+
+function MinionAvatar({ instance, assets, fallback }: { instance: SavedObjectInstance; assets: MinionKanimAssets | null; fallback: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || !assets) return
+    const ratio = Math.max(1, window.devicePixelRatio || 1)
+    canvas.width = Math.round(64 * ratio)
+    canvas.height = Math.round(64 * ratio)
+    const context = canvas.getContext('2d')
+    if (!context) return
+    context.clearRect(0, 0, canvas.width, canvas.height)
+    drawMinionKanim(context, assets, minionAccessoryGuids(instance), minionWearableAnimNames(instance), 28 * ratio, 32 * ratio, 53 * ratio, minionFacesLeft(instance))
+  }, [assets, instance])
+  return <span className="dupe-avatar" data-kanim={assets ? 'ready' : 'loading'}>
+    {assets ? <canvas ref={canvasRef} aria-hidden="true" /> : fallback}
+  </span>
 }
 
 function DupeInspector({ instance, updateSave }: { instance: SavedObjectInstance; updateSave: (update: (save: ParsedSave) => void) => void }) {

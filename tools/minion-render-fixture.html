@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ONI Minion KAnim Outfit Fixture</title>
+  <style>
+    body { margin: 0; background: #11151a; color: #e7edf3; font: 14px system-ui; }
+    main { display: flex; gap: 24px; padding: 24px; }
+    figure { margin: 0; padding: 16px; background: #1c232b; border: 1px solid #34414d; }
+    canvas { display: block; width: 320px; height: 320px; background: repeating-conic-gradient(#808080 0 25%, #999 0 50%) 50% / 24px 24px; }
+    figcaption { margin-top: 10px; text-align: center; }
+  </style>
+</head>
+<body>
+  <main>
+    <figure><canvas id="basic" width="640" height="640"></canvas><figcaption>基础 Accessorizer</figcaption></figure>
+    <figure><canvas id="clothed" width="640" height="640"></canvas><figcaption>WearableAccessorizer（存档覆盖）</figcaption></figure>
+    <figure><canvas id="swim" width="640" height="640"></canvas><figcaption>U59 泳装覆盖</figcaption></figure>
+  </main>
+  <output id="metrics"></output>
+  <script type="module">
+    import { drawMinionKanim, loadMinionKanimAssets } from '/src/lib/oniMinionKanim.ts'
+    const accessories = [
+      'Root.Accessories.eyes_003', 'Root.Accessories.hair_021', 'Root.Accessories.hat_hair_021',
+      'Root.Accessories.headshape_003', 'Root.Accessories.mouth_003', 'Root.Accessories.torso_003',
+      'Root.Accessories.arm_sleeve_003', 'Root.Accessories.arm_lower_sleeve_003', 'Root.Accessories.neck',
+      'Root.Accessories.pelvis', 'Root.Accessories.leg', 'Root.Accessories.foot', 'Root.Accessories.hand_paint',
+      'Root.Accessories.cuff', 'Root.Accessories.belt', 'Root.Accessories.arm_lower_003',
+      'Root.Accessories.arm_upper_003', 'Root.Accessories.leg_skin_003',
+    ]
+    const wearables = ['shoes_basic_black_kanim', 'pants_basic_black_kanim', 'gloves_basic_gold_kanim', 'top_standard_yellow_kanim']
+    const swimWearables = ['shoes_swim_red_kanim', 'pants_swim_black_kanim', 'gloves_swim_gold_kanim', 'top_swim_red_kanim']
+    const assets = await loadMinionKanimAssets([...wearables, ...swimWearables])
+    for (const [id, clothing] of [['basic', []], ['clothed', wearables], ['swim', swimWearables]]) {
+      const canvas = document.getElementById(id)
+      const context = canvas.getContext('2d')
+      drawMinionKanim(context, assets, accessories, clothing, 180, 320, 500, false)
+    }
+    const basicPixels = document.getElementById('basic').getContext('2d').getImageData(0, 0, 640, 640).data
+    const clothedPixels = document.getElementById('clothed').getContext('2d').getImageData(0, 0, 640, 640).data
+    let differentPixels = 0
+    for (let index = 0; index < basicPixels.length; index += 4) {
+      if (basicPixels[index] !== clothedPixels[index] || basicPixels[index + 1] !== clothedPixels[index + 1]
+        || basicPixels[index + 2] !== clothedPixels[index + 2] || basicPixels[index + 3] !== clothedPixels[index + 3]) differentPixels++
+    }
+    document.getElementById('metrics').textContent = `${differentPixels} pixels changed; ${Object.keys(assets.wearables).length} wearable packages loaded`
+    document.body.dataset.ready = 'true'
+  </script>
+</body>
+</html>
