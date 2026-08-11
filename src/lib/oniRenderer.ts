@@ -317,6 +317,7 @@ export class OniWorldRenderer {
   renderLiquid(input: OniTerrainRenderInput): boolean {
     return this.liquidRenderer.render(input)
   }
+
 }
 
 export const oniWorldRenderer = new OniWorldRenderer()

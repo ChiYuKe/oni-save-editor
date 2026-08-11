@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Liquid WebGL fixture</title>
+  <style>
+    html, body { margin: 0; background: #11171a; }
+    canvas { display: block; width: 512px; height: 512px; image-rendering: pixelated; }
+    pre { color: white; font: 14px monospace; }
+  </style>
+</head>
+<body>
+  <canvas id="map" width="512" height="512"></canvas>
+  <pre id="result">loading</pre>
+  <script type="module">
+    import { OniLiquidWebGLRenderer } from '/src/lib/oniLiquidWebgl.ts'
+
+    const canvas = document.querySelector('#map')
+    const context = canvas.getContext('2d')
+    const width = 16
+    const height = 16
+    const water = 0x6197
+    const sandstone = 0x4441
+    const cells = (x, y) => {
+      if (y === 0 || x === 3 || x === 12) return { elementHash: sandstone, temperature: 293.15, mass: 1000 }
+      if (x >= 4 && x <= 11 && y >= 1 && y <= 6) return { elementHash: water, temperature: 293.15, mass: 1000 }
+      return { elementHash: 0xbf75, temperature: 0, mass: 0 }
+    }
+    const load = (src) => new Promise((resolve, reject) => {
+      const image = new Image()
+      image.onload = () => resolve(image)
+      image.onerror = reject
+      image.src = src
+    })
+
+    const paths = [
+      '/assets/render/bubbles.png',
+      '/assets/render/normal_metal.png',
+      '/assets/render/bgarray_liquids.png',
+      '/assets/render/bgarray_liquids_specular.png',
+    ]
+    const images = await Promise.all(paths.map(load))
+    context.fillStyle = '#182126'
+    context.fillRect(0, 0, canvas.width, canvas.height)
+    const textures = Object.fromEntries(paths.map((path, index) => [path, images[index]]))
+    const worldZones = new Uint8Array(width * height)
+    const zoneColors = Array.from({ length: 8 }, () => ({ r: 50, g: 60, b: 65 }))
+    const renderer = new OniLiquidWebGLRenderer()
+    const rendered = renderer.render({
+      context,
+      width,
+      height,
+      cellSize: 32,
+      originX: 0,
+      originY: 0,
+      range: { minX: 0, maxX: width - 1, minRow: 0, maxRow: height - 1 },
+      worldZones,
+      textures,
+      cellAt: cells,
+      isTerrainMaskedAt: () => false,
+      zoneColors,
+    })
+    document.querySelector('#result').textContent = `rendered=${rendered} webgl2=${Boolean(renderer)}`
+  </script>
+</body>
+</html>

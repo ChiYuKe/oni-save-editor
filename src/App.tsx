@@ -32,7 +32,7 @@ import {
   X,
 } from 'lucide-react'
 import './App.css'
-import { buildSave, parseSave, type ParsedSave } from './lib/save'
+import { buildSave, type ParsedSave } from './lib/save'
 import { ELEMENTS, defaultElementValues, elementForHash, elementOptions, formatHash, type FluidMaterialStyle } from './lib/elements'
 import {
   component,
@@ -807,6 +807,23 @@ const navItems: Array<{ id: View; label: string }> = [
   { id: 'objects', label: '对象' },
 ]
 
+function parseSaveOffThread(bytes: Uint8Array): Promise<ParsedSave> {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(new URL('./lib/saveWorker.ts', import.meta.url), { type: 'module' })
+    const finish = () => worker.terminate()
+    worker.onmessage = (event: MessageEvent<{ ok: boolean; save?: ParsedSave; error?: string }>) => {
+      finish()
+      if (event.data.ok && event.data.save) resolve(event.data.save)
+      else reject(new Error(event.data.error || '无法解析这个存档文件。'))
+    }
+    worker.onerror = (event) => {
+      finish()
+      reject(new Error(event.message || '存档后台解析线程失败。'))
+    }
+    worker.postMessage({ buffer: bytes.buffer }, [bytes.buffer])
+  })
+}
+
 function App() {
   const [save, setSave] = useState<ParsedSave | null>(null)
   const [yamlTemplate, setYamlTemplate] = useState<YamlTemplate | null>(null)
@@ -878,7 +895,7 @@ function App() {
     setLoading(true)
     setError('')
     try {
-      const parsed = parseSave(new Uint8Array(await file.arrayBuffer()))
+      const parsed = await parseSaveOffThread(new Uint8Array(await file.arrayBuffer()))
       setSave(parsed)
       setYamlTemplate(null)
       setYamlDocuments([])
@@ -900,6 +917,26 @@ function App() {
       setLoading(false)
     }
   }, [])
+
+  // The C# desktop shell sends the selected save through this small bridge.
+  // Keeping the same File-based path as the browser UI means the desktop
+  // build uses the exact same binary parser, WebGL layers and edit history.
+  useEffect(() => {
+    const onHostSave = (event: Event) => {
+      const detail = (event as CustomEvent<{ name?: string; data?: string }>).detail
+      if (!detail?.data) return
+      try {
+        const encoded = atob(detail.data)
+        const bytes = new Uint8Array(encoded.length)
+        for (let index = 0; index < encoded.length; index += 1) bytes[index] = encoded.charCodeAt(index)
+        void loadFile(new File([bytes], detail.name || 'save.sav', { type: 'application/octet-stream' }))
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : '桌面外壳传入的存档无法读取。')
+      }
+    }
+    window.addEventListener('oni-host-open-save', onHostSave)
+    return () => window.removeEventListener('oni-host-open-save', onHostSave)
+  }, [loadFile])
 
   useEffect(() => {
     if (!import.meta.env.DEV || new URLSearchParams(window.location.search).get('fixture') !== '1') return
@@ -1855,15 +1892,11 @@ function TemplateCanvas({ template }: { template: YamlTemplate }) {
             context.stroke(edge)
             context.restore()
           }
-        } else if (element.state !== 'vacuum') {
+        } else if (element.state === 'gas') {
           context.fillStyle = element.fluidMaterial?.gradientBottom ?? element.color
-          context.globalAlpha = element.state === 'gas' ? .26 : .5
+          context.globalAlpha = .26
           context.fillRect(px, py, renderCellSize, renderCellSize)
           context.globalAlpha = 1
-          if (element.state === 'liquid' && !cellAt(worldX, worldY + 1)) {
-            context.fillStyle = 'rgba(225, 255, 250, .48)'
-            context.fillRect(px, py, renderCellSize, Math.max(1, renderCellSize * .07))
-          }
         }
       }
     }
@@ -1988,7 +2021,7 @@ function createElementPatterns(context: CanvasRenderingContext2D, textures: Reco
 }
 
 type RgbColor = { r: number; g: number; b: number }
-type FluidRenderCell = {
+type GasRenderCell = {
   x: number
   y: number
   px: number
@@ -1996,17 +2029,13 @@ type FluidRenderCell = {
   cellSize: number
   cell: SimCell
   style: FluidMaterialStyle
-  state: 'gas' | 'liquid'
-  surfaceTop: boolean
-  edgeLeft: boolean
-  edgeRight: boolean
-  edgeBottom: boolean
+  state: 'gas'
   contactPath?: Path2D
 }
-const fluidColorCache = new Map<string, RgbColor>()
+const gasColorCache = new Map<string, RgbColor>()
 
-function fluidRgb(color: string): RgbColor {
-  const cached = fluidColorCache.get(color)
+function gasRgb(color: string): RgbColor {
+  const cached = gasColorCache.get(color)
   if (cached) return cached
   const normalized = color.replace('#', '')
   const value = normalized.length === 3
@@ -2016,139 +2045,67 @@ function fluidRgb(color: string): RgbColor {
   const result = Number.isFinite(parsed)
     ? { r: (parsed >> 16) & 255, g: (parsed >> 8) & 255, b: parsed & 255 }
     : { r: 255, g: 255, b: 255 }
-  fluidColorCache.set(color, result)
+  gasColorCache.set(color, result)
   return result
 }
 
-function fluidRgba(color: string, alpha: number): string {
-  const { r, g, b } = fluidRgb(color)
+function gasRgba(color: string, alpha: number): string {
+  const { r, g, b } = gasRgb(color)
   return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, alpha))})`
 }
 
-function fluidDensity(cell: SimCell, state: 'gas' | 'liquid'): number {
+function gasDensity(cell: SimCell): number {
   const mass = Math.max(0, cell.mass)
-  if (state === 'gas') return .2 + .8 * (1 - Math.exp(-mass / 2.2))
-  return .2 + .8 * (1 - Math.exp(-mass / 520))
+  return .2 + .8 * (1 - Math.exp(-mass / 2.2))
 }
 
-function fluidPhase(worldX: number, worldY: number, timeSeconds: number, speed: number): number {
-  const base = worldX * .73 + worldY * .41
-  return Math.sin(base + timeSeconds * speed * 2.1) * .5 + Math.sin(worldX * .19 - worldY * .67 + timeSeconds * speed * 1.3) * .3 + Math.sin(worldX * .047 + worldY * .11 + timeSeconds * speed * .7) * .2
-}
-
-function drawFluidBase(context: CanvasRenderingContext2D, style: FluidMaterialStyle, cell: SimCell, state: 'gas' | 'liquid', px: number, py: number, cellSize: number): void {
-  const density = fluidDensity(cell, state)
-  const alpha = state === 'gas'
-    ? .08 + density * .28
-    : style.opaque ? .34 + density * .22 : .19 + density * .3
-  // The shader's body is translucent and screen-blended. A flat base keeps adjacent
-  // cells from creating artificial seams; the continuous light pass adds the depth.
-  context.fillStyle = fluidRgba(style.gradientBottom, alpha)
+function drawGasBase(context: CanvasRenderingContext2D, style: FluidMaterialStyle, cell: SimCell, px: number, py: number, cellSize: number): void {
+  const density = gasDensity(cell)
+  const alpha = .08 + density * .28
+  context.fillStyle = gasRgba(style.gradientBottom, alpha)
   context.fillRect(px, py, cellSize, cellSize)
 }
 
-function fluidSurfaceRuns(cells: FluidRenderCell[]): FluidRenderCell[][] {
-  const rows = new Map<number, FluidRenderCell[]>()
-  for (const cell of cells) {
-    if (cell.state !== 'liquid' || !cell.surfaceTop) continue
-    const row = rows.get(cell.y) ?? []
-    row.push(cell)
-    rows.set(cell.y, row)
-  }
-  const runs: FluidRenderCell[][] = []
-  for (const row of rows.values()) {
-    row.sort((left, right) => left.x - right.x)
-    let run: FluidRenderCell[] = []
-    for (const cell of row) {
-      const previous = run[run.length - 1]
-      if (previous && (cell.x !== previous.x + 1 || cell.cell.elementHash !== previous.cell.elementHash)) {
-        runs.push(run)
-        run = []
-      }
-      run.push(cell)
-    }
-    if (run.length > 0) runs.push(run)
-  }
-  return runs
+function drawLiquidFallback(context: CanvasRenderingContext2D, style: FluidMaterialStyle, cell: SimCell, px: number, py: number, cellSize: number, fullHeight: boolean): void {
+  const massRatio = Math.min(Math.max(cell.mass, 0) / 2000, 1)
+  const amount = fullHeight ? 1 : Math.pow(massRatio, .45)
+  const alpha = style.opaque ? .48 + amount * .24 : .28 + amount * .28
+  context.fillStyle = gasRgba(style.gradientBottom, alpha)
+  context.fillRect(px, py, cellSize, cellSize)
+  if (!fullHeight) return
+  context.fillStyle = gasRgba(style.gradientTop, .22)
+  context.fillRect(px, py, cellSize, Math.max(1, cellSize * .07))
 }
 
-function drawFluidSurfaceRuns(context: CanvasRenderingContext2D, runs: FluidRenderCell[][], timeSeconds: number, animated: boolean): void {
-  if (runs.length === 0) return
-  for (const run of runs) {
-    const first = run[0]
-    const last = run[run.length - 1]
-    const style = first.style
-    const cellSize = first.cellSize
-    const left = first.px
-    const right = last.px + cellSize
-    const sampleStep = Math.max(3, cellSize * .45)
-    const sampleCount = Math.max(4, Math.ceil((right - left) / sampleStep))
-    const surfaceY = (x: number) => first.py + cellSize * (.035 + fluidPhase(first.x + (x - left) / cellSize, first.y, timeSeconds, style.flowSpeed) * .018)
-    const density = run.reduce((total, cell) => total + fluidDensity(cell.cell, 'liquid'), 0) / run.length
-
-    context.save()
-    context.globalCompositeOperation = animated ? 'screen' : 'source-over'
-    context.beginPath()
-    context.moveTo(left, surfaceY(left))
-    for (let index = 1; index <= sampleCount; index++) {
-      const x = left + (right - left) * index / sampleCount
-      context.lineTo(x, surfaceY(Math.min(right, x)))
-    }
-    if (!animated) {
-      context.lineTo(right, first.py + cellSize * .23)
-      context.lineTo(left, first.py + cellSize * .23)
-      context.closePath()
-      const surfaceGradient = context.createLinearGradient(0, first.py, 0, first.py + cellSize * .25)
-      surfaceGradient.addColorStop(0, fluidRgba('#ffffff', .11 + density * .08))
-      surfaceGradient.addColorStop(.24, fluidRgba(style.gradientTop, .08 + density * .06))
-      surfaceGradient.addColorStop(1, fluidRgba(style.gradientBottom, 0))
-      context.fillStyle = surfaceGradient
-      context.fill()
-    }
-    context.beginPath()
-    context.moveTo(left, surfaceY(left))
-    for (let index = 1; index <= sampleCount; index++) {
-      const x = left + (right - left) * index / sampleCount
-      context.lineTo(x, surfaceY(Math.min(right, x)))
-    }
-    context.strokeStyle = fluidRgba('#ffffff', animated ? .06 + density * .08 : .16 + density * .09)
-    context.lineWidth = Math.max(1, Math.min(3, cellSize * .045))
-    context.lineCap = 'round'
-    context.stroke()
-    context.restore()
-  }
-}
-
-function fluidBoundaryCells(cells: FluidRenderCell[]): FluidRenderCell[] {
+function gasBoundaryCells(cells: GasRenderCell[]): GasRenderCell[] {
   return cells.filter((cell) => cell.contactPath !== undefined)
 }
 
-function drawFluidBoundaryGlow(context: CanvasRenderingContext2D, liquidCells: FluidRenderCell[], animated: boolean): void {
-  if (liquidCells.length === 0) return
+function drawGasBoundaryGlow(context: CanvasRenderingContext2D, gasCells: GasRenderCell[], animated: boolean): void {
+  if (gasCells.length === 0) return
   context.save()
   context.globalCompositeOperation = animated ? 'screen' : 'source-over'
-  for (const cell of liquidCells) {
+  for (const cell of gasCells) {
     if (!cell.contactPath) continue
     context.save()
     context.translate(cell.px, cell.py)
     context.scale(cell.cellSize, cell.cellSize)
-    const liquid = cell.state === 'liquid'
-    context.strokeStyle = fluidRgba(liquid ? '#d9ffff' : cell.style.gradientTop, animated ? liquid ? .09 : .035 : liquid ? .2 : .07)
-    context.lineWidth = Math.max(liquid ? .8 : .55, Math.min(liquid ? 2.5 : 1.5, cell.cellSize * (liquid ? .06 : .035))) / Math.max(1, cell.cellSize)
+    context.strokeStyle = gasRgba(cell.style.gradientTop, animated ? .035 : .07)
+    context.lineWidth = Math.max(.55, Math.min(1.5, cell.cellSize * .035)) / Math.max(1, cell.cellSize)
     context.lineCap = 'round'
     context.lineJoin = 'round'
-    context.shadowColor = fluidRgba(liquid ? '#8feef4' : cell.style.gradientTop, animated ? liquid ? .22 : .07 : liquid ? .38 : .12)
-    context.shadowBlur = Math.max(1, Math.min(liquid ? 14 : 7, cell.cellSize * (liquid ? .42 : .2))) / Math.max(1, cell.cellSize)
+    context.shadowColor = gasRgba(cell.style.gradientTop, animated ? .07 : .12)
+    context.shadowBlur = Math.max(1, Math.min(7, cell.cellSize * .2)) / Math.max(1, cell.cellSize)
     context.stroke(cell.contactPath)
     context.restore()
   }
   context.restore()
 }
 
-type FluidRegion = {
+type GasRegion = {
   path: Path2D
   style: FluidMaterialStyle
-  state: 'gas' | 'liquid'
+  state: 'gas'
   minX: number
   minY: number
   maxX: number
@@ -2156,10 +2113,10 @@ type FluidRegion = {
   cellSize: number
 }
 
-function fluidRegions(cells: FluidRenderCell[]): FluidRegion[] {
-  const regions = new Map<number, FluidRegion>()
+function gasRegions(cells: GasRenderCell[]): GasRegion[] {
+  const regions = new Map<number, GasRegion>()
   for (const cell of cells) {
-    if (cell.state !== 'liquid' && cell.state !== 'gas') continue
+    if (cell.state !== 'gas') continue
     const key = cell.cell.elementHash
     let region = regions.get(key)
     if (!region) {
@@ -2175,61 +2132,25 @@ function fluidRegions(cells: FluidRenderCell[]): FluidRegion[] {
   return [...regions.values()]
 }
 
-function drawFluidRegionBase(context: CanvasRenderingContext2D, regions: FluidRegion[]): void {
-  for (const region of regions) {
-    if (region.state !== 'liquid') continue
-    const height = region.maxY - region.minY
-    context.save()
-    context.clip(region.path)
-    const bodyGradient = context.createLinearGradient(0, region.minY, 0, region.maxY)
-    bodyGradient.addColorStop(0, fluidRgba(region.style.gradientTop, .16))
-    bodyGradient.addColorStop(.42, fluidRgba(region.style.gradientTop, .025))
-    bodyGradient.addColorStop(1, fluidRgba(region.style.gradientBottom, .13))
-    context.fillStyle = bodyGradient
-    context.fillRect(region.minX, region.minY, region.maxX - region.minX, height)
-    context.restore()
-  }
-}
-
-function drawFluidRegionAnimation(context: CanvasRenderingContext2D, regions: FluidRegion[], timeSeconds: number): void {
+function drawGasRegionAnimation(context: CanvasRenderingContext2D, regions: GasRegion[], timeSeconds: number): void {
   for (const region of regions) {
     const style = region.style
-    const isLiquid = region.state === 'liquid'
     const width = region.maxX - region.minX
     const height = region.maxY - region.minY
     context.save()
     context.clip(region.path)
     context.globalCompositeOperation = 'screen'
 
-    // A slow broad sheen approximates the material's Fresnel response without
-    // introducing a repeated stripe at every cell boundary.
     const travel = ((timeSeconds * style.flowSpeed * Math.max(region.cellSize, width) * .18) % Math.max(region.cellSize, width * 1.6)) - width * .35
     const sheen = context.createLinearGradient(region.minX + travel, region.minY, region.minX + travel + Math.max(region.cellSize * 2, width * .28), region.maxY)
-    sheen.addColorStop(0, fluidRgba('#ffffff', 0))
-    sheen.addColorStop(.5, fluidRgba('#ffffff', isLiquid ? style.opaque ? .035 : .055 : .016))
-    sheen.addColorStop(1, fluidRgba('#ffffff', 0))
+    sheen.addColorStop(0, gasRgba('#ffffff', 0))
+    sheen.addColorStop(.5, gasRgba('#ffffff', .016))
+    sheen.addColorStop(1, gasRgba('#ffffff', 0))
     context.fillStyle = sheen
     context.fillRect(region.minX, region.minY, width, height)
 
-    if (isLiquid && style.glows) {
-      const glow = context.createRadialGradient(
-        region.minX + width * (.32 + Math.sin(timeSeconds * style.flowSpeed) * .18),
-        region.minY + height * .4,
-        0,
-        region.minX + width * .32,
-        region.minY + height * .4,
-        Math.max(region.cellSize * 2, width * .55),
-      )
-      glow.addColorStop(0, fluidRgba(style.gradientTop, .12))
-      glow.addColorStop(1, fluidRgba(style.gradientTop, 0))
-      context.fillStyle = glow
-      context.fillRect(region.minX, region.minY, width, height)
-    }
-
-    const ribbonCount = isLiquid ? style.usesCaustics ? 6 : 3 : 2
-    const ribbonAmplitude = isLiquid
-      ? Math.max(region.cellSize * 1.6, Math.min(height * .16, region.cellSize * 6))
-      : Math.max(region.cellSize * .45, Math.min(height * .08, region.cellSize * 2))
+    const ribbonCount = 2
+    const ribbonAmplitude = Math.max(region.cellSize * .45, Math.min(height * .08, region.cellSize * 2))
     const samples = Math.max(12, Math.ceil(width / Math.max(16, region.cellSize * 1.2)))
     for (let ribbon = 0; ribbon < ribbonCount; ribbon++) {
       const anchor = (ribbon + .55) / (ribbonCount + .8)
@@ -2244,19 +2165,12 @@ function drawFluidRegionAnimation(context: CanvasRenderingContext2D, regions: Fl
         if (index === 0) context.moveTo(x, y)
         else context.lineTo(x, y)
       }
-      context.strokeStyle = fluidRgba('#8cebf1', isLiquid ? style.usesCaustics ? .045 : .022 : .012)
-      context.lineWidth = Math.max(1.5, Math.min(12, region.cellSize * (isLiquid ? style.usesCaustics ? .16 : .1 : .06)))
+      context.strokeStyle = gasRgba('#8cebf1', .012)
+      context.lineWidth = Math.max(1.5, Math.min(12, region.cellSize * .06))
       context.lineCap = 'round'
-      context.shadowColor = fluidRgba('#70e6ee', isLiquid ? style.usesCaustics ? .24 : .11 : .05)
-      context.shadowBlur = Math.max(2, Math.min(24, region.cellSize * (isLiquid ? style.usesCaustics ? .85 : .45 : .25)))
+      context.shadowColor = gasRgba('#70e6ee', .05)
+      context.shadowBlur = Math.max(2, Math.min(24, region.cellSize * .25))
       context.stroke()
-
-      if (isLiquid && style.usesCaustics && ribbon % 2 === 0) {
-        context.strokeStyle = fluidRgba('#d8ffff', .06)
-        context.lineWidth = Math.max(1, Math.min(4, region.cellSize * .045))
-        context.shadowBlur = Math.max(2, Math.min(12, region.cellSize * .32))
-        context.stroke()
-      }
     }
     context.restore()
   }
@@ -2698,6 +2612,10 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
       '/assets/render/normal_metal.png',
       '/assets/render/gasSteam01.png',
       '/assets/render/skullgas.png',
+      '/assets/render/noise.png',
+      '/assets/render/bubbles.png',
+      '/assets/render/bgarray_liquids.png',
+      '/assets/render/bgarray_liquids_specular.png',
     ])]
     void loadAssetImages(paths).then((images) => { if (active) setTextures(images) })
     return () => { active = false }
@@ -3008,16 +2926,12 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
     const cellSize = renderCellSize
     const range = visibleMapRange(size.width, size.height, cellSize, originX, originY, canvas.width, canvas.height)
     const cellAt = (x: number, y: number) => cachedSimCell(sim, view, x + 1, y + 1)
-    const sameLiquidAt = (cell: SimCell, x: number, y: number) => {
-      const neighbour = cellAt(x, y)
-      return Boolean(neighbour && neighbour.elementHash === cell.elementHash && elementForHash(neighbour.elementHash).state === 'liquid')
-    }
     const solidAt = (x: number, y: number) => {
       const neighbour = cellAt(x, y)
       return Boolean(neighbour && elementForHash(neighbour.elementHash).state === 'solid')
     }
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const fluidCells: FluidRenderCell[] = []
+    const gasCells: GasRenderCell[] = []
     baseContext.clearRect(0, 0, baseCanvas.width, baseCanvas.height)
     const gasRendered = overlay === 'none' && visibleLayers.gas && oniWorldRenderer.renderGas({
       context: baseContext,
@@ -3059,13 +2973,20 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
           const isVisible = element.state === 'gas' && visibleLayers.gas || element.state === 'liquid' && visibleLayers.liquid
           if (!isVisible || !element.fluidMaterial || (element.state !== 'gas' && element.state !== 'liquid')) continue
           if (element.state === 'gas' && gasRendered) continue
-          if (element.state === 'liquid' && liquidRendered) continue
-          const fluidContactPath = visibleLayers.ground && (
+          if (element.state === 'liquid') {
+            if (!liquidRendered) {
+              const above = cellAt(x, y + 1)
+              const aboveState = above ? elementForHash(above.elementHash).state : undefined
+              drawLiquidFallback(baseContext, element.fluidMaterial, cell, originX + x * cellSize, originY + canvasY * cellSize, cellSize, aboveState === 'liquid' || aboveState === 'solid')
+            }
+            continue
+          }
+          const gasContactPath = visibleLayers.ground && (
             solidAt(x - 1, y) || solidAt(x + 1, y) || solidAt(x, y - 1) || solidAt(x, y + 1)
           )
-            ? cachedTerrainPath(sim, `fluid-contact:${x}:${y}`, () => createTerrainBoundaryPath((neighbourX, neighbourY) => !solidAt(neighbourX, neighbourY), x, y))
+            ? cachedTerrainPath(sim, `gas-contact:${x}:${y}`, () => createTerrainBoundaryPath((neighbourX, neighbourY) => !solidAt(neighbourX, neighbourY), x, y))
             : undefined
-          fluidCells.push({
+          gasCells.push({
             x,
             y,
             px: originX + x * cellSize,
@@ -3073,22 +2994,15 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
             cellSize,
             cell,
             style: element.fluidMaterial,
-            state: element.state,
-            surfaceTop: element.state === 'liquid' && !sameLiquidAt(cell, x, y + 1),
-            edgeLeft: element.state === 'liquid' && !sameLiquidAt(cell, x - 1, y),
-            edgeRight: element.state === 'liquid' && !sameLiquidAt(cell, x + 1, y),
-            edgeBottom: element.state === 'liquid' && !sameLiquidAt(cell, x, y - 1),
-            contactPath: fluidContactPath,
+            state: 'gas',
+            contactPath: gasContactPath,
           })
         }
       }
     }
-    const surfaceRuns = fluidSurfaceRuns(fluidCells)
-    const regions = fluidRegions(fluidCells)
-    for (const fluid of fluidCells) drawFluidBase(baseContext, fluid.style, fluid.cell, fluid.state, fluid.px, fluid.py, fluid.cellSize)
-    drawFluidRegionBase(baseContext, regions)
-    drawFluidBoundaryGlow(baseContext, fluidBoundaryCells(fluidCells), false)
-    drawFluidSurfaceRuns(baseContext, surfaceRuns, 0, false)
+    const regions = gasRegions(gasCells)
+    for (const gas of gasCells) drawGasBase(baseContext, gas.style, gas.cell, gas.px, gas.py, gas.cellSize)
+    drawGasBoundaryGlow(baseContext, gasBoundaryCells(gasCells), false)
     let frame = 0
     let lastFrameTime = -Infinity
     const draw = (time: number) => {
@@ -3099,12 +3013,11 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
       }
       lastFrameTime = time
       context.clearRect(0, 0, canvas.width, canvas.height)
-      if (fluidCells.length > 0) {
+      if (gasCells.length > 0) {
         const timeSeconds = time / 1000
-        drawFluidSurfaceRuns(context, surfaceRuns, timeSeconds, true)
-        drawFluidRegionAnimation(context, regions, timeSeconds)
+        drawGasRegionAnimation(context, regions, timeSeconds)
       }
-      if (!reduceMotion && !isSelecting && fluidCells.length > 0) frame = requestAnimationFrame(draw)
+      if (!reduceMotion && !isSelecting && gasCells.length > 0) frame = requestAnimationFrame(draw)
     }
     draw(0)
     return () => cancelAnimationFrame(frame)
@@ -3218,15 +3131,11 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
     const range = visibleMapRange(size.width, size.height, cellSize, originX, originY, canvas.width, canvas.height)
     let patterns: ReturnType<typeof createElementPatterns> | undefined
     const sim = save.simData
-    const previewFluidCells: FluidRenderCell[] = []
+    const previewGasCells: GasRenderCell[] = []
     const previewHashAt = (x: number, y: number): number | undefined => {
       const preview = previewCells.get(`${x}:${y}`)
       if (preview) return preview.elementHash
       return sim ? getWorldCell(sim, x, y)?.elementHash : undefined
-    }
-    const samePreviewLiquidAt = (x: number, y: number, elementHash: number) => {
-      const neighbourHash = previewHashAt(x, y)
-      return neighbourHash === elementHash && elementForHash(neighbourHash).state === 'liquid'
     }
     const previewSolidAt = (x: number, y: number) => {
       const neighbourHash = previewHashAt(x, y)
@@ -3237,7 +3146,11 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
       const px = originX + preview.x * cellSize
       const py = originY + (size.height - 1 - preview.y) * cellSize
       const baseCell = sim ? getWorldCell(sim, preview.x, preview.y) : undefined
-      if (baseCell && (element.state === 'liquid' || element.state === 'gas') && element.fluidMaterial) {
+      // Draft cells are not part of the SIMSAVE property textures, so the
+      // original Water shader cannot render them faithfully. Liquid previews
+      // remain transparent until those source properties exist.
+      if (element.state === 'liquid') continue
+      if (baseCell && element.state === 'gas' && element.fluidMaterial) {
         const previewCell: SimCell = { ...baseCell, elementHash: preview.elementHash }
         const contactPath = visibleLayers.ground && (
           previewSolidAt(preview.x - 1, preview.y)
@@ -3247,7 +3160,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
         )
           ? createTerrainBoundaryPath((neighbourX, neighbourY) => !previewSolidAt(neighbourX, neighbourY), preview.x, preview.y)
           : undefined
-        previewFluidCells.push({
+        previewGasCells.push({
           x: preview.x,
           y: preview.y,
           px,
@@ -3255,14 +3168,10 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
           cellSize,
           cell: previewCell,
           style: element.fluidMaterial,
-          state: element.state,
-          surfaceTop: element.state === 'liquid' && !samePreviewLiquidAt(preview.x, preview.y + 1, preview.elementHash),
-          edgeLeft: element.state === 'liquid' && !samePreviewLiquidAt(preview.x - 1, preview.y, preview.elementHash),
-          edgeRight: element.state === 'liquid' && !samePreviewLiquidAt(preview.x + 1, preview.y, preview.elementHash),
-          edgeBottom: element.state === 'liquid' && !samePreviewLiquidAt(preview.x, preview.y - 1, preview.elementHash),
+          state: 'gas',
           contactPath,
         })
-        drawFluidBase(context, element.fluidMaterial, previewCell, element.state, px, py, cellSize)
+        drawGasBase(context, element.fluidMaterial, previewCell, px, py, cellSize)
       } else {
         patterns ??= createElementPatterns(context, textures, cellSize, originX, originY + size.height * cellSize)
         context.fillStyle = patterns.get(element.texture ?? '') ?? element.color
@@ -3272,9 +3181,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
         context.strokeRect(px + .5, py + .5, cellSize - 1, cellSize - 1)
       }
     }
-    drawFluidRegionBase(context, fluidRegions(previewFluidCells))
-    drawFluidBoundaryGlow(context, fluidBoundaryCells(previewFluidCells), false)
-    drawFluidSurfaceRuns(context, fluidSurfaceRuns(previewFluidCells), 0, false)
+    drawGasBoundaryGlow(context, gasBoundaryCells(previewGasCells), false)
     if (tool === 'fill' && !spacePan && brushCell && sim) {
       const fillCache = fillRegionCacheRef.current
       if (fillCache.bytes !== sim.bytes) {
@@ -3476,13 +3383,13 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
     const backgroundCanvas = backgroundCanvasRef.current
     const entityBackCanvas = entityBackCanvasRef.current
     const entityFrontCanvas = entityFrontCanvasRef.current
-    const fluidBaseCanvas = fluidBaseCanvasRef.current
-    const fluidCanvas = fluidCanvasRef.current
+    const gasBaseCanvas = fluidBaseCanvasRef.current
+    const gasCanvas = fluidCanvasRef.current
     const particleCanvas = particleCanvasRef.current
     const lightCanvas = lightCanvasRef.current
     const fogCanvas = fogCanvasRef.current
     const gridCanvas = gridCanvasRef.current
-    if (!baseCanvas || !backgroundCanvas || !entityBackCanvas || !entityFrontCanvas || !fluidBaseCanvas || !fluidCanvas || !particleCanvas || !lightCanvas || !fogCanvas || !gridCanvas || !baseCanvas.width || !baseCanvas.height) return
+    if (!baseCanvas || !backgroundCanvas || !entityBackCanvas || !entityFrontCanvas || !gasBaseCanvas || !gasCanvas || !particleCanvas || !lightCanvas || !fogCanvas || !gridCanvas || !baseCanvas.width || !baseCanvas.height) return
     const exportCanvas = document.createElement('canvas')
     exportCanvas.width = baseCanvas.width
     exportCanvas.height = baseCanvas.height
@@ -3496,8 +3403,8 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
       paintMapBackground(context, exportCanvas.width, exportCanvas.height, spaceBackground, starfield)
       context.drawImage(backgroundCanvas, 0, 0)
       context.drawImage(entityBackCanvas, 0, 0)
-      context.drawImage(fluidBaseCanvas, 0, 0)
-      context.drawImage(fluidCanvas, 0, 0)
+      context.drawImage(gasBaseCanvas, 0, 0)
+      context.drawImage(gasCanvas, 0, 0)
       context.drawImage(baseCanvas, 0, 0)
       context.drawImage(entityFrontCanvas, 0, 0)
       context.drawImage(particleCanvas, 0, 0)
@@ -3556,17 +3463,13 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
       const visibleGrid = worldGrid(save, 'GridVisible')?.bytes
       const spawnableGrid = worldGrid(save, 'GridSpawnable')?.bytes
       const damageGrid = worldGrid(save, 'GridDamage')?.bytes
-      const fluidCells: FluidRenderCell[] = []
+      const gasCells: GasRenderCell[] = []
       const terrainMaskedCells = terrainMaskedCellsByBuilding(save)
       for (const cells of blockTileCellsByGroup(save).values()) {
         for (const key of cells) terrainMaskedCells.add(key)
       }
       const isTerrainMaskedAt = (x: number, y: number) => terrainMaskedCells.has(blockTileCellKey(x, y))
       const cellAt = (x: number, y: number) => cachedSimCell(sim, view, x + 1, y + 1)
-      const sameLiquidAt = (cell: SimCell, x: number, y: number) => {
-        const neighbour = cellAt(x, y)
-        return Boolean(neighbour && neighbour.elementHash === cell.elementHash && elementForHash(neighbour.elementHash).state === 'liquid')
-      }
       const solidAt = (x: number, y: number) => {
         const neighbour = cellAt(x, y)
         return Boolean(neighbour && elementForHash(neighbour.elementHash).state === 'solid')
@@ -3649,10 +3552,10 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
           const element = elementForHash(cell.elementHash)
           const px = originX + x * cellSize
           const py = originY + canvasY * cellSize
-          const fluidContactPath = element.state !== 'solid' && visibleLayers.ground && (
+          const gasContactPath = element.state === 'gas' && visibleLayers.ground && (
             solidAt(x - 1, y) || solidAt(x + 1, y) || solidAt(x, y - 1) || solidAt(x, y + 1)
           )
-            ? cachedTerrainPath(sim, `fluid-contact:${x}:${y}`, () => createTerrainBoundaryPath((neighbourX, neighbourY) => !solidAt(neighbourX, neighbourY), x, y))
+            ? cachedTerrainPath(sim, `gas-contact:${x}:${y}`, () => createTerrainBoundaryPath((neighbourX, neighbourY) => !solidAt(neighbourX, neighbourY), x, y))
             : undefined
           const backwall = readSimBackwall(sim, view, x + 1, y + 1)
           const backwallPresent = backwall ? elementForHash(backwall.elementHash).state === 'solid' : false
@@ -3668,8 +3571,12 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
             const showElement = element.state === 'special' || elementLayerVisible
             if (element.state === 'gas' && gasRendered) continue
             if (element.state === 'liquid' && liquidRendered) continue
-            if (showElement && (element.state === 'liquid' || element.state === 'gas') && element.fluidMaterial) {
-              fluidCells.push({
+            if (showElement && element.state === 'liquid' && element.fluidMaterial) {
+              const above = cellAt(x, y + 1)
+              const aboveState = above ? elementForHash(above.elementHash).state : undefined
+              drawLiquidFallback(context, element.fluidMaterial, cell, px, py, cellSize, aboveState === 'liquid' || aboveState === 'solid')
+            } else if (showElement && element.state === 'gas' && element.fluidMaterial) {
+              gasCells.push({
                 x,
                 y,
                 px,
@@ -3677,14 +3584,10 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
                 cellSize,
                 cell,
                 style: element.fluidMaterial,
-                state: element.state,
-                surfaceTop: element.state === 'liquid' && !sameLiquidAt(cell, x, y + 1),
-                edgeLeft: element.state === 'liquid' && !sameLiquidAt(cell, x - 1, y),
-                edgeRight: element.state === 'liquid' && !sameLiquidAt(cell, x + 1, y),
-                edgeBottom: element.state === 'liquid' && !sameLiquidAt(cell, x, y - 1),
-                contactPath: fluidContactPath,
+                state: 'gas',
+                contactPath: gasContactPath,
               })
-              drawFluidBase(context, element.fluidMaterial, cell, element.state, px, py, cellSize)
+              drawGasBase(context, element.fluidMaterial, cell, px, py, cellSize)
             } else if (showElement) {
               context.fillStyle = patterns.get(element.texture ?? '') ?? element.color
               context.fillRect(px, py, cellSize, cellSize)
@@ -3743,9 +3646,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
       }
 
       if (overlay === 'none') {
-        drawFluidRegionBase(context, fluidRegions(fluidCells))
-        drawFluidBoundaryGlow(context, fluidBoundaryCells(fluidCells), false)
-        drawFluidSurfaceRuns(context, fluidSurfaceRuns(fluidCells), 0, false)
+        drawGasBoundaryGlow(context, gasBoundaryCells(gasCells), false)
       }
 
       context.save()

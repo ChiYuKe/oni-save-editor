@@ -83,6 +83,7 @@ for (let index = 0; index < starts.length; index += 1) {
     texture: textureGuid ? path.relative(assetsRoot, guidToAsset.get(textureGuid) ?? '').replaceAll('\\', '/') : '',
     textureUrl: textureGuid ? `/assets/elements/${path.basename(guidToAsset.get(textureGuid) ?? '')}` : '',
     shineMask: shineGuid ? path.relative(assetsRoot, guidToAsset.get(shineGuid) ?? '').replaceAll('\\', '/') : '',
+    substanceTexture: Number(block.match(/^    texture: (\d+)$/m)?.[1] ?? 0),
     worldUvScale: parseFloat(material, '_WorldUVScale', 8),
     frequency: parseFloat(material, '_Frequency', 0),
     colourTint: parseVector(material, '_ColourTint', [1, 1, 1, 1]),
@@ -90,6 +91,7 @@ for (let index = 0; index < starts.length; index += 1) {
     colour: parsePackedColor(block, 'colour', [255, 255, 255, 255]),
     usesCaustics: Boolean(Number(block.match(/^    usesCaustics: (\d+)$/m)?.[1] ?? 0)),
     glows: Boolean(Number(block.match(/^    glows: (\d+)$/m)?.[1] ?? 0)),
+    metalic: Boolean(Number(block.match(/^    metalic: (\d+)$/m)?.[1] ?? 0)),
     isOpaqueLiquid: Boolean(Number(block.match(/^    isOpaqueLiquid: (\d+)$/m)?.[1] ?? 0)),
     state: elementConfig?.state ?? '',
     lowTemp: Number(elementConfig?.lowTemp ?? 0),
@@ -98,9 +100,15 @@ for (let index = 0; index < starts.length; index += 1) {
 }
 
 const body = `// Generated from the game's Resources/SubstanceHookup.asset, Unity materials, and StreamingAssets/elements YAML.\n// Run: npm run generate:substances\n\nexport interface OniSubstanceMaterial {\n  name: string\n  substanceIndex: number\n  elementId: number\n  hash: number\n  material: string\n  texture: string\n  textureUrl: string\n  shineMask: string\n  worldUvScale: number\n  frequency: number\n  colourTint: readonly [number, number, number, number]\n  shineColour: readonly [number, number, number, number]\n  colour: readonly [number, number, number, number]\n  usesCaustics: boolean\n  glows: boolean\n  isOpaqueLiquid: boolean\n  state: string\n  lowTemp: number\n  highTemp: number\n}\n\nexport const ONI_SUBSTANCE_MATERIALS = ${JSON.stringify(records, null, 2)} as const satisfies readonly OniSubstanceMaterial[]\n\nexport const ONI_SUBSTANCE_BY_HASH = new Map<number, OniSubstanceMaterial>(\n  ONI_SUBSTANCE_MATERIALS.map((material) => [material.hash, material]),\n)\n`
-await fs.writeFile(outputPath, body)
+const typedBody = body
+  .replace('  shineMask: string', '  shineMask: string\n  substanceTexture: number')
+  .replace('  glows: boolean', '  glows: boolean\n  metalic: boolean')
+await fs.writeFile(outputPath, typedBody)
 await fs.mkdir(renderAssetOutput, { recursive: true })
-for (const fileName of ['crackAlpha.png', 'melt.png', 'mudmelt.png', 'normal_metal.png', 'gasSteam01.png', 'skullgas.png']) {
+for (const fileName of ['crackAlpha.png', 'melt.png', 'mudmelt.png', 'normal_metal.png', 'bubbles.png', 'gasSteam01.png', 'skullgas.png', 'noise.png']) {
   await fs.copyFile(path.join(assetsRoot, 'Texture2D', fileName), path.join(renderAssetOutput, fileName))
+}
+for (const fileName of ['bgarray_liquids.png', 'bgarray_liquids_specular.png']) {
+  await fs.copyFile(path.join(assetsRoot, 'Texture2DArray', fileName), path.join(renderAssetOutput, fileName))
 }
 console.log(`Generated ${records.length} ONI substance materials -> ${outputPath}`)

@@ -124,7 +124,7 @@ export function oniSdbmLower(value: string): number {
 }
 
 function accessoryPackage(symbol: string): string {
-  if (/^(?:eyes|headshape|mouth)_/i.test(symbol)) return 'head_swap'
+  if (/^(?:eyes|headshape|mouth|headfx)_/i.test(symbol)) return 'head_swap'
   if (/^(?:hair|hat_hair)_/i.test(symbol)) return 'hair_swap'
   if (/^hat_/i.test(symbol)) return 'hat_swap'
   if (/^(?:torso|arm_sleeve|arm_lower_sleeve|arm_lower|arm_upper|leg_skin)_/i.test(symbol)) return 'body_swap'
@@ -138,6 +138,7 @@ function accessoryTarget(symbol: string): string | undefined {
   if (/^hair_/i.test(symbol)) return 'snapTo_hair'
   if (/^headshape_/i.test(symbol)) return 'snapTo_headshape'
   if (/^mouth_/i.test(symbol)) return 'snapTo_mouth'
+  if (/^headfx_/i.test(symbol)) return 'snapTo_headfx'
   return symbol.replace(/_\d+$/i, '')
 }
 
@@ -155,13 +156,22 @@ function accessoryComposition(accessories: readonly string[]) {
       symbolHash: oniSdbmLower(symbol),
     })
   }
-  const hidden = new Set<number>()
+  // BaseMinionConfig.ConfigureSymbols hides these attachment locators. They
+  // are geometry in the atlas, but are only used as runtime snap points.
+  const hidden = new Set([
+    'snapTo_hat',
+    'snapTo_hat_hair',
+    'snapTo_headfx',
+    'snapTo_chest',
+    'snapTo_neck',
+    'snapTo_goggles',
+    'snapTo_pivot',
+    'snapTo_rgtHand',
+    'necklace',
+    'skirt',
+  ].map(oniSdbmLower))
   if (hasHat) hidden.add(oniSdbmLower('snapTo_hair'))
-  else {
-    hidden.add(oniSdbmLower('snapTo_hat'))
-    hidden.add(oniSdbmLower('snapTo_hat_hair'))
-  }
-  return { overrides, hidden }
+  return { overrides, hidden, hasHat }
 }
 
 function wearableComposition(assets: MinionKanimAssets, wearableNames: readonly string[]) {
@@ -222,8 +232,13 @@ export function drawMinionKanim(
   context.imageSmoothingQuality = 'high'
   // KAnim's draw list is front-to-back. Canvas composites back-to-front.
   for (const element of [...manifest.frame].reverse()) {
-    if (accessory.hidden.has(element.symbol) || wearable.hidden.has(element.symbol)) continue
     const override = overrides.get(element.symbol)
+    // Accessorizer.UpdateHairBasedOnHat hides the regular hair target while
+    // a hat is equipped, even though the accessory override still exists.
+    const hiddenByHat = accessory.hasHat && element.symbol === oniSdbmLower('snapTo_hair')
+    // A symbol override replaces the hidden base locator in KAnim. Keep the
+    // replacement visible while suppressing the locator itself.
+    if (hiddenByHat || (accessory.hidden.has(element.symbol) && !override) || wearable.hidden.has(element.symbol)) continue
     const packageName = override?.packageName ?? 'body_comp_default'
     const definition = assets.wearables[packageName] ?? manifest.packages[packageName] ?? base
     const atlas = atlases[packageName] ?? atlases.body_comp_default

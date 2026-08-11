@@ -13,7 +13,7 @@ void main() {
   vec2 clip = vec2(a_position.x / u_viewport.x * 2.0 - 1.0, 1.0 - a_position.y / u_viewport.y * 2.0);
   gl_Position = vec4(clip, 0.0, 1.0);
   v_world = a_world;
-  v_property_uv = vec2((a_world.x + 1.0) / u_grid_size.x, 1.0 - (a_world.y + 1.0) / u_grid_size.y);
+  v_property_uv = vec2((a_world.x + 1.5) / u_grid_size.x, 1.0 - (a_world.y + 1.5) / u_grid_size.y);
 }`
 
 const FRAGMENT_SHADER = `#version 300 es
