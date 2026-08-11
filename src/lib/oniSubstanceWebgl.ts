@@ -1,7 +1,7 @@
 import { elementForHash } from './elements'
 import { ONI_SUBSTANCE_BY_HASH } from './oniSubstances.generated'
 import { ONI_WORLD_ZONE_COLORS, type OniTerrainRenderInput } from './oniRenderer'
-import { buildOniPropertyTextures } from './oniPropertyTextures'
+import { getCachedOniPropertyTextures } from './oniPropertyTextures'
 import { pickTerrainMaskVariant, type TerrainMaskVariant } from './terrainMasks'
 
 const VERTEX_SHADER = `#version 300 es
@@ -319,7 +319,7 @@ export class OniSubstanceWebGLRenderer {
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
     gl.uniform2f(gl.getUniformLocation(this.program, 'u_viewport'), this.canvas.width, this.canvas.height)
-    const propertyTextures = buildOniPropertyTextures(input)
+    const propertyTextures = getCachedOniPropertyTextures(input)
     const stateMap = input.textures['/assets/render/melt.png']
     const fallingMap = input.textures['/assets/render/mudmelt.png']
     const digDamageMap = input.textures['/assets/render/crackAlpha.png']

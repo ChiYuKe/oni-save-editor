@@ -29,7 +29,7 @@ float i = g * h;
 vec2 j = uCamPos;
 vec2 k = vec2(
 j.x - i + aPosition.x * 2.0 * i,
-j.y + g - aPosition.y * 2.0 * g
+  j.y - g + aPosition.y * 2.0 * g
 );
 vs_TEXCOORD2.xy = k / _WorldSizeInfo.xy;
 vs_TEXCOORD0.xy = k;

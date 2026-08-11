@@ -2293,7 +2293,6 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
   const fluidCanvasRef = useRef<HTMLCanvasElement>(null)
   const particleCanvasRef = useRef<HTMLCanvasElement>(null)
   const lightCanvasRef = useRef<HTMLCanvasElement>(null)
-  const fogCanvasRef = useRef<HTMLCanvasElement>(null)
   const gridCanvasRef = useRef<HTMLCanvasElement>(null)
   const overlayRef = useRef<HTMLCanvasElement>(null)
   const canvasLayerRef = useRef<HTMLDivElement>(null)
@@ -2945,6 +2944,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
       textures,
       maskSets: terrainMaskSets,
       cellAt,
+      propertyCacheKey: sim.bytes,
       isTerrainMaskedAt: () => false,
       zoneColors: ONI_WORLD_ZONE_COLORS,
     })
@@ -2960,6 +2960,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
       textures,
       maskSets: terrainMaskSets,
       cellAt,
+      propertyCacheKey: sim.bytes,
       isTerrainMaskedAt: () => false,
       zoneColors: ONI_WORLD_ZONE_COLORS,
     })
@@ -3105,18 +3106,6 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
     }
     context.stroke()
   }, [displayCellSize, originX, originY, renderCellSize, size.height, size.width, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers.grid])
-
-  useEffect(() => {
-    const canvas = fogCanvasRef.current
-    if (!canvas || !size.width || !size.height || !viewportSize.width || !viewportSize.height) return
-    if (canvas.width !== viewportPixelWidth) canvas.width = viewportPixelWidth
-    if (canvas.height !== viewportPixelHeight) canvas.height = viewportPixelHeight
-    const context = canvas.getContext('2d')
-    if (!context) return
-    context.clearRect(0, 0, canvas.width, canvas.height)
-    if (overlay !== 'none') return
-    drawFogOfWarMask(context, worldGrid(save, 'GridVisible')?.bytes, size.width, size.height, renderCellSize, originX, originY)
-  }, [originX, originY, overlay, renderCellSize, save, size.height, size.width, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width])
 
   useEffect(() => {
     const canvas = overlayRef.current
@@ -3282,34 +3271,6 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
     image.src = assetPath(path)
   })
 
-  const drawFogOfWarMask = (context: CanvasRenderingContext2D, visible: Uint8Array | undefined, worldWidth: number, worldHeight: number, cellSize: number, worldOriginX: number, worldOriginY: number) => {
-    if (!visible || visible.length < worldWidth * worldHeight) return
-    const source = document.createElement('canvas')
-    source.width = worldWidth
-    source.height = worldHeight
-    const sourceContext = source.getContext('2d')
-    if (!sourceContext) return
-    const image = sourceContext.createImageData(worldWidth, worldHeight)
-    for (let canvasY = 0; canvasY < worldHeight; canvasY++) {
-      const worldY = worldHeight - 1 - canvasY
-      for (let x = 0; x < worldWidth; x++) image.data[(canvasY * worldWidth + x) * 4 + 3] = visible[worldY * worldWidth + x]
-    }
-    sourceContext.putImageData(image, 0, 0)
-    const mask = document.createElement('canvas')
-    mask.width = context.canvas.width
-    mask.height = context.canvas.height
-    const maskContext = mask.getContext('2d')
-    if (!maskContext) return
-    maskContext.fillStyle = '#000'
-    maskContext.fillRect(0, 0, mask.width, mask.height)
-    maskContext.globalCompositeOperation = 'destination-out'
-    maskContext.imageSmoothingEnabled = true
-    maskContext.imageSmoothingQuality = 'high'
-    maskContext.drawImage(source, worldOriginX, worldOriginY, worldWidth * cellSize, worldHeight * cellSize)
-    maskContext.globalCompositeOperation = 'source-over'
-    context.drawImage(mask, 0, 0)
-  }
-
   const paintMapBackground = (context: CanvasRenderingContext2D, width: number, height: number, spaceBackground: HTMLImageElement, starfield: HTMLImageElement) => {
     context.fillStyle = '#090d16'
     context.fillRect(0, 0, width, height)
@@ -3387,9 +3348,8 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
     const gasCanvas = fluidCanvasRef.current
     const particleCanvas = particleCanvasRef.current
     const lightCanvas = lightCanvasRef.current
-    const fogCanvas = fogCanvasRef.current
     const gridCanvas = gridCanvasRef.current
-    if (!baseCanvas || !backgroundCanvas || !entityBackCanvas || !entityFrontCanvas || !gasBaseCanvas || !gasCanvas || !particleCanvas || !lightCanvas || !fogCanvas || !gridCanvas || !baseCanvas.width || !baseCanvas.height) return
+    if (!baseCanvas || !backgroundCanvas || !entityBackCanvas || !entityFrontCanvas || !gasBaseCanvas || !gasCanvas || !particleCanvas || !lightCanvas || !gridCanvas || !baseCanvas.width || !baseCanvas.height) return
     const exportCanvas = document.createElement('canvas')
     exportCanvas.width = baseCanvas.width
     exportCanvas.height = baseCanvas.height
@@ -3409,7 +3369,6 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
       context.drawImage(entityFrontCanvas, 0, 0)
       context.drawImage(particleCanvas, 0, 0)
       context.drawImage(lightCanvas, 0, 0)
-      context.drawImage(fogCanvas, 0, 0)
       context.drawImage(gridCanvas, 0, 0)
       drawMapWatermark(context, exportCanvas.width, exportCanvas.height)
       await downloadMapCanvas(exportCanvas, '缺氧地图-当前视图.png')
@@ -3496,6 +3455,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
         textures,
         maskSets: terrainMaskSets,
         cellAt,
+        propertyCacheKey: sim.bytes,
         isTerrainMaskedAt,
         damageAt,
         hasBackwallAt,
@@ -3513,6 +3473,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
         textures,
         maskSets: terrainMaskSets,
         cellAt,
+        propertyCacheKey: sim.bytes,
         isTerrainMaskedAt,
         damageAt,
         hasBackwallAt,
@@ -3752,7 +3713,6 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
         }
         drawOniLightBuffer({ context, lights, width: size.width, height: size.height, worldHeight: size.height, cellSize, originX, originY, cellAt })
       }
-      if (overlay === 'none') drawFogOfWarMask(context, visibleGrid, size.width, size.height, cellSize, originX, originY)
       drawMapWatermark(context, exportWidth, exportHeight)
       await downloadMapCanvas(exportCanvas, `缺氧地图-全景-${exportCellSize}px.png`)
     } catch {
@@ -3919,7 +3879,6 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
       <canvas ref={fluidCanvasRef} className="canvas-fluid" style={canvasStyle} aria-hidden="true" />
       <canvas ref={particleCanvasRef} className="canvas-particles" style={canvasStyle} aria-hidden="true" />
       <canvas ref={lightCanvasRef} className="canvas-light" style={canvasStyle} aria-hidden="true" />
-      <canvas ref={fogCanvasRef} className="canvas-fog" style={canvasStyle} aria-hidden="true" />
       <canvas ref={gridCanvasRef} className="canvas-grid" style={canvasStyle} aria-hidden="true" />
       <canvas ref={overlayRef} className="canvas-overlay" style={canvasStyle} aria-hidden="true" />
       {activeSelectionBounds && <div

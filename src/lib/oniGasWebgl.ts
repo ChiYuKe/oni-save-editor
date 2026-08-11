@@ -1,4 +1,4 @@
-import { buildOniPropertyTextures } from './oniPropertyTextures'
+import { getCachedOniPropertyTextures } from './oniPropertyTextures'
 import type { OniTerrainRenderInput } from './oniRenderer'
 
 const VERTEX_SHADER = `#version 300 es
@@ -93,6 +93,7 @@ export class OniGasWebGLRenderer {
   private colour?: WebGLTexture
   private danger?: WebGLTexture
   private images = new WeakMap<HTMLImageElement, WebGLTexture>()
+  private uploadedPropertyCacheKey?: object
 
   private initialize(width: number, height: number): WebGL2RenderingContext | undefined {
     if (!this.canvas) {
@@ -167,11 +168,16 @@ export class OniGasWebGLRenderer {
     if (!detailImage || !dangerImage) return false
     const gl = this.initialize(input.context.canvas.width, input.context.canvas.height)
     if (!gl || !this.canvas || !this.program || !this.buffer) return false
-    const properties = buildOniPropertyTextures(input)
-    this.worldZone = this.rawTexture(this.worldZone, properties.width, properties.height, gl.RGB, properties.worldZone)
-    this.pressure = this.rawTexture(this.pressure, properties.width, properties.height, gl.RED, properties.gasPressure)
-    this.colour = this.rawTexture(this.colour, properties.width, properties.height, gl.RGBA, properties.gasColour)
-    this.danger = this.rawTexture(this.danger, properties.width, properties.height, gl.RED, properties.gasDanger)
+    const propertyKey = input.propertyCacheKey
+    const properties = getCachedOniPropertyTextures(input)
+    const needsPropertyUpload = !propertyKey || this.uploadedPropertyCacheKey !== propertyKey
+    if (needsPropertyUpload) {
+      this.worldZone = this.rawTexture(this.worldZone, properties.width, properties.height, gl.RGB, properties.worldZone)
+      this.pressure = this.rawTexture(this.pressure, properties.width, properties.height, gl.RED, properties.gasPressure)
+      this.colour = this.rawTexture(this.colour, properties.width, properties.height, gl.RGBA, properties.gasColour)
+      this.danger = this.rawTexture(this.danger, properties.width, properties.height, gl.RED, properties.gasDanger)
+      if (propertyKey) this.uploadedPropertyCacheKey = propertyKey
+    }
 
     const left = input.originX
     const top = input.originY

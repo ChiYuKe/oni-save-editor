@@ -1,5 +1,5 @@
 import v21LiquidSource from './oniLiquidV21.glsl?raw'
-import { buildOniPropertyTextures } from './oniPropertyTextures'
+import { getCachedOniPropertyTextures } from './oniPropertyTextures'
 import type { OniTerrainRenderInput } from './oniRenderer'
 
 // The exported Texture2DArray is 1024 x 16384: sixteen 1024px slices. The
@@ -86,10 +86,12 @@ export class OniLiquidWebGLRenderer {
   private materialData?: WebGLTexture
   private liquidData?: WebGLTexture
   private mrt0Copy?: WebGLTexture
-  private mrt1Copy?: WebGLTexture
+  private mrtWidth = 0
+  private mrtHeight = 0
   private imageTextures = new WeakMap<HTMLImageElement, WebGLTexture>()
   private arrayTextures = new WeakMap<HTMLImageElement, WebGLTexture>()
   private arrayCanvas?: HTMLCanvasElement
+  private uploadedPropertyCacheKey?: object
 
   private initialize(width: number, height: number): WebGL2RenderingContext | undefined {
     if (!this.canvas) {
@@ -235,7 +237,13 @@ export class OniLiquidWebGLRenderer {
     gl.bindTexture(gl.TEXTURE_2D, texture)
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, source)
+    if (this.mrtWidth !== source.width || this.mrtHeight !== source.height || !current) {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, source)
+      this.mrtWidth = source.width
+      this.mrtHeight = source.height
+    } else {
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, source)
+    }
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
@@ -327,18 +335,23 @@ export class OniLiquidWebGLRenderer {
     const buffer = this.buffer
     const framebuffer = this.framebuffer
     if (!gl || !this.canvas || !program || !buffer || !framebuffer || !this.ensureFramebuffer(sourceCanvas.width, sourceCanvas.height)) return false
-    const properties = buildOniPropertyTextures(input)
+    const propertyKey = input.propertyCacheKey
+    const properties = getCachedOniPropertyTextures(input)
     const direct = (data: Uint8Array, channels: number) => reverseRows(data, channels, properties.width, properties.height)
     // The game supplies a separate liquidFoundationMask for this sampler.
     // Building/BlockTile occupancy is not that mask; with no imported
     // foundation texture, the correct value is the game's no-clip texture.
-    const clipData = new Uint8Array(properties.width * properties.height * 4)
-    this.solidLiquidGasMass = this.rawTexture(this.solidLiquidGasMass, properties.width, properties.height, gl.RGBA, direct(properties.solidLiquidGasMass, 4))
-    this.liquid = this.rawTexture(this.liquid, properties.width, properties.height, gl.RGBA, direct(properties.liquid, 4))
-    this.liquidLinear = this.rawTexture(this.liquidLinear, properties.width, properties.height, gl.RGBA, direct(properties.liquid, 4), 'linear')
-    this.liquidClip = this.rawTexture(this.liquidClip, properties.width, properties.height, gl.RGBA, direct(clipData, 4))
-    this.materialData = this.rawTexture(this.materialData, properties.width, properties.height, gl.RGBA, direct(properties.materialData, 4))
-    this.liquidData = this.rawTexture(this.liquidData, properties.width, properties.height, gl.RGBA, direct(properties.liquidData, 4))
+    const needsPropertyUpload = !propertyKey || this.uploadedPropertyCacheKey !== propertyKey
+    if (needsPropertyUpload) {
+      const clipData = new Uint8Array(properties.width * properties.height * 4)
+      this.solidLiquidGasMass = this.rawTexture(this.solidLiquidGasMass, properties.width, properties.height, gl.RGBA, direct(properties.solidLiquidGasMass, 4))
+      this.liquid = this.rawTexture(this.liquid, properties.width, properties.height, gl.RGBA, direct(properties.liquid, 4))
+      this.liquidLinear = this.rawTexture(this.liquidLinear, properties.width, properties.height, gl.RGBA, direct(properties.liquid, 4), 'linear')
+      this.liquidClip = this.rawTexture(this.liquidClip, properties.width, properties.height, gl.RGBA, direct(clipData, 4))
+      this.materialData = this.rawTexture(this.materialData, properties.width, properties.height, gl.RGBA, direct(properties.materialData, 4))
+      this.liquidData = this.rawTexture(this.liquidData, properties.width, properties.height, gl.RGBA, direct(properties.liquidData, 4))
+      if (propertyKey) this.uploadedPropertyCacheKey = propertyKey
+    }
     const bubblesImage = input.textures['/assets/render/bubbles.png']
     const normalNoiseImage = input.textures['/assets/render/normal_metal.png']
     const liquidArrayImage = input.textures['/assets/render/bgarray_liquids.png']
@@ -349,8 +362,7 @@ export class OniLiquidWebGLRenderer {
     const specularArray = specularArrayImage ? this.imageArrayTexture(specularArrayImage) : undefined
     if (!this.solidLiquidGasMass || !this.liquid || !this.liquidLinear || !this.liquidClip || !this.materialData || !this.liquidData || !bubbles || !normalNoise || !liquidArray || !specularArray) return false
     this.mrt0Copy = this.uploadCanvas(this.mrt0Copy, sourceCanvas)
-    this.mrt1Copy = this.uploadCanvas(this.mrt1Copy, sourceCanvas)
-    if (!this.mrt0Copy || !this.mrt1Copy) return false
+    if (!this.mrt0Copy) return false
 
     const cellSize = input.cellSize
     const orthoSize = sourceCanvas.height / (2 * cellSize)
@@ -405,7 +417,10 @@ export class OniLiquidWebGLRenderer {
     bind2d(5, '_LiquidDataTex', this.liquidData)
     bind2d(6, '_BoilingBubblesTex', bubbles)
     bind2d(7, 'MRT0_Copy', this.mrt0Copy)
-    bind2d(8, 'MRT1_Copy', this.mrt1Copy)
+    // This port has one Canvas2D source rather than Unity's separate MRT0/MRT1
+    // targets. The original code uploaded the same frame twice; binding the
+    // shared copy preserves the available data and halves the upload cost.
+    bind2d(8, 'MRT1_Copy', this.mrt0Copy)
     bind2d(9, '_NormalNoise', normalNoise)
     bindArray(10, '_Textures', liquidArray)
     bindArray(11, '_SpecularMapTextures', specularArray)
@@ -420,24 +435,6 @@ export class OniLiquidWebGLRenderer {
     gl.enableVertexAttribArray(position)
     gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 8, 0)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
-    // A successful draw call is not enough: the shader can discard every
-    // fragment (for example when the imported save has no usable property
-    // data). Let the caller use its visible fallback in that case.
-    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, framebuffer)
-    gl.readBuffer(gl.COLOR_ATTACHMENT0)
-    const pixels = new Uint8Array(sourceCanvas.width * sourceCanvas.height * 4)
-    gl.readPixels(0, 0, sourceCanvas.width, sourceCanvas.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
-    let hasVisibleOutput = false
-    for (let index = 3; index < pixels.length; index += 4) {
-      if (pixels[index] !== 0) {
-        hasVisibleOutput = true
-        break
-      }
-    }
-    if (!hasVisibleOutput) {
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-      return false
-    }
     // Copy the v21 liquid result to the canvas default framebuffer before
     // handing it back to Canvas2D.
     gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null)

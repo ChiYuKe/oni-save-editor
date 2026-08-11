@@ -20,6 +20,7 @@ export type OniPropertyTextureData = {
 
 const TEMPERATURE_STATE_CHANGE_RANGE = .05
 const LIQUID_TEX_MAX_MASS_KG = 2000
+const propertyTextureCache = new WeakMap<object, OniPropertyTextureData>()
 
 function byte(value: number): number {
   return Math.max(0, Math.min(255, Math.trunc(value * 255)))
@@ -33,9 +34,14 @@ function colorBytes(value: string | undefined, fallback: readonly [number, numbe
   return [packed >>> 16 & 255, packed >>> 8 & 255, packed & 255]
 }
 
-function packedColorBytes(color: readonly [number, number, number]): [number, number, number] {
-  // The game's uint32 color tables are written little-endian into ImageData.
-  return [color[2], color[1], color[0]]
+export function getCachedOniPropertyTextures(input: OniTerrainRenderInput): OniPropertyTextureData {
+  const key = input.propertyCacheKey
+  if (!key) return buildOniPropertyTextures(input)
+  const cached = propertyTextureCache.get(key)
+  if (cached) return cached
+  const properties = buildOniPropertyTextures(input)
+  propertyTextureCache.set(key, properties)
+  return properties
 }
 
 /**
@@ -53,9 +59,8 @@ export function buildOniPropertyTextures(input: OniTerrainRenderInput): OniPrope
   const gasColour = new Uint8Array(width * height * 4)
   const gasPressure = new Uint8Array(width * height)
   const gasDanger = new Uint8Array(width * height)
-  // v21's kleiLiquidTex is a packed uint32 color plus coverage in A. Since
-  // the target worker writes packed 0xRRGGBB values into ImageData, the
-  // byte order exposed to the shader is B/G/R/A.
+  // The v21 shader samples coverage from A and the liquid colour from RGB.
+  // Keep the byte order used by the WebGL texture upload unchanged.
   const liquid = new Uint8Array(width * height * 4)
   const solidLiquidGasMass = new Uint8Array(width * height * 4)
   const materialData = new Uint8Array(width * height * 4)
@@ -81,7 +86,6 @@ export function buildOniPropertyTextures(input: OniTerrainRenderInput): OniPrope
       const element = elementForHash(cell.elementHash)
       const material = ONI_SUBSTANCE_BY_HASH.get(cell.elementHash & 0xffff)
       const state = material?.state.toLowerCase() || element.state
-      const foundation = input.isTerrainMaskedAt(worldX, worldY)
       const naturalSolid = state === 'solid' && !input.isTerrainMaskedAt(worldX, worldY)
       const solidOffset = pixel * 3
       solidDigAmount[solidOffset] = naturalSolid ? 255 : 0
@@ -109,17 +113,15 @@ export function buildOniPropertyTextures(input: OniTerrainRenderInput): OniPrope
         const aboveState = stateAt(worldX, worldY + 1)
         const amount = aboveState === 'liquid'
           || aboveState === 'solid'
-          || input.isTerrainMaskedAt(worldX, worldY + 1)
           ? 1
           : Math.pow(Math.min(Math.max(cell.mass, 0) / LIQUID_TEX_MAX_MASS_KG, 1), .45)
         const fallbackColor: readonly [number, number, number] = [material.colour[0], material.colour[1], material.colour[2]]
         const fluid = element.fluidMaterial
         const gradient = colorBytes(fluid?.gradientBottom, fallbackColor)
         const liquidOffset = pixel * 4
-        const packedGradient = packedColorBytes(gradient)
-        liquid[liquidOffset] = packedGradient[0]
-        liquid[liquidOffset + 1] = packedGradient[1]
-        liquid[liquidOffset + 2] = packedGradient[2]
+        liquid[liquidOffset] = gradient[0]
+        liquid[liquidOffset + 1] = gradient[1]
+        liquid[liquidOffset + 2] = gradient[2]
         liquid[liquidOffset + 3] = byte(amount)
 
         const temperatureSpan = material.highTemp - material.lowTemp
@@ -127,8 +129,8 @@ export function buildOniPropertyTextures(input: OniTerrainRenderInput): OniPrope
           ? Math.max(0, Math.min(1, (cell.temperature - material.lowTemp) / temperatureSpan))
           : .5
         const temperatureByte = Math.trunc(temperatureRatio * 255)
-        const lowColor = packedColorBytes(colorBytes(fluid?.gradientBottom, fallbackColor))
-        const highColor = packedColorBytes(colorBytes(fluid?.gradientTop, fallbackColor))
+        const lowColor = colorBytes(fluid?.gradientBottom, fallbackColor)
+        const highColor = colorBytes(fluid?.gradientTop, fallbackColor)
         const temperatureColor = temperatureByte < 128 ? lowColor : highColor
         const liquidDataOffset = pixel * 4
         liquidData[liquidDataOffset] = temperatureColor[0]
@@ -147,10 +149,6 @@ export function buildOniPropertyTextures(input: OniTerrainRenderInput): OniPrope
       solidLiquidGasMass[massOffset + 3] = mass > 0
         ? byte(Math.max(1 / 255, Math.min(1, mass / 2000)))
         : 0
-      if (foundation) {
-        solidLiquidGasMass[massOffset] = 255
-        solidLiquidGasMass[massOffset + 3] = 255
-      }
       if (material) {
         // MaterialData32 is packed as flags | (textureLayer << 24). Keep the
         // worker's flag bits intact: glow=1, caustics=2, metal=4, opaque=8.

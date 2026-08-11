@@ -115,6 +115,8 @@ export type OniTerrainRenderInput = {
   textures: Record<string, HTMLImageElement>
   maskSets: TerrainMaskSets | null
   cellAt: (x: number, y: number) => SimCell | undefined
+  /** Stable save identity used by GPU passes to reuse derived property textures. */
+  propertyCacheKey?: object
   isTerrainMaskedAt: (x: number, y: number) => boolean
   damageAt?: (x: number, y: number) => number
   hasBackwallAt?: (x: number, y: number) => boolean
