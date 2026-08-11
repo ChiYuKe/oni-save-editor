@@ -19,6 +19,9 @@ export type OniPropertyTextureData = {
 }
 
 const TEMPERATURE_STATE_CHANGE_RANGE = .05
+const PRESSURE_RANGE_MIN_KPA = 0
+const PRESSURE_RANGE_MAX_KPA = 200
+const MIN_PRESSURE_VISIBILITY = .15
 const LIQUID_TEX_MAX_MASS_KG = 2000
 const propertyTextureCache = new WeakMap<object, OniPropertyTextureData>()
 
@@ -32,6 +35,13 @@ function colorBytes(value: string | undefined, fallback: readonly [number, numbe
   if (!match) return [...fallback]
   const packed = Number.parseInt(match[1], 16)
   return [packed >>> 16 & 255, packed >>> 8 & 255, packed & 255]
+}
+
+function gasPressureVisibility(mass: number): number {
+  const pressure = Math.max(0, mass)
+  const normalized = (pressure - PRESSURE_RANGE_MIN_KPA) / (PRESSURE_RANGE_MAX_KPA - PRESSURE_RANGE_MIN_KPA)
+  const minimum = pressure > 0 ? MIN_PRESSURE_VISIBILITY : 0
+  return Math.max(0, Math.min(1, Math.max(normalized, minimum)))
 }
 
 export function getCachedOniPropertyTextures(input: OniTerrainRenderInput): OniPropertyTextureData {
@@ -65,6 +75,15 @@ export function buildOniPropertyTextures(input: OniTerrainRenderInput): OniPrope
   const solidLiquidGasMass = new Uint8Array(width * height * 4)
   const materialData = new Uint8Array(width * height * 4)
   const liquidData = new Uint8Array(width * height * 4)
+  const spaceColor = input.zoneColors[7] ?? input.zoneColors[3]
+  if (spaceColor) {
+    for (let pixel = 0; pixel < width * height; pixel += 1) {
+      const offset = pixel * 3
+      worldZone[offset] = spaceColor.r
+      worldZone[offset + 1] = spaceColor.g
+      worldZone[offset + 2] = spaceColor.b
+    }
+  }
 
   const stateAt = (worldX: number, worldY: number): string | undefined => {
     const cell = input.cellAt(worldX, worldY)
@@ -105,8 +124,14 @@ export function buildOniPropertyTextures(input: OniTerrainRenderInput): OniPrope
         const gasOffset = pixel * 4
         gasColour.set(material.colour, gasOffset)
       }
-      if (state === 'gas') {
-        const pressure = Math.max(Math.min(Math.max(cell.mass, 0) / 200, 1), cell.mass > 0 ? .15 : 0)
+      if (state === 'gas' || state === 'liquid') {
+        // PropertyTextures.UpdatePressure also writes the gas above a liquid
+        // cell. GasTest uses that value to keep the gas layer continuous over
+        // liquid surfaces, so preserve the source lookup here.
+        const pressureCell = state === 'liquid' ? input.cellAt(worldX, worldY + 1) : cell
+        const pressureState = pressureCell ? ONI_SUBSTANCE_BY_HASH.get(pressureCell.elementHash & 0xffff)?.state.toLowerCase()
+          || elementForHash(pressureCell.elementHash).state : undefined
+        const pressure = pressureState === 'gas' ? gasPressureVisibility(pressureCell?.mass ?? 0) : 0
         gasPressure[pixel] = byte(pressure)
       }
       if (material && state === 'liquid') {

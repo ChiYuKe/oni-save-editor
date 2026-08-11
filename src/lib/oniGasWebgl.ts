@@ -24,6 +24,12 @@ uniform sampler2D u_gas_colour;
 uniform sampler2D u_gas_danger;
 uniform sampler2D u_gas_detail;
 uniform sampler2D u_bad_gas;
+uniform vec2 u_gas_opacity;
+uniform float u_space_alpha_scale;
+uniform float u_alpha;
+uniform float u_world_zone_gas_blend;
+uniform vec3 u_darken_tint_background;
+uniform float u_gas_phase;
 in vec2 v_world;
 in vec2 v_property_uv;
 out vec4 outColor;
@@ -63,15 +69,32 @@ void main() {
   float danger = texture(u_gas_danger, v_property_uv).r;
   float backgroundDetail = mix(texture(u_gas_detail, v_world / 17.0).r, texture(u_bad_gas, v_world / 17.0).a, danger);
   float foregroundDetail = mix(texture(u_gas_detail, v_world / 25.0).r, texture(u_bad_gas, v_world / 25.0).a, danger);
-  // FlowOffsetRenderer phase is zero for a deterministic save preview. At
-  // phase zero GasTest.shader selects the foreground sample exactly.
-  float detail = mix(backgroundDetail, foregroundDetail, 1.0);
-  float alpha = detail * detail * sqrt(pressure) * pressure * 0.5;
+  // GasTest.shader blends the two detail planes using _GasParameters.x. The
+  // save format does not contain FlowOffsetRenderer's transient offset RT;
+  // phase zero is the game's initial deterministic sample and selects FG.
+  float detailPhase = abs(u_gas_phase - 0.5) * 2.0;
+  float detail = mix(backgroundDetail, foregroundDetail, detailPhase);
+  float gasOpacity = mix(u_gas_opacity.x, u_gas_opacity.y, sqrt(pressure));
+  float detailAlpha = detail * detail * gasOpacity;
+  float normalizedPressure = clamp(pressure, 0.0, 1.0);
+  float pressureAlpha = detailAlpha * normalizedPressure;
+  float spaceAlpha = clamp(pressureAlpha * u_space_alpha_scale, 0.0, 1.0);
+  // WorldZoneTex is the game's RGB24 texture, so its sampled alpha is not a
+  // region mask. GasTest applies the configured space scale to the RGB zone
+  // texture's coverage directly.
   vec3 zone = texture(u_world_zone, v_property_uv).rgb;
-  vec3 gasHsl = rgb2hsl(gasColour);
+  float alpha = spaceAlpha * u_alpha;
+
+  // The light buffer is a separate browser canvas. Preserve GasTest's source
+  // colour space and dark-tint path here; the live light layer is composited
+  // after this pass, so it remains additive just like the editor's other FX.
+  vec3 gasLinear = gasColour * gasColour;
+  vec3 darkLinear = gasLinear * u_darken_tint_background;
+  vec3 litGas = sqrt(max(darkLinear + (gasLinear - darkLinear), vec3(0.0)));
+  vec3 gasHsl = rgb2hsl(litGas);
   vec3 zoneHsl = rgb2hsl(zone);
   vec3 zoneTint = hsl2rgb(vec3(zoneHsl.xy, gasHsl.z));
-  outColor = vec4(mix(gasColour, zoneTint, 0.1), alpha);
+  outColor = vec4(mix(litGas, zoneTint, u_world_zone_gas_blend), alpha);
 }`
 
 function compile(gl: WebGL2RenderingContext, type: number, source: string): WebGLShader {
@@ -153,7 +176,9 @@ export class OniGasWebGLRenderer {
     const texture = gl.createTexture() ?? undefined
     if (!texture) return undefined
     gl.bindTexture(gl.TEXTURE_2D, texture)
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image)
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
@@ -194,6 +219,12 @@ export class OniGasWebGLRenderer {
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
     gl.uniform2f(gl.getUniformLocation(this.program, 'u_viewport'), this.canvas.width, this.canvas.height)
     gl.uniform2f(gl.getUniformLocation(this.program, 'u_grid_size'), properties.width, properties.height)
+    gl.uniform2f(gl.getUniformLocation(this.program, 'u_gas_opacity'), 1, 1)
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_space_alpha_scale'), 2)
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_alpha'), .5)
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_world_zone_gas_blend'), .1)
+    gl.uniform3f(gl.getUniformLocation(this.program, 'u_darken_tint_background'), .8455882, .8455882, .8455882)
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_gas_phase'), 0)
     const bind = (unit: number, name: string, texture: WebGLTexture | undefined) => {
       gl.activeTexture(gl.TEXTURE0 + unit)
       gl.bindTexture(gl.TEXTURE_2D, texture ?? null)

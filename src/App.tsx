@@ -723,10 +723,9 @@ const DEFAULT_MAP_LAYER_VISIBILITY: MapLayerVisibility = {
   ventilation: true,
   automation: true,
   shipment: true,
-  // The normal game camera does not tint every gas cell. Gas visualization is
-  // an overlay the user can enable explicitly; keeping it on made the entire
-  // colony and all transparent building pixels look cyan.
-  gas: false,
+  // LightingSettings.ShowGas is enabled in the game scene, so GasTest is part
+  // of the normal map view rather than an opt-in analysis overlay.
+  gas: true,
   liquid: true,
   ground: true,
   backwall: false,
@@ -2021,17 +2020,6 @@ function createElementPatterns(context: CanvasRenderingContext2D, textures: Reco
 }
 
 type RgbColor = { r: number; g: number; b: number }
-type GasRenderCell = {
-  x: number
-  y: number
-  px: number
-  py: number
-  cellSize: number
-  cell: SimCell
-  style: FluidMaterialStyle
-  state: 'gas'
-  contactPath?: Path2D
-}
 const gasColorCache = new Map<string, RgbColor>()
 
 function gasRgb(color: string): RgbColor {
@@ -2054,14 +2042,17 @@ function gasRgba(color: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, alpha))})`
 }
 
-function gasDensity(cell: SimCell): number {
+function gasPressureVisibility(cell: SimCell): number {
   const mass = Math.max(0, cell.mass)
-  return .2 + .8 * (1 - Math.exp(-mass / 2.2))
+  return mass > 0 ? Math.max(Math.min(mass / 200, 1), .15) : 0
 }
 
 function drawGasBase(context: CanvasRenderingContext2D, style: FluidMaterialStyle, cell: SimCell, px: number, py: number, cellSize: number): void {
-  const density = gasDensity(cell)
-  const alpha = .08 + density * .28
+  const pressure = gasPressureVisibility(cell)
+  if (pressure <= 0) return
+  // Canvas2D is only a fallback for browsers without WebGL2. Keep its
+  // coverage curve aligned with GasTest's _SpaceAlphaScale=2 and _Alpha=.5.
+  const alpha = Math.min(1, pressure * 2) * .5
   context.fillStyle = gasRgba(style.gradientBottom, alpha)
   context.fillRect(px, py, cellSize, cellSize)
 }
@@ -2075,105 +2066,6 @@ function drawLiquidFallback(context: CanvasRenderingContext2D, style: FluidMater
   if (!fullHeight) return
   context.fillStyle = gasRgba(style.gradientTop, .22)
   context.fillRect(px, py, cellSize, Math.max(1, cellSize * .07))
-}
-
-function gasBoundaryCells(cells: GasRenderCell[]): GasRenderCell[] {
-  return cells.filter((cell) => cell.contactPath !== undefined)
-}
-
-function drawGasBoundaryGlow(context: CanvasRenderingContext2D, gasCells: GasRenderCell[], animated: boolean): void {
-  if (gasCells.length === 0) return
-  context.save()
-  context.globalCompositeOperation = animated ? 'screen' : 'source-over'
-  for (const cell of gasCells) {
-    if (!cell.contactPath) continue
-    context.save()
-    context.translate(cell.px, cell.py)
-    context.scale(cell.cellSize, cell.cellSize)
-    context.strokeStyle = gasRgba(cell.style.gradientTop, animated ? .035 : .07)
-    context.lineWidth = Math.max(.55, Math.min(1.5, cell.cellSize * .035)) / Math.max(1, cell.cellSize)
-    context.lineCap = 'round'
-    context.lineJoin = 'round'
-    context.shadowColor = gasRgba(cell.style.gradientTop, animated ? .07 : .12)
-    context.shadowBlur = Math.max(1, Math.min(7, cell.cellSize * .2)) / Math.max(1, cell.cellSize)
-    context.stroke(cell.contactPath)
-    context.restore()
-  }
-  context.restore()
-}
-
-type GasRegion = {
-  path: Path2D
-  style: FluidMaterialStyle
-  state: 'gas'
-  minX: number
-  minY: number
-  maxX: number
-  maxY: number
-  cellSize: number
-}
-
-function gasRegions(cells: GasRenderCell[]): GasRegion[] {
-  const regions = new Map<number, GasRegion>()
-  for (const cell of cells) {
-    if (cell.state !== 'gas') continue
-    const key = cell.cell.elementHash
-    let region = regions.get(key)
-    if (!region) {
-      region = { path: new Path2D(), style: cell.style, state: cell.state, minX: cell.px, minY: cell.py, maxX: cell.px + cell.cellSize, maxY: cell.py + cell.cellSize, cellSize: cell.cellSize }
-      regions.set(key, region)
-    }
-    region.path.rect(cell.px, cell.py, cell.cellSize, cell.cellSize)
-    region.minX = Math.min(region.minX, cell.px)
-    region.minY = Math.min(region.minY, cell.py)
-    region.maxX = Math.max(region.maxX, cell.px + cell.cellSize)
-    region.maxY = Math.max(region.maxY, cell.py + cell.cellSize)
-  }
-  return [...regions.values()]
-}
-
-function drawGasRegionAnimation(context: CanvasRenderingContext2D, regions: GasRegion[], timeSeconds: number): void {
-  for (const region of regions) {
-    const style = region.style
-    const width = region.maxX - region.minX
-    const height = region.maxY - region.minY
-    context.save()
-    context.clip(region.path)
-    context.globalCompositeOperation = 'screen'
-
-    const travel = ((timeSeconds * style.flowSpeed * Math.max(region.cellSize, width) * .18) % Math.max(region.cellSize, width * 1.6)) - width * .35
-    const sheen = context.createLinearGradient(region.minX + travel, region.minY, region.minX + travel + Math.max(region.cellSize * 2, width * .28), region.maxY)
-    sheen.addColorStop(0, gasRgba('#ffffff', 0))
-    sheen.addColorStop(.5, gasRgba('#ffffff', .016))
-    sheen.addColorStop(1, gasRgba('#ffffff', 0))
-    context.fillStyle = sheen
-    context.fillRect(region.minX, region.minY, width, height)
-
-    const ribbonCount = 2
-    const ribbonAmplitude = Math.max(region.cellSize * .45, Math.min(height * .08, region.cellSize * 2))
-    const samples = Math.max(12, Math.ceil(width / Math.max(16, region.cellSize * 1.2)))
-    for (let ribbon = 0; ribbon < ribbonCount; ribbon++) {
-      const anchor = (ribbon + .55) / (ribbonCount + .8)
-      const slope = (ribbon % 2 === 0 ? 1 : -1) * height * (.07 + (ribbon % 3) * .025)
-      context.beginPath()
-      for (let index = 0; index <= samples; index++) {
-        const x = region.minX - region.cellSize * 2 + (width + region.cellSize * 4) * index / samples
-        const normalizedX = (x - region.minX) / Math.max(1, width)
-        const wave = Math.sin(x * .006 + timeSeconds * style.flowSpeed * 1.7 + ribbon * 1.83) * ribbonAmplitude
-          + Math.sin(x * .017 - timeSeconds * style.flowSpeed * 1.1 + ribbon * .67) * ribbonAmplitude * .34
-        const y = region.minY + height * anchor + slope * (normalizedX - .5) + wave
-        if (index === 0) context.moveTo(x, y)
-        else context.lineTo(x, y)
-      }
-      context.strokeStyle = gasRgba('#8cebf1', .012)
-      context.lineWidth = Math.max(1.5, Math.min(12, region.cellSize * .06))
-      context.lineCap = 'round'
-      context.shadowColor = gasRgba('#70e6ee', .05)
-      context.shadowBlur = Math.max(2, Math.min(24, region.cellSize * .25))
-      context.stroke()
-    }
-    context.restore()
-  }
 }
 
 function drawGeyserTexture(context: CanvasRenderingContext2D, image: HTMLImageElement, definition: GeyserTextureDefinition, cellSize: number, centerX: number, centerY: number, orientation = 0, rotatable?: RotatableVisualizer): void {
@@ -2303,7 +2195,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
   const wheelZoomRef = useRef<{ targetPercent: number; clientX: number; clientY: number; timer: number } | null>(null)
   const focusedSaveRef = useRef<ParsedSave | null>(null)
   const initialGroupTagsRef = useRef((save.manager?.groups ?? []).map((group) => group.tag.trim().toLowerCase()))
-  const renderCacheRef = useRef<{ bytes: Uint8Array | null; cells: Map<number, SimCell | undefined>; paths: Map<string, Path2D>; zoneBytes: Uint8Array | null; zones: Uint8Array | null }>({ bytes: null, cells: new Map(), paths: new Map(), zoneBytes: null, zones: null })
+  const renderCacheRef = useRef<{ bytes: Uint8Array | null; cells: Map<number, SimCell | undefined>; zoneBytes: Uint8Array | null; zones: Uint8Array | null }>({ bytes: null, cells: new Map(), zoneBytes: null, zones: null })
   const pointerRef = useRef<{ mode: 'pan' | 'select' | 'brush' | 'shape' | 'point'; startX: number; startY: number; panX: number; panY: number; moved: boolean; lastCell: { x: number; y: number } | null; startCell: { x: number; y: number } | null } | null>(null)
   const visitedBrushCellsRef = useRef(new Set<string>())
   const brushCellRef = useRef<{ x: number; y: number } | null>(null)
@@ -2401,27 +2293,12 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
     if (cache.bytes !== sim.bytes) {
       cache.bytes = sim.bytes
       cache.cells.clear()
-      cache.paths.clear()
     }
     const key = y * sim.width + x
     if (cache.cells.has(key)) return cache.cells.get(key)
     const cell = readSimCell(sim, view, x, y)
     cache.cells.set(key, cell)
     return cell
-  }
-
-  const cachedTerrainPath = (sim: NonNullable<ParsedSave['simData']>, key: string, factory: () => Path2D): Path2D => {
-    const cache = renderCacheRef.current
-    if (cache.bytes !== sim.bytes) {
-      cache.bytes = sim.bytes
-      cache.cells.clear()
-      cache.paths.clear()
-    }
-    const cached = cache.paths.get(key)
-    if (cached) return cached
-    const path = factory()
-    cache.paths.set(key, path)
-    return path
   }
 
   const cachedWorldZoneMap = useCallback((sim: NonNullable<ParsedSave['simData']>): Uint8Array => {
@@ -2925,13 +2802,8 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
     const cellSize = renderCellSize
     const range = visibleMapRange(size.width, size.height, cellSize, originX, originY, canvas.width, canvas.height)
     const cellAt = (x: number, y: number) => cachedSimCell(sim, view, x + 1, y + 1)
-    const solidAt = (x: number, y: number) => {
-      const neighbour = cellAt(x, y)
-      return Boolean(neighbour && elementForHash(neighbour.elementHash).state === 'solid')
-    }
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const gasCells: GasRenderCell[] = []
     baseContext.clearRect(0, 0, baseCanvas.width, baseCanvas.height)
+    context.clearRect(0, 0, canvas.width, canvas.height)
     const gasRendered = overlay === 'none' && visibleLayers.gas && oniWorldRenderer.renderGas({
       context: baseContext,
       width: size.width,
@@ -2982,47 +2854,11 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
             }
             continue
           }
-          const gasContactPath = visibleLayers.ground && (
-            solidAt(x - 1, y) || solidAt(x + 1, y) || solidAt(x, y - 1) || solidAt(x, y + 1)
-          )
-            ? cachedTerrainPath(sim, `gas-contact:${x}:${y}`, () => createTerrainBoundaryPath((neighbourX, neighbourY) => !solidAt(neighbourX, neighbourY), x, y))
-            : undefined
-          gasCells.push({
-            x,
-            y,
-            px: originX + x * cellSize,
-            py: originY + canvasY * cellSize,
-            cellSize,
-            cell,
-            style: element.fluidMaterial,
-            state: 'gas',
-            contactPath: gasContactPath,
-          })
+          drawGasBase(baseContext, element.fluidMaterial, cell, originX + x * cellSize, originY + canvasY * cellSize, cellSize)
         }
       }
     }
-    const regions = gasRegions(gasCells)
-    for (const gas of gasCells) drawGasBase(baseContext, gas.style, gas.cell, gas.px, gas.py, gas.cellSize)
-    drawGasBoundaryGlow(baseContext, gasBoundaryCells(gasCells), false)
-    let frame = 0
-    let lastFrameTime = -Infinity
-    const draw = (time: number) => {
-      const frameInterval = canvas.width * canvas.height > 1_800_000 ? 100 : 50
-      if (lastFrameTime > -Infinity && time - lastFrameTime < frameInterval) {
-        frame = requestAnimationFrame(draw)
-        return
-      }
-      lastFrameTime = time
-      context.clearRect(0, 0, canvas.width, canvas.height)
-      if (gasCells.length > 0) {
-        const timeSeconds = time / 1000
-        drawGasRegionAnimation(context, regions, timeSeconds)
-      }
-      if (!reduceMotion && !isSelecting && gasCells.length > 0) frame = requestAnimationFrame(draw)
-    }
-    draw(0)
-    return () => cancelAnimationFrame(frame)
-  }, [cachedWorldZoneMap, fluidCanvasRef, isSelecting, originX, originY, overlay, renderCellSize, save, size.height, size.width, terrainMaskSets, textures, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers.gas, visibleLayers.ground, visibleLayers.liquid])
+  }, [cachedWorldZoneMap, originX, originY, overlay, renderCellSize, save, size.height, size.width, terrainMaskSets, textures, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers.gas, visibleLayers.liquid])
 
   useEffect(() => {
     const canvas = particleCanvasRef.current
@@ -3120,16 +2956,6 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
     const range = visibleMapRange(size.width, size.height, cellSize, originX, originY, canvas.width, canvas.height)
     let patterns: ReturnType<typeof createElementPatterns> | undefined
     const sim = save.simData
-    const previewGasCells: GasRenderCell[] = []
-    const previewHashAt = (x: number, y: number): number | undefined => {
-      const preview = previewCells.get(`${x}:${y}`)
-      if (preview) return preview.elementHash
-      return sim ? getWorldCell(sim, x, y)?.elementHash : undefined
-    }
-    const previewSolidAt = (x: number, y: number) => {
-      const neighbourHash = previewHashAt(x, y)
-      return neighbourHash !== undefined && elementForHash(neighbourHash).state === 'solid'
-    }
     for (const preview of previewCells.values()) {
       const element = elementForHash(preview.elementHash)
       const px = originX + preview.x * cellSize
@@ -3141,25 +2967,6 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
       if (element.state === 'liquid') continue
       if (baseCell && element.state === 'gas' && element.fluidMaterial) {
         const previewCell: SimCell = { ...baseCell, elementHash: preview.elementHash }
-        const contactPath = visibleLayers.ground && (
-          previewSolidAt(preview.x - 1, preview.y)
-          || previewSolidAt(preview.x + 1, preview.y)
-          || previewSolidAt(preview.x, preview.y - 1)
-          || previewSolidAt(preview.x, preview.y + 1)
-        )
-          ? createTerrainBoundaryPath((neighbourX, neighbourY) => !previewSolidAt(neighbourX, neighbourY), preview.x, preview.y)
-          : undefined
-        previewGasCells.push({
-          x: preview.x,
-          y: preview.y,
-          px,
-          py,
-          cellSize,
-          cell: previewCell,
-          style: element.fluidMaterial,
-          state: 'gas',
-          contactPath,
-        })
         drawGasBase(context, element.fluidMaterial, previewCell, px, py, cellSize)
       } else {
         patterns ??= createElementPatterns(context, textures, cellSize, originX, originY + size.height * cellSize)
@@ -3170,7 +2977,6 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
         context.strokeRect(px + .5, py + .5, cellSize - 1, cellSize - 1)
       }
     }
-    drawGasBoundaryGlow(context, gasBoundaryCells(previewGasCells), false)
     if (tool === 'fill' && !spacePan && brushCell && sim) {
       const fillCache = fillRegionCacheRef.current
       if (fillCache.bytes !== sim.bytes) {
@@ -3422,17 +3228,12 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
       const visibleGrid = worldGrid(save, 'GridVisible')?.bytes
       const spawnableGrid = worldGrid(save, 'GridSpawnable')?.bytes
       const damageGrid = worldGrid(save, 'GridDamage')?.bytes
-      const gasCells: GasRenderCell[] = []
       const terrainMaskedCells = terrainMaskedCellsByBuilding(save)
       for (const cells of blockTileCellsByGroup(save).values()) {
         for (const key of cells) terrainMaskedCells.add(key)
       }
       const isTerrainMaskedAt = (x: number, y: number) => terrainMaskedCells.has(blockTileCellKey(x, y))
       const cellAt = (x: number, y: number) => cachedSimCell(sim, view, x + 1, y + 1)
-      const solidAt = (x: number, y: number) => {
-        const neighbour = cellAt(x, y)
-        return Boolean(neighbour && elementForHash(neighbour.elementHash).state === 'solid')
-      }
       const simIndexAt = (x: number, y: number) => (y + 1) * sim.width + x + 1
       const damageView = damageGrid ? new DataView(damageGrid.buffer, damageGrid.byteOffset, damageGrid.byteLength) : undefined
       const damageAt = (x: number, y: number) => {
@@ -3513,11 +3314,6 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
           const element = elementForHash(cell.elementHash)
           const px = originX + x * cellSize
           const py = originY + canvasY * cellSize
-          const gasContactPath = element.state === 'gas' && visibleLayers.ground && (
-            solidAt(x - 1, y) || solidAt(x + 1, y) || solidAt(x, y - 1) || solidAt(x, y + 1)
-          )
-            ? cachedTerrainPath(sim, `gas-contact:${x}:${y}`, () => createTerrainBoundaryPath((neighbourX, neighbourY) => !solidAt(neighbourX, neighbourY), x, y))
-            : undefined
           const backwall = readSimBackwall(sim, view, x + 1, y + 1)
           const backwallPresent = backwall ? elementForHash(backwall.elementHash).state === 'solid' : false
           if (visibleLayers.backwall && backwallPresent) {
@@ -3537,17 +3333,6 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
               const aboveState = above ? elementForHash(above.elementHash).state : undefined
               drawLiquidFallback(context, element.fluidMaterial, cell, px, py, cellSize, aboveState === 'liquid' || aboveState === 'solid')
             } else if (showElement && element.state === 'gas' && element.fluidMaterial) {
-              gasCells.push({
-                x,
-                y,
-                px,
-                py,
-                cellSize,
-                cell,
-                style: element.fluidMaterial,
-                state: 'gas',
-                contactPath: gasContactPath,
-              })
               drawGasBase(context, element.fluidMaterial, cell, px, py, cellSize)
             } else if (showElement) {
               context.fillStyle = patterns.get(element.texture ?? '') ?? element.color
@@ -3604,10 +3389,6 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
           hasBackwallAt,
           zoneColors: ONI_WORLD_ZONE_COLORS,
         })
-      }
-
-      if (overlay === 'none') {
-        drawGasBoundaryGlow(context, gasBoundaryCells(gasCells), false)
       }
 
       context.save()
