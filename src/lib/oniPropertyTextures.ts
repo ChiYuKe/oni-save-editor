@@ -13,6 +13,9 @@ export type OniPropertyTextureData = {
   gasPressure: Uint8Array
   gasDanger: Uint8Array
   liquid: Uint8Array
+  solidLiquidGasMass: Uint8Array
+  materialData: Uint8Array
+  liquidData: Uint8Array
 }
 
 const TEMPERATURE_STATE_CHANGE_RANGE = .05
@@ -39,6 +42,11 @@ export function buildOniPropertyTextures(input: OniTerrainRenderInput): OniPrope
   // PropertyTextures.UpdateLiquid stores amount in R and the SubstanceHookup
   // colour in GBA (not RGBA). Keep that unusual channel layout verbatim.
   const liquid = new Uint8Array(width * height * 4)
+  const solidLiquidGasMass = new Uint8Array(width * height * 4)
+  const materialData = new Uint8Array(width * height * 4)
+  // The native simulation owns this external buffer. SIMSAVE does not contain
+  // it, so keep the input explicit rather than assigning invented channels.
+  const liquidData = new Uint8Array(width * height * 4)
 
   const stateAt = (worldX: number, worldY: number): string | undefined => {
     const cell = input.cellAt(worldX, worldY)
@@ -51,10 +59,9 @@ export function buildOniPropertyTextures(input: OniTerrainRenderInput): OniPrope
     for (let worldX = -1; worldX <= input.width; worldX += 1) {
       const cell = input.cellAt(worldX, worldY)
       const simX = worldX + 1
-      // Unity's uploaded property textures are vertically reversed relative
-      // to world coordinates; the original vertex shader compensates with
-      // `uv.y = 1 - world.y / height`.
-      const textureY = height - 1 - (worldY + 1)
+      const simY = worldY + 1
+      // Keep the SIMSAVE grid border and row order used by the property pass.
+      const textureY = height - 1 - simY
       const pixel = textureY * width + simX
       if (!cell) continue
 
@@ -97,6 +104,26 @@ export function buildOniPropertyTextures(input: OniTerrainRenderInput): OniPrope
         liquid[liquidOffset + 2] = material.colour[1]
         liquid[liquidOffset + 3] = material.colour[2]
       }
+      const mass = Math.max(cell.mass, 0)
+      const massOffset = pixel * 4
+      // PropertyTextures.UpdateSolidLiquidGasMass writes the three state
+      // flags independently: R=solid, G=liquid, B=gas, A=mass.
+      solidLiquidGasMass[massOffset] = state === 'solid' ? 255 : 0
+      solidLiquidGasMass[massOffset + 1] = state === 'liquid' ? 255 : 0
+      solidLiquidGasMass[massOffset + 2] = state === 'gas' || state === 'vacuum' ? 255 : 0
+      solidLiquidGasMass[massOffset + 3] = mass > 0
+        ? byte(Math.max(1 / 255, Math.min(1, mass / 2000)))
+        : 0
+      if (material) {
+        // Sim.MaterialPropertiesAccessor is a uint. Texture2D receives its
+        // little-endian bytes as RGBA: flags in R and SubstanceTexture in A.
+        const flags = (material.glows ? 1 : 0)
+          | (material.usesCaustics ? 2 : 0)
+          | (material.metalic ? 4 : 0)
+          | (material.isOpaqueLiquid ? 8 : 0)
+        materialData[massOffset] = flags
+        materialData[massOffset + 3] = material.substanceTexture & 0xff
+      }
       gasDanger[pixel] = material?.name === 'Oxygen' ? 0 : 255
 
       if (worldX >= 0 && worldX < input.width && worldY >= 0 && worldY < input.height) {
@@ -112,5 +139,5 @@ export function buildOniPropertyTextures(input: OniTerrainRenderInput): OniPrope
     }
   }
 
-  return { width, height, solidDigAmount, stateChange, fallingSolid, worldZone, gasColour, gasPressure, gasDanger, liquid }
+  return { width, height, solidDigAmount, stateChange, fallingSolid, worldZone, gasColour, gasPressure, gasDanger, liquid, solidLiquidGasMass, materialData, liquidData }
 }
