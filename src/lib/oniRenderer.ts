@@ -310,6 +310,15 @@ export class OniWorldRenderer {
         )
       }
     }
+    // Match Substance.shader's 0.2 ambient material light in one compositing
+    // pass. `source-atop` changes only terrain pixels and keeps empty cells
+    // transparent. Doing this per cell made the fallback path unnecessarily
+    // expensive on large maps.
+    context.save()
+    context.globalCompositeOperation = 'source-atop'
+    context.fillStyle = 'rgb(51, 51, 51)'
+    context.fillRect(0, 0, context.canvas.width, context.canvas.height)
+    context.restore()
   }
 
   renderGas(input: OniTerrainRenderInput): boolean {

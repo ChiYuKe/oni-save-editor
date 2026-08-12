@@ -2187,12 +2187,17 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
   const lightCanvasRef = useRef<HTMLCanvasElement>(null)
   const gridCanvasRef = useRef<HTMLCanvasElement>(null)
   const overlayRef = useRef<HTMLCanvasElement>(null)
+  const interactionCanvasRef = useRef<HTMLCanvasElement>(null)
   const canvasLayerRef = useRef<HTMLDivElement>(null)
   const selectionDraftOverlayRef = useRef<HTMLDivElement>(null)
   const selectionDraftTitleRef = useRef<HTMLElement>(null)
   const selectionDraftCountRef = useRef<HTMLElement>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
   const wheelZoomRef = useRef<{ targetPercent: number; clientX: number; clientY: number; timer: number } | null>(null)
+  const interactionFinishTimerRef = useRef<number | null>(null)
+  const interactionSnapshotActiveRef = useRef(false)
+  const interactionTransformFrameRef = useRef<number | null>(null)
+  const pendingInteractionTransformRef = useRef<{ transform: string; origin?: string } | null>(null)
   const focusedSaveRef = useRef<ParsedSave | null>(null)
   const initialGroupTagsRef = useRef((save.manager?.groups ?? []).map((group) => group.tag.trim().toLowerCase()))
   const renderCacheRef = useRef<{ bytes: Uint8Array | null; cells: Map<number, SimCell | undefined>; zoneBytes: Uint8Array | null; zones: Uint8Array | null }>({ bytes: null, cells: new Map(), zoneBytes: null, zones: null })
@@ -2212,6 +2217,7 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
   const { zoomPercent, pan } = viewport
   const setZoomPercent = (nextZoomPercent: number) => onViewportChange((current) => ({ ...current, zoomPercent: nextZoomPercent }))
   const setPan = (nextPan: { x: number; y: number }) => onViewportChange((current) => ({ ...current, pan: nextPan }))
+  const [pendingZoomPercent, setPendingZoomPercent] = useState(zoomPercent)
   const [isPanning, setIsPanning] = useState(false)
   const [spacePan, setSpacePan] = useState(false)
   const [brushCell, setBrushCell] = useState<{ x: number; y: number } | null>(null)
@@ -2229,8 +2235,12 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
   // canvas has four times the fill cost; exports still use their requested
   // resolution and are unaffected by this interactive preview cap.
   const viewportArea = Math.max(1, viewportSize.width * viewportSize.height)
-  const previewPixelRatioBudget = Math.sqrt(2_400_000 / viewportArea)
-  const devicePixelRatio = Math.max(1, Math.min(nativePixelRatio, previewPixelRatioBudget))
+  const previewPixelRatioBudget = Math.sqrt(1_350_000 / viewportArea)
+  // A large viewport contains ten stacked canvases. Keeping every layer at
+  // full CSS resolution can consume hundreds of MB and makes compositing
+  // stutter badly. Allow a sub-1 preview ratio on large windows; exports keep
+  // their independent full-resolution path.
+  const devicePixelRatio = Math.max(.5, Math.min(1, nativePixelRatio, previewPixelRatioBudget))
   // Keep the physical cell size fractional. Rounding every cell independently
   // makes the rendered grid drift away from the CSS hit-test coordinates.
   const renderCellSize = Math.max(1, displayCellSize * devicePixelRatio)
@@ -2310,6 +2320,77 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
     return cache.zones
   }, [save, size.height, size.width])
 
+  const renderedCanvases = () => [
+    backgroundCanvasRef.current,
+    entityBackCanvasRef.current,
+    fluidBaseCanvasRef.current,
+    fluidCanvasRef.current,
+    canvasRef.current,
+    entityFrontCanvasRef.current,
+    particleCanvasRef.current,
+    lightCanvasRef.current,
+    gridCanvasRef.current,
+    overlayRef.current,
+  ].filter((canvas): canvas is HTMLCanvasElement => Boolean(canvas))
+
+  const beginInteractionSnapshot = () => {
+    if (interactionFinishTimerRef.current !== null) {
+      window.clearTimeout(interactionFinishTimerRef.current)
+      interactionFinishTimerRef.current = null
+    }
+    if (interactionSnapshotActiveRef.current) return
+    const snapshot = interactionCanvasRef.current
+    const sources = renderedCanvases()
+    const source = sources[0]
+    if (!snapshot || !source?.width || !source.height) return
+    snapshot.width = source.width
+    snapshot.height = source.height
+    const context = snapshot.getContext('2d', { alpha: true })
+    if (!context) return
+    context.clearRect(0, 0, snapshot.width, snapshot.height)
+    for (const canvas of sources) context.drawImage(canvas, 0, 0)
+    snapshot.style.display = 'block'
+    snapshot.style.transform = 'translate3d(0, 0, 0)'
+    snapshot.style.transformOrigin = ''
+    if (canvasLayerRef.current) canvasLayerRef.current.style.visibility = 'hidden'
+    interactionSnapshotActiveRef.current = true
+  }
+
+  const interactionTransformLayer = () => interactionSnapshotActiveRef.current
+    ? interactionCanvasRef.current
+    : canvasLayerRef.current
+
+  const scheduleInteractionTransform = (transform: string, origin?: string) => {
+    pendingInteractionTransformRef.current = { transform, origin }
+    if (interactionTransformFrameRef.current !== null) return
+    interactionTransformFrameRef.current = requestAnimationFrame(() => {
+      interactionTransformFrameRef.current = null
+      const pending = pendingInteractionTransformRef.current
+      pendingInteractionTransformRef.current = null
+      const layer = interactionTransformLayer()
+      if (!pending || !layer) return
+      if (pending.origin !== undefined) layer.style.transformOrigin = pending.origin
+      layer.style.transform = pending.transform
+    })
+  }
+
+  const finishInteractionSnapshot = () => {
+    if (interactionFinishTimerRef.current !== null) window.clearTimeout(interactionFinishTimerRef.current)
+    // React effects paint the retained layers after the camera state commits.
+    // Keep the flattened frame visible while those expensive passes finish.
+    interactionFinishTimerRef.current = window.setTimeout(() => {
+      const snapshot = interactionCanvasRef.current
+      if (snapshot) {
+        snapshot.style.display = 'none'
+        snapshot.style.transform = 'translate3d(0, 0, 0)'
+        snapshot.style.transformOrigin = ''
+      }
+      if (canvasLayerRef.current) canvasLayerRef.current.style.visibility = ''
+      interactionSnapshotActiveRef.current = false
+      interactionFinishTimerRef.current = null
+    }, 180)
+  }
+
   const setZoomPercentAround = (requestedPercent: number, clientX?: number, clientY?: number) => {
     const nextPercent = Math.max(0, Math.min(100, Math.round(requestedPercent)))
     if (nextPercent === zoomPercent) return
@@ -2336,39 +2417,55 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
     setZoomPercent(nextPercent)
   }
 
-  const queueWheelZoom = (delta: number, clientX: number, clientY: number) => {
+  const queueZoomPercent = (requestedPercent: number, clientX: number, clientY: number) => {
     const previous = wheelZoomRef.current
-    const targetPercent = Math.max(0, Math.min(100, (previous?.targetPercent ?? zoomPercent) + delta))
+    const targetPercent = Math.max(0, Math.min(100, Math.round(requestedPercent)))
     if (targetPercent === (previous?.targetPercent ?? zoomPercent)) return
+    setPendingZoomPercent(targetPercent)
     if (previous) window.clearTimeout(previous.timer)
+    beginInteractionSnapshot()
     const viewport = viewportRef.current
-    const layer = canvasLayerRef.current
+    const layer = interactionTransformLayer()
     if (viewport && layer) {
       const rect = viewport.getBoundingClientRect()
       const anchorX = clientX - rect.left - viewport.clientLeft
       const anchorY = clientY - rect.top - viewport.clientTop
       const currentZoom = MAP_ZOOM_MIN + (MAP_ZOOM_MAX - MAP_ZOOM_MIN) * zoomPercent / 100
       const targetZoom = MAP_ZOOM_MIN + (MAP_ZOOM_MAX - MAP_ZOOM_MIN) * targetPercent / 100
-      layer.style.transformOrigin = `${anchorX}px ${anchorY}px`
-      layer.style.transform = `scale(${targetZoom / currentZoom})`
+      scheduleInteractionTransform(`scale(${targetZoom / currentZoom})`, `${anchorX}px ${anchorY}px`)
     }
     const timer = window.setTimeout(() => {
       const pending = wheelZoomRef.current
       if (!pending) return
       wheelZoomRef.current = null
-      if (canvasLayerRef.current) {
-        canvasLayerRef.current.style.transform = 'translate3d(0, 0, 0)'
-        canvasLayerRef.current.style.transformOrigin = ''
-      }
       setZoomPercentAround(pending.targetPercent, pending.clientX, pending.clientY)
+      finishInteractionSnapshot()
     }, 140)
     wheelZoomRef.current = { targetPercent, clientX, clientY, timer }
+  }
+
+  const queueWheelZoom = (delta: number, clientX: number, clientY: number) => {
+    queueZoomPercent((wheelZoomRef.current?.targetPercent ?? zoomPercent) + delta, clientX, clientY)
+  }
+
+  const queueCenteredZoom = (targetPercent: number) => {
+    const viewport = viewportRef.current
+    if (!viewport) {
+      setZoomPercentAround(targetPercent)
+      return
+    }
+    const rect = viewport.getBoundingClientRect()
+    queueZoomPercent(targetPercent, rect.left + rect.width / 2, rect.top + rect.height / 2)
   }
 
   useEffect(() => () => {
     const pending = wheelZoomRef.current
     if (pending) window.clearTimeout(pending.timer)
+    if (interactionFinishTimerRef.current !== null) window.clearTimeout(interactionFinishTimerRef.current)
+    if (interactionTransformFrameRef.current !== null) cancelAnimationFrame(interactionTransformFrameRef.current)
   }, [])
+
+  useEffect(() => setPendingZoomPercent(zoomPercent), [zoomPercent])
 
   const pointToCell = (clientX: number, clientY: number): { x: number; y: number } | undefined => {
     const viewport = viewportRef.current
@@ -3564,7 +3661,9 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
           setIsSelecting(false)
         }
       } else {
-        if (canvasLayerRef.current) canvasLayerRef.current.style.transform = 'translate3d(0, 0, 0)'
+        beginInteractionSnapshot()
+        const interactionLayer = interactionTransformLayer()
+        if (interactionLayer) interactionLayer.style.transform = 'translate3d(0, 0, 0)'
         setIsPanning(true)
       }
     }}
@@ -3608,9 +3707,8 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
       const dx = event.clientX - pointer.startX
       const dy = event.clientY - pointer.startY
       if (Math.abs(dx) > 4 || Math.abs(dy) > 4) pointer.moved = true
-      if (pointer.moved && canvasLayerRef.current) {
-        canvasLayerRef.current.style.transform = `translate3d(${dx}px, ${dy}px, 0)`
-      }
+      const interactionLayer = interactionTransformLayer()
+      if (pointer.moved && interactionLayer) scheduleInteractionTransform(`translate3d(${dx}px, ${dy}px, 0)`)
     }}
     onPointerUp={(event) => {
       const pointer = pointerRef.current
@@ -3631,15 +3729,17 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
         const dx = event.clientX - pointer.startX
         const dy = event.clientY - pointer.startY
         setPan({ x: pointer.panX + dx, y: pointer.panY + dy })
+        finishInteractionSnapshot()
+      } else if (pointer?.mode === 'pan') {
+        finishInteractionSnapshot()
       }
-      if (canvasLayerRef.current) canvasLayerRef.current.style.transform = 'translate3d(0, 0, 0)'
       pointerRef.current = null
       visitedBrushCellsRef.current.clear()
       setIsPanning(false)
       if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
     }}
     onPointerLeave={() => { if (!pointerRef.current) updateBrushCell(null) }}
-    onPointerCancel={() => { if (pointerRef.current?.mode === 'brush' || pointerRef.current?.mode === 'shape') onStrokeEnd(); if (canvasLayerRef.current) canvasLayerRef.current.style.transform = 'translate3d(0, 0, 0)'; pointerRef.current = null; selectionDraftRef.current = null; visitedBrushCellsRef.current.clear(); updateBrushCell(null); updateSelectionDraftOverlay(null); setIsSelecting(false); setIsPanning(false) }}
+    onPointerCancel={() => { if (pointerRef.current?.mode === 'brush' || pointerRef.current?.mode === 'shape') onStrokeEnd(); if (pointerRef.current?.mode === 'pan') finishInteractionSnapshot(); pointerRef.current = null; selectionDraftRef.current = null; visitedBrushCellsRef.current.clear(); updateBrushCell(null); updateSelectionDraftOverlay(null); setIsSelecting(false); setIsPanning(false) }}
   >
     <div ref={canvasLayerRef} className="canvas-layer">
       <canvas ref={backgroundCanvasRef} className="canvas-background" style={canvasStyle} aria-hidden="true" />
@@ -3677,11 +3777,12 @@ function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, on
         <span className="map-selection-label" hidden><strong ref={selectionDraftTitleRef} /><small ref={selectionDraftCountRef} /></span>
       </div>
     </div>
+    <canvas ref={interactionCanvasRef} className="canvas-interaction" aria-hidden="true" />
     <div className="canvas-controls" onPointerDown={(event) => event.stopPropagation()}>
-      <button type="button" title="缩小地图" aria-label="缩小地图" onClick={() => setZoomPercentAround(zoomPercent - 10)}><Minus size={15} /></button>
-      <input type="range" min="0" max="100" step="1" value={zoomPercent} aria-label="地图缩放" onChange={(event) => setZoomPercentAround(Number(event.target.value))} />
-      <output>{zoomPercent}</output>
-      <button type="button" title="放大地图" aria-label="放大地图" onClick={() => setZoomPercentAround(zoomPercent + 10)}><Plus size={15} /></button>
+      <button type="button" title="缩小地图" aria-label="缩小地图" onClick={() => queueCenteredZoom((wheelZoomRef.current?.targetPercent ?? zoomPercent) - 10)}><Minus size={15} /></button>
+      <input type="range" min="0" max="100" step="1" value={pendingZoomPercent} aria-label="地图缩放" onChange={(event) => queueCenteredZoom(Number(event.target.value))} />
+      <output>{pendingZoomPercent}</output>
+      <button type="button" title="放大地图" aria-label="放大地图" onClick={() => queueCenteredZoom((wheelZoomRef.current?.targetPercent ?? zoomPercent) + 10)}><Plus size={15} /></button>
       <button type="button" className="canvas-reset" title="重置视图" aria-label="重置视图" onClick={focusVisibleMap}>适配</button>
       <button type="button" title="导出当前地图视图" aria-label="导出当前地图视图" onClick={() => { void exportCurrentMapImage() }}><Download size={15} /></button>
       <button type="button" title="导出整张高清全景地图" aria-label="导出整张高清全景地图" onClick={() => { void exportPanoramaImage() }}><Maximize2 size={15} /></button>
