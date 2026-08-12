@@ -19,6 +19,11 @@ dist-ssr
 tools/**/bin/
 tools/**/obj/
 tools/oni-render-assets.json
+
+# Local browser/rendering fixtures and screenshots
+.tmp-*
+liquid-fixture.png
+tools/full-map-layout-fixture.html
 .DS_Store
 *.suo
 *.ntvs*
