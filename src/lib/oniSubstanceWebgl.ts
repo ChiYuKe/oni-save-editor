@@ -113,7 +113,13 @@ void main() {
 }`
 
 type MaskAtlas = { canvas: HTMLCanvasElement; rects: WeakMap<TerrainMaskVariant, [number, number, number, number]> }
-type Batch = { texture: HTMLImageElement; scale: number; tint: readonly number[]; vertices: number[] }
+type Batch = { texture: HTMLImageElement | HTMLCanvasElement; scale: number; tint: readonly number[]; vertices: number[] }
+type RenderMaterial = {
+  substanceIndex: number
+  worldUvScale: number
+  colourTint: readonly [number, number, number, number]
+}
+type GroundSample = { element: ReturnType<typeof elementForHash>; material: RenderMaterial; texture: HTMLImageElement | HTMLCanvasElement }
 
 function compile(gl: WebGL2RenderingContext, type: number, source: string): WebGLShader {
   const shader = gl.createShader(type)
@@ -138,6 +144,23 @@ export class OniSubstanceWebGLRenderer {
   private worldZoneTexture?: WebGLTexture
   private stateChangeTexture?: WebGLTexture
   private fallingSolidTexture?: WebGLTexture
+  private uploadedPropertyCacheKey?: object
+  private fallbackTextures = new Map<string, HTMLCanvasElement>()
+
+  private fallbackTexture(color: string): HTMLCanvasElement {
+    const cached = this.fallbackTextures.get(color)
+    if (cached) return cached
+    const canvas = document.createElement('canvas')
+    canvas.width = 2
+    canvas.height = 2
+    const context = canvas.getContext('2d')
+    if (context) {
+      context.fillStyle = color
+      context.fillRect(0, 0, canvas.width, canvas.height)
+    }
+    this.fallbackTextures.set(color, canvas)
+    return canvas
+  }
 
   private initialize(width: number, height: number): WebGL2RenderingContext | undefined {
     if (!this.canvas) {
@@ -254,18 +277,23 @@ export class OniSubstanceWebGLRenderer {
     const atlas = this.maskAtlas(input)
     if (!gl || !this.canvas || !this.program || !this.buffer || !atlas) return false
     const batches = new Map<number, Batch>()
-    let needsCanvasFallback = false
-    const sample = (x: number, y: number) => {
+    const sample = (x: number, y: number): GroundSample | undefined => {
       if (input.isTerrainMaskedAt(x, y)) return undefined
       const cell = input.cellAt(x, y)
       const element = cell && elementForHash(cell.elementHash)
       const material = cell && ONI_SUBSTANCE_BY_HASH.get(cell.elementHash & 0xffff)
       if (element?.state !== 'solid') return undefined
-      if (!material?.textureUrl || !input.textures[material.textureUrl]) {
-        needsCanvasFallback = true
-        return undefined
+      const texture = material?.textureUrl ? input.textures[material.textureUrl] : undefined
+      const elementTexture = element.texture ? input.textures[element.texture] : undefined
+      return {
+        element,
+        texture: texture ?? elementTexture ?? this.fallbackTexture(element.color),
+        material: material ?? {
+          substanceIndex: element.terrainOrder ?? element.hash,
+          worldUvScale: element.worldUvScale ?? 8,
+          colourTint: [1, 1, 1, 1],
+        },
       }
-      return { element, material }
     }
     for (let canvasY = input.range.minRow; canvasY <= input.range.maxRow; canvasY += 1) {
       const y = input.height - 1 - canvasY
@@ -279,13 +307,11 @@ export class OniSubstanceWebGLRenderer {
             | (corners[3]?.material.substanceIndex! >= idx ? 4 : 0)
             | (corners[0]?.material.substanceIndex! >= idx ? 2 : 0)
             | (corners[1]?.material.substanceIndex! >= idx ? 1 : 0)
-          if (!mask || !item.material.textureUrl) continue
-          const texture = input.textures[item.material.textureUrl]
-          if (!texture) continue
+          if (!mask) continue
+          const texture = item.texture
           const zoneType = input.worldZones[y * input.width + x] ?? 3
           const maskPaths = input.maskSets.get(zoneType) ?? input.maskSets.get(3)
           if (mask !== 15 && !maskPaths) {
-            needsCanvasFallback = true
             continue
           }
           const variant = mask === 15 ? undefined : pickTerrainMaskVariant(maskPaths!, mask, x, y)
@@ -312,7 +338,6 @@ export class OniSubstanceWebGLRenderer {
         }
       }
     }
-    if (needsCanvasFallback) return false
     gl.clearColor(0, 0, 0, 0)
     gl.clear(gl.COLOR_BUFFER_BIT)
     gl.useProgram(this.program)
@@ -324,10 +349,15 @@ export class OniSubstanceWebGLRenderer {
     const fallingMap = input.textures['/assets/render/mudmelt.png']
     const digDamageMap = input.textures['/assets/render/crackAlpha.png']
     if (!stateMap || !fallingMap || !digDamageMap) return false
-    this.solidDigTexture = this.propertyTexture(this.solidDigTexture, propertyTextures.width, propertyTextures.height, gl.RGB, propertyTextures.solidDigAmount)
-    this.worldZoneTexture = this.propertyTexture(this.worldZoneTexture, propertyTextures.width, propertyTextures.height, gl.RGB, propertyTextures.worldZone)
-    this.stateChangeTexture = this.propertyTexture(this.stateChangeTexture, propertyTextures.width, propertyTextures.height, gl.RED, propertyTextures.stateChange)
-    this.fallingSolidTexture = this.propertyTexture(this.fallingSolidTexture, propertyTextures.width, propertyTextures.height, gl.RED, propertyTextures.fallingSolid)
+    const propertyKey = input.propertyCacheKey
+    const needsPropertyUpload = !propertyKey || this.uploadedPropertyCacheKey !== propertyKey
+    if (needsPropertyUpload) {
+      this.solidDigTexture = this.propertyTexture(this.solidDigTexture, propertyTextures.width, propertyTextures.height, gl.RGB, propertyTextures.solidDigAmount)
+      this.worldZoneTexture = this.propertyTexture(this.worldZoneTexture, propertyTextures.width, propertyTextures.height, gl.RGB, propertyTextures.worldZone)
+      this.stateChangeTexture = this.propertyTexture(this.stateChangeTexture, propertyTextures.width, propertyTextures.height, gl.RED, propertyTextures.stateChange)
+      this.fallingSolidTexture = this.propertyTexture(this.fallingSolidTexture, propertyTextures.width, propertyTextures.height, gl.RED, propertyTextures.fallingSolid)
+      if (propertyKey) this.uploadedPropertyCacheKey = propertyKey
+    }
     gl.uniform2f(gl.getUniformLocation(this.program, 'u_grid_size'), propertyTextures.width, propertyTextures.height)
     gl.activeTexture(gl.TEXTURE1)
     gl.bindTexture(gl.TEXTURE_2D, this.texture(atlas.canvas, false) ?? null)

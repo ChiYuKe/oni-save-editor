@@ -14,7 +14,6 @@ import {
   Grid2x2,
   Hand,
   Layers3,
-  Maximize2,
   Paintbrush,
   PaintBucket,
   Pipette,
@@ -33,7 +32,7 @@ import {
 } from 'lucide-react'
 import './App.css'
 import { buildSave, type ParsedSave } from './lib/save'
-import { ELEMENTS, defaultElementValues, elementForHash, elementOptions, formatHash, type FluidMaterialStyle } from './lib/elements'
+import { ELEMENTS, defaultElementValues, elementForHash, elementOptions, formatHash } from './lib/elements'
 import {
   component,
   editableMembers,
@@ -49,40 +48,18 @@ import {
   saveGameInstance,
   setValueFromText,
   topGroups,
-  worldGrid,
-  worldCoordinate,
-  worldSeed,
   worldSize,
 } from './lib/editor'
-import type { SavedObjectGroup, SavedObjectInstance, Value } from './lib/model'
-import { SIM_DISEASE_SIZE, getSimElementProfile, getWorldCell, readSimBackwall, readSimCell, setWorldCells, type SimCell } from './lib/sim'
-import { BLOCK_TILE_TEXTURES, blockTileCellKey, blockTileConnectionBits, blockTileTextureForTag, drawBlockTile } from './lib/blockTiles'
+import type { SavedObjectInstance, Value } from './lib/model'
+import { getSimElementProfile, getWorldCell, readSimCell, setWorldCells, type SimCell } from './lib/sim'
 import {
-  TERRAIN_MASK_ATLAS_URL,
   createTerrainBoundaryPath,
   createTerrainCellPath,
-  createTerrainMaskSets,
-  type TerrainMaskSets,
 } from './lib/terrainMasks'
-import {
-  UTILITY_DEFINITIONS,
-  drawUtilityTile,
-  utilityConnectionBits,
-  utilityFamilyForTag,
-  utilityNeighbourConnections,
-  utilityTextureForTag,
-  type UtilityCellMap,
-  type UtilityCellRecord,
-  type UtilityFamily,
-} from './lib/utilityTiles'
 import { parseYamlTemplate, templateVisualElementForName, type TemplateEntity, type YamlTemplate } from './lib/yamlTemplates'
-import { oniBuildingDefinitionForAnimation, oniBuildingDefinitionForTag, type OniBuildingDefinition } from './lib/oniBuildingDefs.generated'
-import { ONI_SCENE_LAYER_ORDER, ONI_WORLD_ZONE_COLORS, oniWorldRenderer } from './lib/oniRenderer'
-import { ONI_SUBSTANCE_MATERIALS } from './lib/oniSubstances.generated'
+import { PixiWorldScene } from './lib/pixiWorldScene'
+import { createOniChunkRenderer, type OniChunkLayer } from './lib/oniWorldChunkRenderer'
 import { drawMinionKanim, loadMinionKanimAssets, type MinionKanimAssets } from './lib/oniMinionKanim'
-import { drawOniLightBuffer, oniLightDefinitionForTag, type OniLightInstance } from './lib/oniLighting'
-import { drawOniSavedParticles, loadOniParticleTextures } from './lib/oniParticles'
-import { oniStateMachineState } from './lib/oniStateMachines'
 
 type View = 'overview' | 'map' | 'dupes' | 'objects'
 type MapLayer = 'grid' | 'biome' | 'minions' | 'entities' | 'buildings' | 'geysers' | 'power' | 'plumbing' | 'ventilation' | 'automation' | 'shipment' | 'gas' | 'liquid' | 'ground' | 'backwall'
@@ -98,34 +75,9 @@ type MapViewport = { zoomPercent: number; pan: { x: number; y: number } }
 // far away from the global grid centre, so a magnified centred view may contain
 // only unexplored fog even though the colony data rendered correctly.
 const DEFAULT_MAP_VIEWPORT: MapViewport = { zoomPercent: 0, pan: { x: 0, y: 0 } }
-const MAP_CELL_PIXELS = 4
 const MAP_ZOOM_MIN = 1
 const MAP_ZOOM_MAX = 16
-// Keep export cells on whole pixels so scaled terrain masks and textures stay crisp.
-const PANORAMA_CELL_PIXELS = 11
 const DEFAULT_ELEMENT_WORLD_UV_SCALE = 8
-const MAP_EDITOR_URL = 'https://chiyuke.github.io/oni-save-editor/'
-type GeyserTextureDefinition = {
-  path: string
-  widthCells: number
-  heightCells?: number
-  verticalOffsetCells?: number
-  anchorOffsetXCells?: number
-  anchorOffsetYCells?: number
-}
-type BuildingTextureDefinition = {
-  path: string
-  widthCells: number
-  heightCells?: number
-  anchorOffsetXCells?: number
-  anchorOffsetYCells?: number
-}
-type RotatableVisualizer = {
-  pivotXCells: number
-  pivotYCells: number
-  offsetXCells: number
-  offsetYCells: number
-}
 function assetPath(path: string): string {
   if (!path.startsWith('/')) return path
   return `${import.meta.env.BASE_URL.replace(/\/$/, '')}${path}`
@@ -133,132 +85,8 @@ function assetPath(path: string): string {
 
 // The game samples these layers from the bgarray Texture2DArray. The values
 // match SubworldZoneRenderData.zoneTextureArrayIndices in the game source.
-function biomeBackgroundAsset(textureIndex: number): string {
-  return `/assets/background/biomes/slice-${textureIndex.toString().padStart(2, '0')}.png`
-}
 
-function pointInPolygon(x: number, y: number, vertices: Array<{ x: number; y: number }>): boolean {
-  let inside = false
-  for (let index = 0, previous = vertices.length - 1; index < vertices.length; previous = index++) {
-    const currentVertex = vertices[index]
-    const previousVertex = vertices[previous]
-    const intersects = currentVertex.y > y !== previousVertex.y > y
-      && x < (previousVertex.x - currentVertex.x) * (y - currentVertex.y) / (previousVertex.y - currentVertex.y) + currentVertex.x
-    if (intersects) inside = !inside
-  }
-  return inside
-}
 
-function buildWorldZoneMap(save: ParsedSave, width: number, height: number): Uint8Array {
-  const zoneMap = new Uint8Array(width * height)
-  zoneMap.fill(7)
-  const worldDetail = member(save.gameData, 'worldDetail')?.value
-  if (!worldDetail || worldDetail.kind !== 'object') return zoneMap
-  const overworldCells = member(worldDetail, 'overworldCells')?.value
-  if (!overworldCells || overworldCells.kind !== 'list') return zoneMap
-
-  for (const item of overworldCells.items) {
-    if (item.kind !== 'object') continue
-    const zoneValue = member(item, 'zoneType')?.value
-    const zoneType = zoneValue && (zoneValue.kind === 'enum' || zoneValue.kind === 'byte' || zoneValue.kind === 'int32')
-      ? zoneValue.v
-      : undefined
-    const polygonValue = member(item, 'poly')?.value
-    if (zoneType === undefined || !polygonValue || polygonValue.kind !== 'object') continue
-    const verticesValue = member(polygonValue, 'vertices')?.value
-    if (!verticesValue || verticesValue.kind !== 'list') continue
-    const vertices = verticesValue.items
-      .filter((vertex): vertex is Extract<typeof vertex, { kind: 'vector2' }> => vertex.kind === 'vector2')
-      .map((vertex) => ({ x: vertex.x, y: vertex.y }))
-    if (vertices.length < 3) continue
-    const minX = Math.max(0, Math.floor(Math.min(...vertices.map((vertex) => vertex.x))))
-    const maxX = Math.min(width - 1, Math.ceil(Math.max(...vertices.map((vertex) => vertex.x))))
-    const minY = Math.max(0, Math.floor(Math.min(...vertices.map((vertex) => vertex.y))))
-    const maxY = Math.min(height - 1, Math.ceil(Math.max(...vertices.map((vertex) => vertex.y))))
-    for (let y = minY; y <= maxY; y++) {
-      for (let x = minX; x <= maxX; x++) {
-        if (pointInPolygon(x, y, vertices)) zoneMap[y * width + x] = zoneType
-      }
-    }
-  }
-  return zoneMap
-}
-
-function geyserAsset(fileName: string, widthCells: number): GeyserTextureDefinition {
-  const isGasGeyser = fileName.startsWith('geyser_gas_') || /^geyser_side_(chlorine|methane|steam)_/.test(fileName)
-  return { path: `/assets/geysers/${fileName}`, widthCells, verticalOffsetCells: isGasGeyser ? 1 : undefined }
-}
-
-const GEYSER_TEXTURES: Record<string, GeyserTextureDefinition> = {
-  gas_chlorine: geyserAsset('geyser_gas_chlorine_0_ui_False.png', 3.2),
-  gas_co2_hot: geyserAsset('geyser_gas_co2_hot_0_ui_False.png', 3.2),
-  gas_hydrogen_hot: geyserAsset('geyser_gas_hydrogen_hot_0_ui_False.png', 3.2),
-  gas_methane: geyserAsset('geyser_gas_methane_0_ui_False.png', 3.2),
-  gas_po2_hot: geyserAsset('geyser_gas_po2_hot_0_ui_False.png', 3.2),
-  gas_po2_slimy: geyserAsset('geyser_gas_po2_slimy_0_ui_False.png', 3.2),
-  gas_steam: geyserAsset('geyser_gas_steam_0_ui_False.png', 3.2),
-  gas_steam_hot: geyserAsset('geyser_gas_steam_hot_0_ui_False.png', 3.2),
-  liquid_co2: geyserAsset('geyser_liquid_co2_0_ui_False.png', 4),
-  liquid_murky_brine: geyserAsset('geyser_liquid_murkybrine_0_ui_False.png', 4),
-  liquid_oil: geyserAsset('geyser_liquid_oil_0_ui_False.png', 4),
-  liquid_salt_water: geyserAsset('geyser_liquid_salt_water_0_ui_False.png', 4),
-  liquid_salt_water_cool_slush: geyserAsset('geyser_liquid_salt_water_cool_slush_0_ui_False.png', 4),
-  liquid_sulfur: geyserAsset('geyser_liquid_sulfur_0_ui_False.png', 4),
-  liquid_water_filthy: geyserAsset('geyser_liquid_water_filthy_0_ui_False.png', 4),
-  liquid_water_hot: geyserAsset('geyser_liquid_water_hot_0_ui_False.png', 4),
-  liquid_water_slush: geyserAsset('geyser_liquid_water_slush_0_ui_False.png', 4),
-  molten_aluminum: geyserAsset('geyser_molten_aluminum_0_ui_False.png', 4),
-  molten_cobalt: geyserAsset('geyser_molten_cobalt_0_ui_False.png', 4),
-  molten_copper: geyserAsset('geyser_molten_copper_0_ui_False.png', 4),
-  molten_gold: geyserAsset('geyser_molten_gold_0_ui_False.png', 4),
-  molten_iron: geyserAsset('geyser_molten_iron_0_ui_False.png', 4),
-  molten_niobium: geyserAsset('geyser_molten_niobium_0_ui_False.png', 4),
-  molten_tungsten: geyserAsset('geyser_molten_tungsten_0_ui_False.png', 4),
-  molten_volcano_big: geyserAsset('geyser_molten_volcano_big_0_ui_False.png', 4),
-  molten_volcano_small: geyserAsset('geyser_molten_volcano_small_0_ui_False.png', 4),
-  oil_cap: geyserAsset('geyser_oil_cap_0_ui_False.png', 3.8),
-  reef: geyserAsset('geyser_reef_0_ui_False.png', 4.2),
-  side_chlorine: geyserAsset('geyser_side_chlorine_0_ui_False.png', 4.4),
-  side_methane: geyserAsset('geyser_side_methane_0_ui_False.png', 4.4),
-  side_oil: geyserAsset('geyser_side_oil_0_ui_False.png', 4.4),
-  side_steam: geyserAsset('geyser_side_steam_0_ui_False.png', 4.4),
-  aquatic_brackene_fountain: geyserAsset('aquatic_brackene_fountain_0_ui_False.png', 2.8),
-}
-
-// Prefab tags and exported sprite ids use different word orders for several geysers.
-const GEYSER_TAG_ALIASES: Record<string, string> = {
-  big_volcano: 'molten_volcano_big',
-  chlorine_gas_cool: 'gas_chlorine',
-  chlorine_gas: 'gas_chlorine',
-  filthy_water: 'liquid_water_filthy',
-  hot_co2: 'gas_co2_hot',
-  hot_hydrogen: 'gas_hydrogen_hot',
-  hot_steam: 'gas_steam_hot',
-  hot_water: 'liquid_water_hot',
-  murky_brine: 'liquid_murky_brine',
-  methane: 'gas_methane',
-  oil_drip: 'oil_cap',
-  salt_water_cool_slush: 'liquid_salt_water_cool_slush',
-  slush_salt_water: 'liquid_salt_water_cool_slush',
-  slush_water: 'liquid_water_slush',
-  slimy_po2: 'gas_po2_slimy',
-  small_volcano: 'molten_volcano_small',
-  steam: 'gas_steam',
-  salt_water: 'liquid_salt_water',
-}
-
-function geyserTextureForTag(tag: string): GeyserTextureDefinition | undefined {
-  const normalized = tag.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_')
-  if (normalized === 'smallreefgeyser') return GEYSER_TEXTURES.reef
-  if (normalized === 'geyser') return GEYSER_TEXTURES.side_steam
-  if (normalized === 'chlorinegeyser') return GEYSER_TEXTURES.side_chlorine
-  if (normalized === 'methanegeyser') return GEYSER_TEXTURES.side_methane
-  if (normalized === 'oilwell') return GEYSER_TEXTURES.side_oil
-  if (normalized === 'niobiumgeyser') return GEYSER_TEXTURES.molten_niobium
-  if (normalized.includes('aquatic') || normalized.includes('brackene')) return GEYSER_TEXTURES.aquatic_brackene_fountain
-  const key = normalized.replace(/^geysergeneric_/, '')
-  return GEYSER_TEXTURES[GEYSER_TAG_ALIASES[key] ?? key]
-}
 
 function loadAssetImage(path: string, onLoad: (image: HTMLImageElement) => void): void {
   const image = new Image()
@@ -275,177 +103,15 @@ function loadAssetImage(path: string, onLoad: (image: HTMLImageElement) => void)
   if (image.complete) finish()
 }
 
-function loadAssetImages(paths: Iterable<string>): Promise<Record<string, HTMLImageElement>> {
-  return Promise.all(Array.from(new Set(paths), (path) => new Promise<{ path: string; image: HTMLImageElement } | null>((resolve) => {
-    const image = new Image()
-    image.decoding = 'async'
-    image.onload = () => resolve({ path, image })
-    image.onerror = () => resolve(null)
-    image.src = assetPath(path)
-  }))).then((entries) => {
-    const images: Record<string, HTMLImageElement> = {}
-    entries.forEach((entry) => { if (entry) images[entry.path] = entry.image })
-    return images
-  })
-}
 
-const BUILDING_TEXTURES: Record<string, BuildingTextureDefinition> = {
-  gasvent: { path: '/assets/buildings/sprites/ventgas.png', widthCells: 1 },
-  gasventhighpressure: { path: '/assets/buildings/sprites/ventgas_powered.png', widthCells: 1 },
-  liquidvent: { path: '/assets/buildings/sprites/ventliquid.png', widthCells: 1 },
-  solidvent: {
-    path: '/assets/buildings/sprites/conveyer_dropper.png',
-    widthCells: 1.26,
-    heightCells: 1.38,
-    anchorOffsetXCells: -.00975,
-    anchorOffsetYCells: -.418625,
-  },
-  underwatervent: { path: '/assets/buildings/sprites/underwater_vent.png', widthCells: 4 },
-  underwaterventdrill: { path: '/assets/buildings/sprites/underwater_vent_drill.png', widthCells: 4 },
-  wirebridge: { path: '/assets/buildings/sprites/utilityelectricbridge.png', widthCells: 1 },
-  wirerefinedbridge: { path: '/assets/buildings/sprites/utilityelectricbridgeconductive.png', widthCells: 1 },
-  wirerubberbridge: { path: '/assets/buildings/sprites/utilityelectricbridgerubber.png', widthCells: 1 },
-  gasconduitbridge: { path: '/assets/buildings/sprites/utilitygasbridge.png', widthCells: 1 },
-  liquidconduitbridge: { path: '/assets/buildings/sprites/utilityliquidbridge.png', widthCells: 1 },
-  solidconduitbridge: { path: '/assets/buildings/sprites/utilities_conveyorbridge.png', widthCells: 1 },
-  solidconduitinbox: { path: '/assets/buildings/sprites/conveyorin.png', widthCells: 1.23, heightCells: 2.27, anchorOffsetXCells: -.008375, anchorOffsetYCells: -1.006875 },
-  solidconduitoutbox: { path: '/assets/buildings/sprites/conveyorout.png', widthCells: 1.230125, heightCells: 2.21675, anchorOffsetXCells: -.018688, anchorOffsetYCells: -.967875 },
-  logicwirebridge: { path: '/assets/buildings/sprites/logic_bridge.png', widthCells: 1 },
-  warpconduitreceiver: { path: '/assets/buildings/sprites/warp_conduit_receiver.png', widthCells: 4.097, heightCells: 2.6855, anchorOffsetXCells: -.00463, anchorOffsetYCells: -1.26625 },
-  warpconduitsender: { path: '/assets/buildings/sprites/warp_conduit_sender.png', widthCells: 4.1547, heightCells: 2.790875, anchorOffsetXCells: .01197, anchorOffsetYCells: -1.318938 },
-  conduitportgasloader: { path: '/assets/buildings/sprites/conduit_port_gas_loader.png', widthCells: 1 },
-  conduitportgasunloader: { path: '/assets/buildings/sprites/conduit_port_gas_unloader.png', widthCells: 1 },
-  conduitportliquidloader: { path: '/assets/buildings/sprites/conduit_port_liquid_loader.png', widthCells: 1 },
-  conduitportliquidunloader: { path: '/assets/buildings/sprites/conduit_port_liquid_unloader.png', widthCells: 1 },
-  conduitportsolidloader: { path: '/assets/buildings/sprites/conduit_port_solid_loader.png', widthCells: 1 },
-  conduitportsolidunloader: { path: '/assets/buildings/sprites/conduit_port_solid_unloader.png', widthCells: 1 },
-}
 
-// Some prefab tags use a different word order from their KAnim package name.
-// Keep these aliases at the lookup boundary so the save format remains intact.
-const BUILDING_TAG_ALIASES: Record<string, string> = {
-  flushtoilet: 'toiletflush',
-  toiletwall: 'toilet_wall',
-  washbasin: 'wash_sink',
-  liquidvent: 'ventliquid',
-  solidconduitinbox: 'conveyorin',
-  solidconduitoutbox: 'conveyorout',
-  warpconduitsender: 'warp_conduit_sender',
-  warpconduitreceiver: 'warp_conduit_receiver',
-  door: 'door_internal',
-  pneumaticdoor: 'door_internal',
-  manualairlock: 'door_manual',
-  manualpressuredoor: 'door_manual',
-  mechanizedairlock: 'door_external',
-  insulateddoor: 'door_insulated',
-  bunkerdoor: 'door_bunker',
-  woodendoor: 'door_wood',
-  facilitydoor: 'door_facility',
-  poibunkerexteriordoor: 'door_poi',
-  poidoorinternal: 'door_poi_internal',
-  logicgateand: 'logic_and',
-  poicerestechunlock: 'research_unlock',
-  poidlc4techunlock: 'research_unlock_dino',
-  poidlc5techunlock: 'research_unlock_aquatic',
-  gravitasdoor: 'gravitas_door_internal',
-  storagenetworkorderproductioncenter: 'storagenetwork_orderproductioncenter',
-}
 
-// LogicGateAND is exported by the game with a specialized config that is not
-// present in the current generated Config.cs table. Keep its real footprint
-// here so even-width visualizer offsets and occupied-cell masking stay aligned.
-const BUILDING_DEFINITION_OVERRIDES: Record<string, OniBuildingDefinition> = {
-  logicgateand: {
-    id: 'LogicGateAND',
-    width: 2,
-    height: 2,
-    animation: 'logic_and_kanim',
-    defaultAnim: 'off',
-    sceneLayer: 'LogicGates',
-    foregroundLayer: 'BuildingFront',
-    objectLayer: 'LogicGate',
-    source: 'LogicGateANDConfig.cs',
-  },
-}
 
-function oniBuildingDefinitionForSaveTag(tag: string) {
-  const key = tag.trim().toLowerCase()
-  const alias = BUILDING_TAG_ALIASES[key]
-  return BUILDING_DEFINITION_OVERRIDES[key] ?? oniBuildingDefinitionForTag(key) ?? (alias ? oniBuildingDefinitionForAnimation(alias) : undefined)
-}
 
-function buildingTextureLookupKeys(tag: string): string[] {
-  const key = tag.trim().toLowerCase()
-  const alias = BUILDING_TAG_ALIASES[key]
-  const definition = oniBuildingDefinitionForSaveTag(tag)
-  const animation = definition?.animation.replace(/_kanim$/i, '').toLowerCase()
-  const prefabKey = `${key}__prefab`
-  const definitionPrefabKey = definition ? `${definition.id.toLowerCase()}__prefab` : undefined
-  return [...new Set([prefabKey, definitionPrefabKey, key, alias, definition?.id.toLowerCase(), animation].filter((candidate): candidate is string => Boolean(candidate)))]
-}
 
-function buildingTextureForTag(tag: string, generated: Record<string, BuildingTextureDefinition> = {}): BuildingTextureDefinition | undefined {
-  const keys = buildingTextureLookupKeys(tag)
-  // Prefer the full KAnim render even when a legacy UI entry exists for the
-  // prefab key. Without this ordering, aliases such as WarpConduitSender
-  // silently kept using the one-cell thumbnail.
-  const definition = keys.map((key) => generated[key]).find((candidate): candidate is BuildingTextureDefinition => candidate !== undefined)
-    ?? keys.map((key) => BUILDING_TEXTURES[key]).find((definition): definition is BuildingTextureDefinition => definition !== undefined)
-  return definition
-}
 
-function doorControlTextureForInstance(tag: string, instance: SavedObjectInstance, generated: Record<string, BuildingTextureDefinition>): BuildingTextureDefinition | undefined {
-  const definition = oniBuildingDefinitionForSaveTag(tag)
-  const animation = definition?.animation.replace(/_kanim$/i, '').toLowerCase()
-  const door = instance.components.find((component) => component.typeName.split(/[.+]/).pop()?.toLowerCase() === 'door')
-  if (!animation || !door) return undefined
-  const controlState = door?.value?.members.find((member) => member.name === 'controlState')?.value
-  // Door.ControlState in the game source: Auto = 0, Opened = 1, Locked = 2.
-  // Auto starts in Door.Controller.closed, matching POIDoorInternal's explicit
-  // initialAnim = "closed" configuration.
-  const state = controlState?.kind === 'enum' || controlState?.kind === 'int32' || controlState?.kind === 'uint32'
-    ? controlState.v === 1 ? 'open' : controlState.v === 2 ? 'locked' : 'closed'
-    : 'closed'
-  return generated[`${animation}__${state}`]
-    ?? (state === 'locked' ? generated[`${animation}__closed`] : undefined)
-}
 
-function buildingTextureForInstance(tag: string, instance: SavedObjectInstance, generated: Record<string, BuildingTextureDefinition> = {}): BuildingTextureDefinition | undefined {
-  return doorControlTextureForInstance(tag, instance, generated) ?? buildingTextureForTag(tag, generated)
-}
 
-function hasSimpleComponent(instance: SavedObjectInstance, typeName: string): boolean {
-  const expected = typeName.toLowerCase()
-  return instance.components.some((item) => {
-    const simpleName = item.typeName.split(/[.+]/).pop()?.toLowerCase()
-    return simpleName === expected
-  })
-}
-
-function oniLightIsEnabled(instance: SavedObjectInstance, requiresActive: boolean): boolean {
-  if (!requiresActive) return true
-  const stateController = component(instance, 'StateMachineController')
-  const lightControllerState = oniStateMachineState(stateController?.details, 'LightController')
-  if (lightControllerState) return /(?:^|\.)on$/i.test(lightControllerState)
-  // LightController.on calls Operational.SetActive(true). Operational's current
-  // boolean is not serialized, but OnSerializing flushes the current interval
-  // into activeTime/inactiveTime, so a positive current-cycle active interval is
-  // the source-backed state available in a save file.
-  const operational = component(instance, 'Operational')?.value
-  return (scalarNumber(member(operational, 'activeTime')?.value) ?? 0) > 0
-}
-
-function isGeyserInstance(groupTag: string, instance: SavedObjectInstance, texture: GeyserTextureDefinition | undefined): boolean {
-  return Boolean(texture)
-    || /geyser|fountain/i.test(groupTag)
-    || instance.components.some((item) => /(?:^|[.+])geyser(?:$|[.+])/i.test(item.typeName))
-}
-
-function instanceOrientation(instance: SavedObjectInstance): number {
-  const component = instance.components.find((item) => item.typeName.split(/[.+]/).pop()?.toLowerCase() === 'rotatable')
-  const member = component?.value?.members.find((item) => item.name === 'orientation')
-  return member?.value.kind === 'enum' ? member.value.v : 0
-}
 
 function minionAccessoryGuids(instance: SavedObjectInstance): string[] {
   const accessorizer = component(instance, 'Accessorizer')?.value
@@ -492,198 +158,23 @@ function minionFacesLeft(instance: SavedObjectInstance): boolean {
   return value?.kind === 'boolean' ? value.v : false
 }
 
-function rotatableVisualizerForTag(tag: string): RotatableVisualizer | undefined {
-  const definition = oniBuildingDefinitionForSaveTag(tag)
-  if (!definition) return undefined
-  // BuildingComplete.OnPrefabInit applies BuildingDef.GetVisualizerOffset()
-  // to every building. Rotatable.SetSize() applies the same horizontal rule:
-  // an even-width footprint is visualized half a cell to the right of its
-  // placement origin. The old tag-only BunkerDoor exception left every other
-  // even-width building half a cell too far left.
-  const evenWidth = definition.width % 2 === 0
-  return {
-    pivotXCells: evenWidth ? -.5 : 0,
-    pivotYCells: .5,
-    offsetXCells: evenWidth ? .5 : 0,
-    offsetYCells: 0,
-  }
-}
 
-type MapObjectRenderEntry = {
-  group: SavedObjectGroup
-  instance: SavedObjectInstance
-  order: number
-}
 
-const TERRAIN_SCENE_LAYER = ONI_SCENE_LAYER_ORDER.Ground
 
-function utilitySceneLayer(family: UtilityFamily): number {
-  switch (family) {
-    case 'gas': return ONI_SCENE_LAYER_ORDER.GasConduits
-    case 'liquid': return ONI_SCENE_LAYER_ORDER.LiquidConduits
-    case 'solid': return ONI_SCENE_LAYER_ORDER.SolidConduits
-    case 'electrical': return ONI_SCENE_LAYER_ORDER.Wires
-    case 'logic': return ONI_SCENE_LAYER_ORDER.LogicWires
-  }
-}
-
-function mapObjectSceneLayer(group: SavedObjectGroup): number {
-  if (group.tag === 'Minion') return ONI_SCENE_LAYER_ORDER.Creatures
-  if (blockTileTextureForTag(group.tag)) return ONI_SCENE_LAYER_ORDER.TileMain
-  const utilityFamily = utilityFamilyForTag(group.tag)
-  if (utilityFamily) return utilitySceneLayer(utilityFamily)
-  const definition = oniBuildingDefinitionForSaveTag(group.tag)
-  return ONI_SCENE_LAYER_ORDER[definition?.sceneLayer ?? ''] ?? ONI_SCENE_LAYER_ORDER.Building
-}
 
 /**
  * Unity renders the game's orthographic scene from larger Z toward smaller Z.
  * Grid.GetLayerZ makes higher/front SceneLayer values increasingly negative,
  * so canvas must paint saved objects in descending Z order.
  */
-function mapObjectsInRenderOrder(save: ParsedSave): MapObjectRenderEntry[] {
-  const entries: MapObjectRenderEntry[] = []
-  let order = 0
-  for (const group of save.manager?.groups ?? []) {
-    for (const instance of group.instances) entries.push({ group, instance, order: order++ })
-  }
-  return entries.sort((left, right) => {
-    const layerDelta = mapObjectSceneLayer(left.group) - mapObjectSceneLayer(right.group)
-    if (layerDelta) return layerDelta
-    const leftZ = Number.isFinite(left.instance.position.z) ? left.instance.position.z : 0
-    const rightZ = Number.isFinite(right.instance.position.z) ? right.instance.position.z : 0
-    return rightZ - leftZ || left.order - right.order
-  })
-}
 
-function blockTileCellsByGroup(save: ParsedSave): Map<SavedObjectGroup, Set<string>> {
-  const result = new Map<SavedObjectGroup, Set<string>>()
-  for (const group of save.manager?.groups ?? []) {
-    if (!blockTileTextureForTag(group.tag)) continue
-    result.set(group, new Set(group.instances.map((item) => blockTileCellKey(Math.floor(item.position.x), Math.floor(item.position.y)))))
-  }
-  return result
-}
 
-function rotatedBuildingOffset(x: number, y: number, orientation: number): { x: number; y: number } {
-  // Rotatable.GetRotatedCellOffset() from the game. Keep this separate from
-  // the canvas transform: these offsets describe occupied simulation cells.
-  switch (orientation) {
-    case 1: return { x: y, y: -x }
-    case 2: return { x: -x, y: -y }
-    case 3: return { x: -y, y: x }
-    case 5: return { x: -x, y }
-    case 6: return { x, y: -y }
-    default: return { x, y }
-  }
-}
 
-function buildingPlacementCells(instance: SavedObjectInstance, footprint: ReturnType<typeof oniBuildingDefinitionForSaveTag>): Array<{ x: number; y: number }> {
-  if (!footprint) return []
-  // BuildingDef.GenerateOffsets(width, height):
-  //   firstX = width / 2 - width + 1
-  // then every cell is OffsetCell(placementCell, rotatedOffset). Save
-  // transforms are Grid.CellToPosCBC(placementCell), so flooring them gives
-  // that exact placement cell back.
-  const startX = Math.floor(footprint.width / 2) - footprint.width + 1
-  const baseX = Math.floor(instance.position.x)
-  const baseY = Math.floor(instance.position.y)
-  const orientation = instanceOrientation(instance)
-  const cells: Array<{ x: number; y: number }> = []
-  for (let localY = 0; localY < footprint.height; localY++) {
-    for (let localX = 0; localX < footprint.width; localX++) {
-      const offset = rotatedBuildingOffset(startX + localX, localY, orientation)
-      cells.push({ x: baseX + offset.x, y: baseY + offset.y })
-    }
-  }
-  return cells
-}
 
-function overlaysNaturalTerrain(group: SavedObjectGroup, instance: SavedObjectInstance): boolean {
-  // BuildingTemplates.CreateLadderDef() assigns ladders to LadderTile rather
-  // than the building tile layer. In-game they remain visible on top of a
-  // natural solid cell; they do not excavate that cell. Check the component
-  // first (covers ladder variants), with the saved prefab tags as a fallback
-  // for older saves that omit Ladder's empty serialized state.
-  const tag = group.tag.trim().toLowerCase()
-  return hasSimpleComponent(instance, 'Ladder')
-    || tag === 'ladder'
-    || tag === 'ladderfast'
-    || tag === 'firepole'
-    || tag === 'ladderbed'
-}
 
-function terrainMaskedCellsByBuilding(save: ParsedSave): Set<string> {
-  const cells = new Set<string>()
-  for (const group of save.manager?.groups ?? []) {
-    const footprint = oniBuildingDefinitionForSaveTag(group.tag)
-    if (!footprint) continue
-    for (const instance of group.instances) {
-      if (!hasSimpleComponent(instance, 'BuildingComplete')) continue
-      if (overlaysNaturalTerrain(group, instance)) continue
-      for (const cell of buildingPlacementCells(instance, footprint)) cells.add(blockTileCellKey(cell.x, cell.y))
-    }
-  }
-  return cells
-}
 
-function buildUtilityCellMap(save: ParsedSave): UtilityCellMap {
-  const cells: UtilityCellMap = new Map()
-  for (const group of save.manager?.groups ?? []) {
-    const family = utilityFamilyForTag(group.tag)
-    if (!family) continue
-    const familyCells = cells.get(family) ?? new Map<string, UtilityCellRecord>()
-    for (const instance of group.instances) {
-      const x = Math.floor(instance.position.x)
-      const y = Math.floor(instance.position.y)
-      const key = blockTileCellKey(x, y)
-      const next: UtilityCellRecord = {
-        tag: group.tag,
-        bits: utilityConnectionBits(instance),
-        isPhysical: hasSimpleComponent(instance, 'BuildingComplete'),
-      }
-      const previous = familyCells.get(key)
-      const physicalBits = next.isPhysical && next.bits !== undefined
-        ? ((previous?.physicalBits ?? 0) | next.bits)
-        : previous?.physicalBits
-      const candidate = physicalBits === undefined ? next : { ...next, physicalBits }
-      // A completed object occupies the physical network layer; an unfinished
-      // replacement is only a visual node. Prefer the physical record when a
-      // save contains both at the same cell.
-      if (!previous
-        || (next.isPhysical && !previous.isPhysical)
-        || (next.bits !== undefined && previous.bits === undefined)) {
-        familyCells.set(key, candidate)
-      } else if (physicalBits !== previous.physicalBits) {
-        familyCells.set(key, { ...previous, physicalBits })
-      }
-    }
-    cells.set(family, familyCells)
-  }
-  return cells
-}
 
-function utilityMapLayerForFamily(family: UtilityFamily): Extract<MapLayer, 'power' | 'plumbing' | 'ventilation' | 'automation' | 'shipment'> {
-  switch (family) {
-    case 'electrical': return 'power'
-    case 'liquid': return 'plumbing'
-    case 'gas': return 'ventilation'
-    case 'logic': return 'automation'
-    case 'solid': return 'shipment'
-  }
-}
 
-function mapEntityLayerIsVisible(visibleLayers: MapLayerVisibility, isGeyser: boolean, isCreature: boolean, utilityFamily: UtilityFamily | undefined): boolean {
-  if (isGeyser) return visibleLayers.geysers
-  if (isCreature) return visibleLayers.entities
-  if (utilityFamily) return visibleLayers[utilityMapLayerForFamily(utilityFamily)]
-  return visibleLayers.buildings
-}
-
-function mapEntityLayersAreVisible(visibleLayers: MapLayerVisibility): boolean {
-  return visibleLayers.entities || visibleLayers.buildings || visibleLayers.geysers || visibleLayers.power || visibleLayers.plumbing
-    || visibleLayers.ventilation || visibleLayers.automation || visibleLayers.shipment
-}
 
 const MAP_LAYERS: Array<{ id: MapLayer; label: string; detail: string }> = [
   { id: 'grid', label: '网格', detail: '编辑器辅助' },
@@ -902,7 +393,8 @@ function App() {
       setFileName(file.name)
       setSourceHandle(handle)
       setDirty(false)
-      setView('overview')
+      const requestedView = import.meta.env.DEV ? new URLSearchParams(window.location.search).get('view') : null
+      setView(requestedView === 'map' ? 'map' : 'overview')
       setMapViewport(DEFAULT_MAP_VIEWPORT)
       setSelectedGroup('Minion')
       setSelectedIndex(0)
@@ -1673,7 +1165,7 @@ function MapView({ save, updateSave, viewport, onViewportChange }: { save: Parse
               </div>
             </div>
           </section>
-          <MapCanvas save={save} visibleLayers={visibleLayers} overlay={overlay} tool={tool} brushSize={brushSize} viewport={viewport} onViewportChange={onViewportChange} selectedCell={lastCell} selection={selection} previewCells={previewCellsRef.current} previewVersion={previewVersion} onCell={handleCell} onSelectionChange={(next) => { setSelection(next); if (next) setLastCell(null) }} onShape={previewShape} onStrokeStart={beginStroke} onStrokeEnd={endStroke} />
+          <PixiMapCanvas save={save} visibleLayers={visibleLayers} overlay={overlay} tool={tool} brushSize={brushSize} viewport={viewport} onViewportChange={onViewportChange} selectedCell={lastCell} selection={selection} previewCells={previewCellsRef.current} previewVersion={previewVersion} onCell={handleCell} onSelectionChange={(next) => { setSelection(next); if (next) setLastCell(null) }} onShape={previewShape} onStrokeStart={beginStroke} onStrokeEnd={endStroke} />
           <div className="map-legend"><span><i className="legend-visible" />独立图层</span><span><i className="legend-entity" />{overlay === 'none' ? '无分析覆盖' : `${overlayLabel}覆盖`}</span><span><i className="legend-damage" />选中单元</span><span className="legend-help">SIM 网格含四周边界层</span></div>
         </div>
       </section>
@@ -2019,1782 +1511,225 @@ function createElementPatterns(context: CanvasRenderingContext2D, textures: Reco
   return patterns
 }
 
-type RgbColor = { r: number; g: number; b: number }
-const gasColorCache = new Map<string, RgbColor>()
 
-function gasRgb(color: string): RgbColor {
-  const cached = gasColorCache.get(color)
-  if (cached) return cached
-  const normalized = color.replace('#', '')
-  const value = normalized.length === 3
-    ? normalized.split('').map((part) => `${part}${part}`).join('')
-    : normalized
-  const parsed = Number.parseInt(value, 16)
-  const result = Number.isFinite(parsed)
-    ? { r: (parsed >> 16) & 255, g: (parsed >> 8) & 255, b: parsed & 255 }
-    : { r: 255, g: 255, b: 255 }
-  gasColorCache.set(color, result)
-  return result
-}
 
-function gasRgba(color: string, alpha: number): string {
-  const { r, g, b } = gasRgb(color)
-  return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, alpha))})`
-}
 
-function gasPressureVisibility(cell: SimCell): number {
-  const mass = Math.max(0, cell.mass)
-  return mass > 0 ? Math.max(Math.min(mass / 200, 1), .15) : 0
-}
 
-function drawGasBase(context: CanvasRenderingContext2D, style: FluidMaterialStyle, cell: SimCell, px: number, py: number, cellSize: number): void {
-  const pressure = gasPressureVisibility(cell)
-  if (pressure <= 0) return
-  // Canvas2D is only a fallback for browsers without WebGL2. Keep its
-  // coverage curve aligned with GasTest's _SpaceAlphaScale=2 and _Alpha=.5.
-  const alpha = Math.min(1, pressure * 2) * .5
-  context.fillStyle = gasRgba(style.gradientBottom, alpha)
-  context.fillRect(px, py, cellSize, cellSize)
-}
 
-function drawLiquidFallback(context: CanvasRenderingContext2D, style: FluidMaterialStyle, cell: SimCell, px: number, py: number, cellSize: number, fullHeight: boolean): void {
-  const massRatio = Math.min(Math.max(cell.mass, 0) / 2000, 1)
-  const amount = fullHeight ? 1 : Math.pow(massRatio, .45)
-  const alpha = style.opaque ? .48 + amount * .24 : .28 + amount * .28
-  context.fillStyle = gasRgba(style.gradientBottom, alpha)
-  context.fillRect(px, py, cellSize, cellSize)
-  if (!fullHeight) return
-  context.fillStyle = gasRgba(style.gradientTop, .22)
-  context.fillRect(px, py, cellSize, Math.max(1, cellSize * .07))
-}
-
-function drawGeyserTexture(context: CanvasRenderingContext2D, image: HTMLImageElement, definition: GeyserTextureDefinition, cellSize: number, centerX: number, centerY: number, orientation = 0, rotatable?: RotatableVisualizer): void {
-  if (!image.naturalWidth || !image.naturalHeight) return
-  const width = cellSize * definition.widthCells
-  const height = cellSize * (definition.heightCells ?? definition.widthCells * image.naturalHeight / image.naturalWidth)
-  context.save()
-  context.globalAlpha = .98
-  // Building and geyser sprites are scaled between world-cell sizes; smooth
-  // interpolation keeps their transparent contours from turning stair-stepped.
-  context.imageSmoothingEnabled = true
-  context.imageSmoothingQuality = 'high'
-  // KAnim uses a world-space Y-up matrix, while this canvas is screen-space
-  // Y-down. Convert Rotatable's pivot/offset before applying its transform.
-  const visualizerOffsetX = orientation === 5 ? -(rotatable?.offsetXCells ?? 0) : rotatable?.offsetXCells ?? 0
-  const visualizerOffsetY = orientation === 6 ? -1 : -(rotatable?.offsetYCells ?? 0)
-  const pivotX = orientation === 5 ? -(rotatable?.pivotXCells ?? 0) : rotatable?.pivotXCells ?? 0
-  const pivotY = -(rotatable?.pivotYCells ?? 0)
-  context.translate(
-    centerX + visualizerOffsetX * cellSize,
-    centerY + visualizerOffsetY * cellSize - (definition.verticalOffsetCells ?? 0) * cellSize,
-  )
-  if (orientation >= 1 && orientation <= 3) {
-    context.translate(pivotX * cellSize, pivotY * cellSize)
-    context.rotate(orientation * Math.PI / 2)
-    context.translate(-pivotX * cellSize, -pivotY * cellSize)
-  }
-  if (orientation === 5) {
-    context.translate(pivotX * cellSize, pivotY * cellSize)
-    context.scale(-1, 1)
-    context.translate(-pivotX * cellSize, -pivotY * cellSize)
-  }
-  if (orientation === 6) {
-    context.translate(pivotX * cellSize, pivotY * cellSize)
-    context.scale(1, -1)
-    context.translate(-pivotX * cellSize, -pivotY * cellSize)
-  }
-  const offsetX = (definition.anchorOffsetXCells ?? 0) * cellSize
-  const offsetY = (definition.anchorOffsetYCells ?? 0) * cellSize
-  context.drawImage(image, offsetX - width / 2, offsetY - height / 2, width, height)
-  context.restore()
-}
-
-function visibleMapRange(width: number, height: number, cellSize: number, originX: number, originY: number, viewportWidth: number, viewportHeight: number): { minX: number; maxX: number; minRow: number; maxRow: number } {
-  return {
-    minX: Math.max(0, Math.floor(-originX / cellSize) - 1),
-    maxX: Math.min(width - 1, Math.ceil((viewportWidth - originX) / cellSize) + 1),
-    minRow: Math.max(0, Math.floor(-originY / cellSize) - 1),
-    maxRow: Math.min(height - 1, Math.ceil((viewportHeight - originY) / cellSize) + 1),
-  }
-}
-
-function mapObjectAnchor(x: number, y: number, height: number, cellSize: number, originX: number, originY: number): { x: number; y: number } {
-  return {
-    // Save transforms already use Grid.CellToPosCBC coordinates: x is the
-    // cell centre (typically N + .5), while y is the cell bottom.
-    x: originX + x * cellSize,
-    y: originY + (height - y) * cellSize,
-  }
-}
-
-function utilityDisplayConnections(
-  cells: UtilityCellMap,
-  family: UtilityFamily,
-  instance: SavedObjectInstance,
-  x: number,
-  y: number,
-): number {
-  const ownBits = utilityConnectionBits(instance)
-  const physicalBits = cells.get(family)?.get(blockTileCellKey(x, y))?.physicalBits ?? 0
-  const fallbackBits = ownBits === undefined ? utilityNeighbourConnections(cells, family, x, y) : ownBits
-  // UtilityNetworkManager.GetDisplayConnections() is visualGrid | physicalGrid.
-  return (fallbackBits | physicalBits) & 0xf
-}
-
-function floodFillCoordinates(
-  sim: NonNullable<ParsedSave['simData']>,
-  width: number,
-  height: number,
-  startX: number,
-  startY: number,
-): Array<{ x: number; y: number }> {
-  if (startX < 0 || startY < 0 || startX >= width || startY >= height) return []
-  const view = new DataView(sim.bytes.buffer, sim.bytes.byteOffset, sim.bytes.byteLength)
-  const start = readSimCell(sim, view, startX + 1, startY + 1)
-  if (!start) return []
-  const targetHash = start.elementHash
-  const visited = new Uint8Array(width * height)
-  const queue: Array<{ x: number; y: number }> = [{ x: startX, y: startY }]
-  const cells: Array<{ x: number; y: number }> = []
-  let cursor = 0
-  while (cursor < queue.length) {
-    const current = queue[cursor++]
-    if (current.x < 0 || current.y < 0 || current.x >= width || current.y >= height) continue
-    const index = current.y * width + current.x
-    if (visited[index]) continue
-    visited[index] = 1
-    const cell = readSimCell(sim, view, current.x + 1, current.y + 1)
-    if (!cell || cell.elementHash !== targetHash) continue
-    cells.push(current)
-    queue.push(
-      { x: current.x - 1, y: current.y },
-      { x: current.x + 1, y: current.y },
-      { x: current.x, y: current.y - 1 },
-      { x: current.x, y: current.y + 1 },
-    )
-  }
-  return cells
-}
-
-function MapCanvas({ save, visibleLayers, overlay, tool, brushSize, viewport, onViewportChange, selectedCell, selection, previewCells, previewVersion, onCell, onSelectionChange, onShape, onStrokeStart, onStrokeEnd }: { save: ParsedSave; visibleLayers: MapLayerVisibility; overlay: MapOverlay; tool: MapTool; brushSize: number; viewport: MapViewport; onViewportChange: Dispatch<SetStateAction<MapViewport>>; selectedCell: { x: number; y: number } | null; selection: MapSelection | null; previewCells: Map<string, MapPreviewCell>; previewVersion: number; onCell: (x: number, y: number) => void; onSelectionChange: (selection: MapSelection | null) => void; onShape: (start: { x: number; y: number }, end: { x: number; y: number }) => void; onStrokeStart: () => void; onStrokeEnd: () => void }) {
-  const backgroundCanvasRef = useRef<HTMLCanvasElement>(null)
+function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSize, viewport, onViewportChange, onCell, onSelectionChange, onShape, onStrokeStart, onStrokeEnd }: { save: ParsedSave; visibleLayers: MapLayerVisibility; overlay: MapOverlay; tool: MapTool; brushSize: number; viewport: MapViewport; onViewportChange: Dispatch<SetStateAction<MapViewport>>; selectedCell: { x: number; y: number } | null; selection: MapSelection | null; previewCells: Map<string, MapPreviewCell>; previewVersion: number; onCell: (x: number, y: number) => void; onSelectionChange: (selection: MapSelection | null) => void; onShape: (start: { x: number; y: number }, end: { x: number; y: number }) => void; onStrokeStart: () => void; onStrokeEnd: () => void }) {
+  const hostRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const entityBackCanvasRef = useRef<HTMLCanvasElement>(null)
-  const entityFrontCanvasRef = useRef<HTMLCanvasElement>(null)
-  const fluidBaseCanvasRef = useRef<HTMLCanvasElement>(null)
-  const fluidCanvasRef = useRef<HTMLCanvasElement>(null)
-  const particleCanvasRef = useRef<HTMLCanvasElement>(null)
-  const lightCanvasRef = useRef<HTMLCanvasElement>(null)
-  const gridCanvasRef = useRef<HTMLCanvasElement>(null)
-  const overlayRef = useRef<HTMLCanvasElement>(null)
-  const interactionCanvasRef = useRef<HTMLCanvasElement>(null)
-  const canvasLayerRef = useRef<HTMLDivElement>(null)
-  const selectionDraftOverlayRef = useRef<HTMLDivElement>(null)
-  const selectionDraftTitleRef = useRef<HTMLElement>(null)
-  const selectionDraftCountRef = useRef<HTMLElement>(null)
-  const viewportRef = useRef<HTMLDivElement>(null)
-  const wheelZoomRef = useRef<{ targetPercent: number; clientX: number; clientY: number; timer: number } | null>(null)
-  const interactionFinishTimerRef = useRef<number | null>(null)
-  const interactionSnapshotActiveRef = useRef(false)
-  const interactionTransformFrameRef = useRef<number | null>(null)
-  const pendingInteractionTransformRef = useRef<{ transform: string; origin?: string } | null>(null)
-  const focusedSaveRef = useRef<ParsedSave | null>(null)
-  const initialGroupTagsRef = useRef((save.manager?.groups ?? []).map((group) => group.tag.trim().toLowerCase()))
-  const renderCacheRef = useRef<{ bytes: Uint8Array | null; cells: Map<number, SimCell | undefined>; zoneBytes: Uint8Array | null; zones: Uint8Array | null }>({ bytes: null, cells: new Map(), zoneBytes: null, zones: null })
-  const pointerRef = useRef<{ mode: 'pan' | 'select' | 'brush' | 'shape' | 'point'; startX: number; startY: number; panX: number; panY: number; moved: boolean; lastCell: { x: number; y: number } | null; startCell: { x: number; y: number } | null } | null>(null)
-  const visitedBrushCellsRef = useRef(new Set<string>())
-  const brushCellRef = useRef<{ x: number; y: number } | null>(null)
-  const fillRegionCacheRef = useRef<{ bytes: Uint8Array | null; regions: Map<number, Array<{ x: number; y: number }>> }>({ bytes: null, regions: new Map() })
-  const spacePanRef = useRef(false)
-  const [textures, setTextures] = useState<Record<string, HTMLImageElement>>({})
-  const [terrainMaskSets, setTerrainMaskSets] = useState<TerrainMaskSets | null>(null)
-  const [biomeBackgrounds, setBiomeBackgrounds] = useState<Record<number, HTMLImageElement>>({})
-  const [geyserTextures, setGeyserTextures] = useState<Record<string, HTMLImageElement>>({})
-  const [buildingTextures, setBuildingTextures] = useState<Record<string, HTMLImageElement>>({})
-  const [generatedBuildingDefinitions, setGeneratedBuildingDefinitions] = useState<Record<string, BuildingTextureDefinition>>({})
-  const [minionKanimAssets, setMinionKanimAssets] = useState<MinionKanimAssets | null>(null)
-  const minionWearableNames = useMemo(() => saveMinionWearableAnimNames(save), [save])
-  const { zoomPercent, pan } = viewport
-  const setZoomPercent = (nextZoomPercent: number) => onViewportChange((current) => ({ ...current, zoomPercent: nextZoomPercent }))
-  const setPan = (nextPan: { x: number; y: number }) => onViewportChange((current) => ({ ...current, pan: nextPan }))
-  const [pendingZoomPercent, setPendingZoomPercent] = useState(zoomPercent)
-  const [isPanning, setIsPanning] = useState(false)
-  const [spacePan, setSpacePan] = useState(false)
-  const [brushCell, setBrushCell] = useState<{ x: number; y: number } | null>(null)
-  const selectionDraftRef = useRef<MapSelection | null>(null)
-  const [isSelecting, setIsSelecting] = useState(false)
+  const sceneRef = useRef<PixiWorldScene | null>(null)
+  const pointerRef = useRef<{ mode: 'pan' | 'select' | 'brush' | 'shape' | 'point'; id: number; startX: number; startY: number; panX: number; panY: number; startCell: { x: number; y: number } | null; lastCell: { x: number; y: number } | null; moved: boolean } | null>(null)
+  const cameraRef = useRef(viewport)
+  const wheelCommitRef = useRef<number | null>(null)
+  const isInteractingRef = useRef(false)
+  const buildRef = useRef(0)
+  const applyCameraRef = useRef<(next: MapViewport) => void>(() => {})
+  const [sceneReady, setSceneReady] = useState(false)
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 })
   const size = worldSize(save)
-  const fitCellSize = viewportSize.width > 0 && viewportSize.height > 0
-    ? Math.min(MAP_CELL_PIXELS, viewportSize.width / size.width, viewportSize.height / size.height)
-    : MAP_CELL_PIXELS
-  const zoom = MAP_ZOOM_MIN + (MAP_ZOOM_MAX - MAP_ZOOM_MIN) * zoomPercent / 100
-  const displayCellSize = fitCellSize * zoom
-  const nativePixelRatio = typeof window === 'undefined' ? 1 : Math.min(window.devicePixelRatio || 1, 2)
-  // Keep preview canvases within a fixed pixel budget. A full-screen DPR 2
-  // canvas has four times the fill cost; exports still use their requested
-  // resolution and are unaffected by this interactive preview cap.
-  const viewportArea = Math.max(1, viewportSize.width * viewportSize.height)
-  const previewPixelRatioBudget = Math.sqrt(1_350_000 / viewportArea)
-  // A large viewport contains ten stacked canvases. Keeping every layer at
-  // full CSS resolution can consume hundreds of MB and makes compositing
-  // stutter badly. Allow a sub-1 preview ratio on large windows; exports keep
-  // their independent full-resolution path.
-  const devicePixelRatio = Math.max(.5, Math.min(1, nativePixelRatio, previewPixelRatioBudget))
-  // Keep the physical cell size fractional. Rounding every cell independently
-  // makes the rendered grid drift away from the CSS hit-test coordinates.
-  const renderCellSize = Math.max(1, displayCellSize * devicePixelRatio)
-  const originX = ((viewportSize.width - size.width * displayCellSize) / 2 + pan.x) * devicePixelRatio
-  const originY = ((viewportSize.height - size.height * displayCellSize) / 2 + pan.y) * devicePixelRatio
-  const viewportPixelWidth = Math.max(1, Math.ceil(viewportSize.width * devicePixelRatio))
-  const viewportPixelHeight = Math.max(1, Math.ceil(viewportSize.height * devicePixelRatio))
-  const mapSeed = worldSeed(save)
-  const mapCoordinate = worldCoordinate(save)
-
-  const focusVisibleMap = useCallback(() => {
-    const visible = worldGrid(save, 'GridVisible')?.bytes
-    if (!visible || !size.width || !size.height || !viewportSize.width || !viewportSize.height) {
-      onViewportChange(DEFAULT_MAP_VIEWPORT)
-      return
-    }
-    let minX = size.width
-    let minY = size.height
-    let maxX = -1
-    let maxY = -1
-    for (let y = 0; y < size.height; y++) {
-      for (let x = 0; x < size.width; x++) {
-        if (!visible[y * size.width + x]) continue
-        minX = Math.min(minX, x)
-        maxX = Math.max(maxX, x)
-        minY = Math.min(minY, y)
-        maxY = Math.max(maxY, y)
-      }
-    }
-    if (maxX < minX || maxY < minY) {
-      onViewportChange(DEFAULT_MAP_VIEWPORT)
-      return
-    }
-    const marginCells = 12
-    const visibleWidth = Math.min(size.width, maxX - minX + 1 + marginCells * 2)
-    const visibleHeight = Math.min(size.height, maxY - minY + 1 + marginCells * 2)
-    const targetCellSize = Math.min(viewportSize.width / visibleWidth, viewportSize.height / visibleHeight)
-    const targetZoom = Math.max(MAP_ZOOM_MIN, Math.min(MAP_ZOOM_MAX, targetCellSize / fitCellSize))
-    const targetPercent = Math.round((targetZoom - MAP_ZOOM_MIN) / (MAP_ZOOM_MAX - MAP_ZOOM_MIN) * 100)
-    const displaySize = fitCellSize * targetZoom
-    const centerX = (minX + maxX + 1) / 2
-    const centerCanvasY = size.height - (minY + maxY + 1) / 2
-    onViewportChange({
-      zoomPercent: targetPercent,
-      pan: {
-        x: (size.width / 2 - centerX) * displaySize,
-        y: (size.height / 2 - centerCanvasY) * displaySize,
-      },
-    })
-  }, [fitCellSize, onViewportChange, save, size.height, size.width, viewportSize.height, viewportSize.width])
-
-  useEffect(() => {
-    if (!viewportSize.width || !viewportSize.height || focusedSaveRef.current === save) return
-    focusedSaveRef.current = save
-    focusVisibleMap()
-  }, [focusVisibleMap, save, viewportSize.height, viewportSize.width])
-
-  const cachedSimCell = (sim: NonNullable<ParsedSave['simData']>, view: DataView, x: number, y: number): SimCell | undefined => {
-    const cache = renderCacheRef.current
-    if (cache.bytes !== sim.bytes) {
-      cache.bytes = sim.bytes
-      cache.cells.clear()
-    }
-    const key = y * sim.width + x
-    if (cache.cells.has(key)) return cache.cells.get(key)
-    const cell = readSimCell(sim, view, x, y)
-    cache.cells.set(key, cell)
-    return cell
-  }
-
-  const cachedWorldZoneMap = useCallback((sim: NonNullable<ParsedSave['simData']>): Uint8Array => {
-    const cache = renderCacheRef.current
-    if (cache.zoneBytes !== sim.bytes || !cache.zones) {
-      cache.zoneBytes = sim.bytes
-      cache.zones = buildWorldZoneMap(save, size.width, size.height)
-    }
-    return cache.zones
-  }, [save, size.height, size.width])
-
-  const renderedCanvases = () => [
-    backgroundCanvasRef.current,
-    entityBackCanvasRef.current,
-    fluidBaseCanvasRef.current,
-    fluidCanvasRef.current,
-    canvasRef.current,
-    entityFrontCanvasRef.current,
-    particleCanvasRef.current,
-    lightCanvasRef.current,
-    gridCanvasRef.current,
-    overlayRef.current,
-  ].filter((canvas): canvas is HTMLCanvasElement => Boolean(canvas))
-
-  const beginInteractionSnapshot = () => {
-    if (interactionFinishTimerRef.current !== null) {
-      window.clearTimeout(interactionFinishTimerRef.current)
-      interactionFinishTimerRef.current = null
-    }
-    if (interactionSnapshotActiveRef.current) return
-    const snapshot = interactionCanvasRef.current
-    const sources = renderedCanvases()
-    const source = sources[0]
-    if (!snapshot || !source?.width || !source.height) return
-    snapshot.width = source.width
-    snapshot.height = source.height
-    const context = snapshot.getContext('2d', { alpha: true })
-    if (!context) return
-    context.clearRect(0, 0, snapshot.width, snapshot.height)
-    for (const canvas of sources) context.drawImage(canvas, 0, 0)
-    snapshot.style.display = 'block'
-    snapshot.style.transform = 'translate3d(0, 0, 0)'
-    snapshot.style.transformOrigin = ''
-    if (canvasLayerRef.current) canvasLayerRef.current.style.visibility = 'hidden'
-    interactionSnapshotActiveRef.current = true
-  }
-
-  const interactionTransformLayer = () => interactionSnapshotActiveRef.current
-    ? interactionCanvasRef.current
-    : canvasLayerRef.current
-
-  const scheduleInteractionTransform = (transform: string, origin?: string) => {
-    pendingInteractionTransformRef.current = { transform, origin }
-    if (interactionTransformFrameRef.current !== null) return
-    interactionTransformFrameRef.current = requestAnimationFrame(() => {
-      interactionTransformFrameRef.current = null
-      const pending = pendingInteractionTransformRef.current
-      pendingInteractionTransformRef.current = null
-      const layer = interactionTransformLayer()
-      if (!pending || !layer) return
-      if (pending.origin !== undefined) layer.style.transformOrigin = pending.origin
-      layer.style.transform = pending.transform
-    })
-  }
-
-  const finishInteractionSnapshot = () => {
-    if (interactionFinishTimerRef.current !== null) window.clearTimeout(interactionFinishTimerRef.current)
-    // React effects paint the retained layers after the camera state commits.
-    // Keep the flattened frame visible while those expensive passes finish.
-    interactionFinishTimerRef.current = window.setTimeout(() => {
-      const snapshot = interactionCanvasRef.current
-      if (snapshot) {
-        snapshot.style.display = 'none'
-        snapshot.style.transform = 'translate3d(0, 0, 0)'
-        snapshot.style.transformOrigin = ''
-      }
-      if (canvasLayerRef.current) canvasLayerRef.current.style.visibility = ''
-      interactionSnapshotActiveRef.current = false
-      interactionFinishTimerRef.current = null
-    }, 180)
-  }
-
-  const setZoomPercentAround = (requestedPercent: number, clientX?: number, clientY?: number) => {
-    const nextPercent = Math.max(0, Math.min(100, Math.round(requestedPercent)))
-    if (nextPercent === zoomPercent) return
-    const nextZoom = MAP_ZOOM_MIN + (MAP_ZOOM_MAX - MAP_ZOOM_MIN) * nextPercent / 100
-    const viewport = viewportRef.current
-    if (!viewport || clientX === undefined || clientY === undefined) {
-      setZoomPercent(nextPercent)
-      return
-    }
-    const rect = viewport.getBoundingClientRect()
-    const anchorX = clientX - rect.left - viewport.clientLeft
-    const anchorY = clientY - rect.top - viewport.clientTop
-    const currentOriginX = (viewport.clientWidth - size.width * displayCellSize) / 2 + pan.x
-    const currentOriginY = (viewport.clientHeight - size.height * displayCellSize) / 2 + pan.y
-    const worldX = (anchorX - currentOriginX) / displayCellSize
-    const worldY = (anchorY - currentOriginY) / displayCellSize
-    const nextCellSize = fitCellSize * nextZoom
-    const nextOriginX = (viewport.clientWidth - size.width * nextCellSize) / 2
-    const nextOriginY = (viewport.clientHeight - size.height * nextCellSize) / 2
-    setPan({
-      x: anchorX - nextOriginX - worldX * nextCellSize,
-      y: anchorY - nextOriginY - worldY * nextCellSize,
-    })
-    setZoomPercent(nextPercent)
-  }
-
-  const queueZoomPercent = (requestedPercent: number, clientX: number, clientY: number) => {
-    const previous = wheelZoomRef.current
-    const targetPercent = Math.max(0, Math.min(100, Math.round(requestedPercent)))
-    if (targetPercent === (previous?.targetPercent ?? zoomPercent)) return
-    setPendingZoomPercent(targetPercent)
-    if (previous) window.clearTimeout(previous.timer)
-    beginInteractionSnapshot()
-    const viewport = viewportRef.current
-    const layer = interactionTransformLayer()
-    if (viewport && layer) {
-      const rect = viewport.getBoundingClientRect()
-      const anchorX = clientX - rect.left - viewport.clientLeft
-      const anchorY = clientY - rect.top - viewport.clientTop
-      const currentZoom = MAP_ZOOM_MIN + (MAP_ZOOM_MAX - MAP_ZOOM_MIN) * zoomPercent / 100
-      const targetZoom = MAP_ZOOM_MIN + (MAP_ZOOM_MAX - MAP_ZOOM_MIN) * targetPercent / 100
-      scheduleInteractionTransform(`scale(${targetZoom / currentZoom})`, `${anchorX}px ${anchorY}px`)
-    }
-    const timer = window.setTimeout(() => {
-      const pending = wheelZoomRef.current
-      if (!pending) return
-      wheelZoomRef.current = null
-      setZoomPercentAround(pending.targetPercent, pending.clientX, pending.clientY)
-      finishInteractionSnapshot()
-    }, 140)
-    wheelZoomRef.current = { targetPercent, clientX, clientY, timer }
-  }
-
-  const queueWheelZoom = (delta: number, clientX: number, clientY: number) => {
-    queueZoomPercent((wheelZoomRef.current?.targetPercent ?? zoomPercent) + delta, clientX, clientY)
-  }
-
-  const queueCenteredZoom = (targetPercent: number) => {
-    const viewport = viewportRef.current
-    if (!viewport) {
-      setZoomPercentAround(targetPercent)
-      return
-    }
-    const rect = viewport.getBoundingClientRect()
-    queueZoomPercent(targetPercent, rect.left + rect.width / 2, rect.top + rect.height / 2)
-  }
-
-  useEffect(() => () => {
-    const pending = wheelZoomRef.current
-    if (pending) window.clearTimeout(pending.timer)
-    if (interactionFinishTimerRef.current !== null) window.clearTimeout(interactionFinishTimerRef.current)
-    if (interactionTransformFrameRef.current !== null) cancelAnimationFrame(interactionTransformFrameRef.current)
-  }, [])
-
-  useEffect(() => setPendingZoomPercent(zoomPercent), [zoomPercent])
-
-  const pointToCell = (clientX: number, clientY: number): { x: number; y: number } | undefined => {
-    const viewport = viewportRef.current
-    if (!viewport || displayCellSize <= 0) return undefined
-    const rect = viewport.getBoundingClientRect()
-    const mapOriginX = (viewport.clientWidth - size.width * displayCellSize) / 2 + pan.x
-    const mapOriginY = (viewport.clientHeight - size.height * displayCellSize) / 2 + pan.y
-    const localX = clientX - rect.left - viewport.clientLeft
-    const localY = clientY - rect.top - viewport.clientTop
-    const mapX = (localX - mapOriginX) / displayCellSize
-    const mapY = (localY - mapOriginY) / displayCellSize
-    if (mapX < 0 || mapX >= size.width || mapY < 0 || mapY >= size.height) return undefined
-    const x = Math.floor(mapX)
-    const screenY = Math.floor(mapY)
-    return { x, y: size.height - 1 - screenY }
-  }
-
-  const updateBrushCell = (cell: { x: number; y: number } | null) => {
-    const previous = brushCellRef.current
-    if (previous?.x === cell?.x && previous?.y === cell?.y) return
-    brushCellRef.current = cell
-    setBrushCell(cell)
-  }
-
-  useEffect(() => {
-    const viewport = viewportRef.current
-    if (!viewport) return
-    const updateSize = () => setViewportSize({ width: viewport.clientWidth, height: viewport.clientHeight })
-    updateSize()
-    const observer = new ResizeObserver(updateSize)
-    observer.observe(viewport)
-    return () => observer.disconnect()
-  }, [])
-
-  useEffect(() => {
-    let active = true
-    const paths = new Set([
-      ...Object.values(BUILDING_TEXTURES).map((definition) => definition.path),
-      ...Object.values(BLOCK_TILE_TEXTURES).map((definition) => definition.path),
-      ...Object.values(UTILITY_DEFINITIONS).map((definition) => definition.path),
-    ])
-    void loadAssetImages(paths).then((images) => { if (active) setBuildingTextures((current) => ({ ...current, ...images })) })
-    return () => { active = false }
-  }, [])
-
-  useEffect(() => {
-    let active = true
-    void loadMinionKanimAssets(minionWearableNames)
-      .then((assets) => { if (active) setMinionKanimAssets(assets) })
-      .catch(() => { /* Keep the fallback marker if source KAnim assets are unavailable. */ })
-    return () => { active = false }
-  }, [minionWearableNames])
-
-  useEffect(() => {
-    let active = true
-    const loadManifest = async (path: string): Promise<Record<string, BuildingTextureDefinition>> => {
-      const response = await fetch(assetPath(path))
-      return response.ok ? await response.json() as Record<string, BuildingTextureDefinition> : {}
-    }
-    loadManifest('/assets/buildings/manifest.json')
-      .then((bridgeManifest) => {
-        if (!active) return
-        const definitions: Record<string, BuildingTextureDefinition> = {}
-        // ONI_Bridge is the canonical exported KAnim source.  It deliberately
-        // supplies every building sprite from one game-derived texture source.
-        Object.entries(bridgeManifest).forEach(([tag, definition]) => { definitions[tag.toLowerCase()] = definition })
-        setGeneratedBuildingDefinitions(definitions)
-        const usedTags = new Set(initialGroupTagsRef.current.flatMap((tag) => buildingTextureLookupKeys(tag)))
-        const paths = Object.entries(definitions)
-          // Stateful KAnim frames are stored as `<animation>__<state>`.
-          // Loading only the base key made a POIDoorInternal choose its
-          // correct `closed/open/locked` definition but then skip drawing,
-          // because that PNG had never been requested.
-          .filter(([tag]) => usedTags.has(tag) || usedTags.has(tag.split('__')[0]))
-          .map(([, definition]) => definition.path)
-        void loadAssetImages(paths).then((images) => { if (active) setBuildingTextures((current) => ({ ...current, ...images })) })
-      })
-      .catch(() => { /* Older deployments can run with the legacy texture table. */ })
-    return () => { active = false }
-  }, [])
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.code !== 'Space' || isEditableTarget(event.target)) return
-      event.preventDefault()
-      if (spacePanRef.current) return
-      spacePanRef.current = true
-      setSpacePan(true)
-    }
-    const handleKeyUp = (event: KeyboardEvent) => {
-      if (event.code !== 'Space') return
-      spacePanRef.current = false
-      setSpacePan(false)
-    }
-    const clearSpacePan = () => {
-      spacePanRef.current = false
-      setSpacePan(false)
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    window.addEventListener('keyup', handleKeyUp)
-    window.addEventListener('blur', clearSpacePan)
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown)
-      window.removeEventListener('keyup', handleKeyUp)
-      window.removeEventListener('blur', clearSpacePan)
-    }
-  }, [])
-
-  useEffect(() => {
-    let active = true
-    const paths = [...new Set([
-      ...ELEMENTS.map((element) => element.texture).filter((path): path is string => Boolean(path)),
-      ...ONI_SUBSTANCE_MATERIALS.map((material) => material.textureUrl).filter(Boolean),
-      '/assets/render/crackAlpha.png',
-      '/assets/render/melt.png',
-      '/assets/render/mudmelt.png',
-      '/assets/render/normal_metal.png',
-      '/assets/render/gasSteam01.png',
-      '/assets/render/skullgas.png',
-      '/assets/render/noise.png',
-      '/assets/render/bubbles.png',
-      '/assets/render/bgarray_liquids.png',
-      '/assets/render/bgarray_liquids_specular.png',
-    ])]
-    void loadAssetImages(paths).then((images) => { if (active) setTextures(images) })
-    return () => { active = false }
-  }, [])
-
-  useEffect(() => {
-    let active = true
-    loadAssetImage(TERRAIN_MASK_ATLAS_URL, (image) => {
-      if (active) setTerrainMaskSets(createTerrainMaskSets(image))
-    })
-    return () => { active = false }
-  }, [])
-
-  useEffect(() => {
-    let active = true
-    const loads = Array.from({ length: 19 }, (_, textureIndex) => new Promise<{ textureIndex: number; image: HTMLImageElement } | null>((resolve) => {
-      const image = new Image()
-      image.decoding = 'async'
-      image.onload = () => resolve({ textureIndex, image })
-      image.onerror = () => resolve(null)
-      image.src = assetPath(biomeBackgroundAsset(textureIndex))
-    }))
-    void Promise.all(loads).then((entries) => {
-      if (!active) return
-      const next: Record<number, HTMLImageElement> = {}
-      entries.forEach((entry) => {
-        if (entry) next[entry.textureIndex] = entry.image
-      })
-      setBiomeBackgrounds(next)
-    })
-    return () => { active = false }
-  }, [])
-
-  useEffect(() => {
-    let active = true
-    const paths = new Set(Object.values(GEYSER_TEXTURES).map((definition) => definition.path))
-    void loadAssetImages(paths).then((images) => { if (active) setGeyserTextures(images) })
-    return () => { active = false }
-  }, [])
-
-  useEffect(() => {
-    const canvas = backgroundCanvasRef.current
-    const sim = save.simData
-    if (!canvas || !sim || !size.width || !size.height || !viewportSize.width || !viewportSize.height) return
-    if (canvas.width !== viewportPixelWidth) canvas.width = viewportPixelWidth
-    if (canvas.height !== viewportPixelHeight) canvas.height = viewportPixelHeight
-    const context = canvas.getContext('2d')
-    if (!context) return
-    context.clearRect(0, 0, canvas.width, canvas.height)
-    const cellSize = renderCellSize
-    const range = visibleMapRange(size.width, size.height, cellSize, originX, originY, canvas.width, canvas.height)
-    const view = new DataView(sim.bytes.buffer, sim.bytes.byteOffset, sim.bytes.byteLength)
-    if (visibleLayers.biome) {
-      oniWorldRenderer.renderBiome({
-        context,
-        worldZones: cachedWorldZoneMap(sim),
-        width: size.width,
-        height: size.height,
-        cellSize,
-        originX,
-        originY,
-        range,
-        backgrounds: biomeBackgrounds,
-      })
-    }
-    if (visibleLayers.backwall) {
-      for (let canvasY = range.minRow; canvasY <= range.maxRow; canvasY++) {
-        const y = size.height - 1 - canvasY
-        for (let x = range.minX; x <= range.maxX; x++) {
-          // Read through the same cache as terrain so changing layers does not
-          // decode the SIM cell a second time.
-          if (!cachedSimCell(sim, view, x + 1, y + 1)) continue
-          const backwall = readSimBackwall(sim, view, x + 1, y + 1)
-          const backwallPresent = backwall ? elementForHash(backwall.elementHash).state === 'solid' : false
-          if (!backwallPresent) continue
-          context.fillStyle = 'rgba(185, 164, 132, .55)'
-          context.fillRect(originX + x * cellSize, originY + canvasY * cellSize, cellSize, cellSize)
-        }
-      }
-    }
-  }, [biomeBackgrounds, cachedWorldZoneMap, originX, originY, renderCellSize, save, size.height, size.width, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers.backwall, visibleLayers.biome])
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    const sim = save.simData
-    if (!canvas || !sim || !size.width || !size.height || !viewportSize.width || !viewportSize.height) return
-    const cellSize = renderCellSize
-    if (canvas.width !== viewportPixelWidth) canvas.width = viewportPixelWidth
-    if (canvas.height !== viewportPixelHeight) canvas.height = viewportPixelHeight
-    const context = canvas.getContext('2d')
-    if (!context) return
-    context.imageSmoothingEnabled = false
-    // This canvas owns only Ground/Tile terrain and data overlays. Background,
-    // backwalls, fluids, and game objects are retained on independent layers.
-    context.clearRect(0, 0, canvas.width, canvas.height)
-    const view = new DataView(sim.bytes.buffer, sim.bytes.byteOffset, sim.bytes.byteLength)
-    const worldZones = cachedWorldZoneMap(sim)
-    const patterns = createElementPatterns(context, textures, cellSize, originX, originY + size.height * cellSize)
-    const visibleGrid = worldGrid(save, 'GridVisible')?.bytes
-    const spawnableGrid = worldGrid(save, 'GridSpawnable')?.bytes
-    const damageGrid = worldGrid(save, 'GridDamage')?.bytes
-    const range = visibleMapRange(size.width, size.height, cellSize, originX, originY, canvas.width, canvas.height)
-    const blockTileCells = blockTileCellsByGroup(save)
-    const terrainMaskedCells = terrainMaskedCellsByBuilding(save)
-    for (const cells of blockTileCells.values()) {
-      for (const key of cells) terrainMaskedCells.add(key)
-    }
-    const isTerrainMaskedAt = (x: number, y: number) => terrainMaskedCells.has(blockTileCellKey(x, y))
-
-    const cellAt = (x: number, y: number) => cachedSimCell(sim, view, x + 1, y + 1)
-    const simIndexAt = (x: number, y: number) => (y + 1) * sim.width + x + 1
-    const damageView = damageGrid ? new DataView(damageGrid.buffer, damageGrid.byteOffset, damageGrid.byteLength) : undefined
-    const damageAt = (x: number, y: number) => {
-      const offset = (y * size.width + x) * 4
-      return damageView && offset >= 0 && offset + 4 <= damageView.byteLength ? damageView.getFloat32(offset, true) : 0
-    }
-    const hasBackwallAt = (x: number, y: number) => {
-      const backwall = readSimBackwall(sim, view, x + 1, y + 1)
-      return backwall ? elementForHash(backwall.elementHash).state === 'solid' : false
-    }
-    if (visibleLayers.ground) {
-      oniWorldRenderer.renderTerrain({
-        context,
-        width: size.width,
-        height: size.height,
-        cellSize,
-        originX,
-        originY,
-        range,
-        worldZones,
-        textures,
-        maskSets: terrainMaskSets,
-        cellAt,
-        isTerrainMaskedAt,
-        damageAt,
-        hasBackwallAt,
-        zoneColors: ONI_WORLD_ZONE_COLORS,
-      })
-    }
-    for (let canvasY = range.minRow; canvasY <= range.maxRow; canvasY++) {
-      const y = size.height - 1 - canvasY
-      for (let x = range.minX; x <= range.maxX; x++) {
-        const cell = cellAt(x, y)
-        if (!cell) continue
-        const element = elementForHash(cell.elementHash)
-        const px = originX + x * cellSize
-        const py = originY + canvasY * cellSize
-        const isSolid = element.state === 'solid'
-        const elementLayerVisible = element.state === 'solid' && visibleLayers.ground
-          || element.state === 'liquid' && visibleLayers.liquid
-          || element.state === 'gas' && visibleLayers.gas
-        if (!isSolid) {
-          // Every cell must set its own fill style. Otherwise vacuum and unknown
-          // elements inherit the previous cell's texture from the canvas state.
-          // Vacuum is transparent in the game; the space scene must remain
-          // visible underneath it. Special void cells still keep their fill.
-          const showElement = element.state === 'special' || elementLayerVisible
-          if (!(showElement && (element.state === 'liquid' || element.state === 'gas') && element.fluidMaterial)) {
-            if (showElement) {
-              context.fillStyle = patterns.get(element.texture ?? '') ?? element.color
-              context.fillRect(px, py, cellSize, cellSize)
-            }
-          }
-        }
-        if (overlay === 'temperature') {
-          context.fillStyle = temperatureColor(cell.temperature)
-          context.globalAlpha = .72
-          context.fillRect(px, py, cellSize, cellSize)
-          context.globalAlpha = 1
-        } else if (overlay === 'mass') {
-          const intensity = Math.min(1, Math.log10(1 + Math.max(0, cell.mass)) / 2.2)
-          context.fillStyle = `rgba(117, 171, 191, ${0.12 + intensity * 0.88})`
-          context.fillRect(px, py, cellSize, cellSize)
-        } else if (overlay === 'visibility') {
-          const value = visibleGrid?.[y * size.width + x] ?? 0
-          context.fillStyle = value > 0 ? `rgba(127, 169, 212, ${.2 + value / 255 * .72})` : 'rgba(16, 23, 25, .84)'
-          context.fillRect(px, py, cellSize, cellSize)
-        } else if (overlay === 'spawnable') {
-          const value = spawnableGrid?.[y * size.width + x] ?? 0
-          context.fillStyle = value > 0 ? `rgba(112, 157, 123, ${.2 + value / 255 * .72})` : 'rgba(16, 23, 25, .84)'
-          context.fillRect(px, py, cellSize, cellSize)
-        } else if (overlay === 'damage') {
-          const damageValue = Math.max(0, Math.min(1, damageAt(x, y)))
-          context.fillStyle = damageValue > 0 ? `rgba(198, 123, 113, ${.2 + damageValue * .72})` : 'rgba(16, 23, 25, .84)'
-          context.fillRect(px, py, cellSize, cellSize)
-        } else if (overlay === 'disease') {
-          const diseaseOffset = sim.diseaseOffset + simIndexAt(x, y) * SIM_DISEASE_SIZE
-          let diseaseLevel = 0
-          for (let index = 0; index < SIM_DISEASE_SIZE; index++) diseaseLevel += sim.bytes[diseaseOffset + index]
-          const intensity = Math.min(.9, .12 + diseaseLevel / 2040)
-          context.fillStyle = diseaseLevel > 0 ? `rgba(194, 102, 111, ${intensity})` : 'rgba(16, 23, 25, .84)'
-          context.fillRect(px, py, cellSize, cellSize)
-        }
-      }
-    }
-
-  }, [cachedWorldZoneMap, displayCellSize, originX, originY, overlay, pan.x, pan.y, renderCellSize, save, size.height, size.width, terrainMaskSets, textures, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers])
-
-  useEffect(() => {
-    const backCanvas = entityBackCanvasRef.current
-    const frontCanvas = entityFrontCanvasRef.current
-    if (!backCanvas || !frontCanvas || !size.width || !size.height || !viewportSize.width || !viewportSize.height) return
-    for (const canvas of [backCanvas, frontCanvas]) {
-      if (canvas.width !== viewportPixelWidth) canvas.width = viewportPixelWidth
-      if (canvas.height !== viewportPixelHeight) canvas.height = viewportPixelHeight
-      canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height)
-    }
-    if (!visibleLayers.minions && !mapEntityLayersAreVisible(visibleLayers)) return
-    const backContext = backCanvas.getContext('2d')
-    const frontContext = frontCanvas.getContext('2d')
-    if (!backContext || !frontContext) return
-    const cellSize = renderCellSize
-    const range = visibleMapRange(size.width, size.height, cellSize, originX, originY, backCanvas.width, backCanvas.height)
-    const blockTileCells = blockTileCellsByGroup(save)
-    const utilityCells = buildUtilityCellMap(save)
-    for (const context of [backContext, frontContext]) {
-      context.imageSmoothingEnabled = true
-      context.imageSmoothingQuality = 'high'
-      context.globalAlpha = 1
-      context.globalCompositeOperation = 'source-over'
-      context.fillStyle = '#e4b067'
-    }
-    for (const { group, instance } of mapObjectsInRenderOrder(save)) {
-      const sceneLayer = mapObjectSceneLayer(group)
-      const context = sceneLayer < TERRAIN_SCENE_LAYER ? backContext : frontContext
-      if (group.tag === 'Minion') {
-        if (!visibleLayers.minions) continue
-        const minionX = Math.round(instance.position.x)
-        const minionY = Math.round(size.height - 1 - instance.position.y)
-        if (minionX >= 0 && minionY >= 0 && minionX < size.width && minionY < size.height) {
-          const anchor = mapObjectAnchor(instance.position.x, instance.position.y, size.height, cellSize, originX, originY)
-          if (minionKanimAssets) {
-            drawMinionKanim(context, minionKanimAssets, minionAccessoryGuids(instance), minionWearableAnimNames(instance), cellSize, anchor.x, anchor.y, minionFacesLeft(instance))
-          } else {
-            context.fillRect(originX + minionX * cellSize + 1, originY + minionY * cellSize + 1, Math.max(1, cellSize - 2), Math.max(1, cellSize - 2))
-          }
-        }
-        continue
-      }
-      const blockTileTexture = blockTileTextureForTag(group.tag)
-      const blockTileGroupCells = blockTileTexture ? blockTileCells.get(group) : undefined
-      const utilityTexture = utilityTextureForTag(group.tag)
-      const utilityFamily = utilityFamilyForTag(group.tag)
-      const isBuilding = hasSimpleComponent(instance, 'BuildingComplete')
-      const geyserTexture = geyserTextureForTag(group.tag)
-      const buildingTexture = buildingTextureForInstance(group.tag, instance, generatedBuildingDefinitions)
-      const isGeyser = isGeyserInstance(group.tag, instance, geyserTexture)
-      const isCreature = sceneLayer === ONI_SCENE_LAYER_ORDER.Creatures
-      if (!isBuilding && !isGeyser && !buildingTexture && !blockTileTexture && !utilityTexture) continue
-      if (!mapEntityLayerIsVisible(visibleLayers, isGeyser, isCreature, utilityFamily)) continue
-      const x = Math.floor(instance.position.x)
-      const y = Math.floor(instance.position.y)
-      const canvasY = size.height - 1 - y
-      if (x < 0 || canvasY < 0 || x >= size.width || canvasY >= size.height) continue
-      const spriteMargin = Math.max(2, Math.ceil(isGeyser
-        ? geyserTexture?.widthCells ?? 1
-        : buildingTexture
-          ? Math.max(buildingTexture.widthCells, buildingTexture.heightCells ?? buildingTexture.widthCells)
-          : 1))
-      if (x < range.minX - spriteMargin || x > range.maxX + spriteMargin || canvasY < range.minRow - spriteMargin || canvasY > range.maxRow + spriteMargin) continue
-      const px = originX + x * cellSize
-      const py = originY + canvasY * cellSize
-      if (utilityTexture) {
-        const image = buildingTextures[utilityTexture.path]
-        if (image) {
-          const connections = utilityDisplayConnections(utilityCells, utilityFamily!, instance, x, y)
-          const anchor = mapObjectAnchor(instance.position.x, instance.position.y, size.height, cellSize, originX, originY)
-          drawUtilityTile(context, image, utilityTexture, connections, anchor.x, anchor.y, cellSize)
-        }
-      } else if (blockTileTexture) {
-        const connectionBits = blockTileConnectionBits(
-          (neighbourX, neighbourY) => blockTileGroupCells?.has(blockTileCellKey(neighbourX, neighbourY)) ?? false,
-          x,
-          y,
-        )
-        const image = buildingTextures[blockTileTexture.path]
-        if (image) drawBlockTile(context, image, connectionBits, px, py, cellSize)
-      } else if (isGeyser && !buildingTexture) {
-        const centerX = originX + instance.position.x * cellSize
-        const centerY = originY + (size.height - instance.position.y - .5) * cellSize
-        const image = geyserTexture ? geyserTextures[geyserTexture.path] : undefined
-        if (image && geyserTexture) {
-          drawGeyserTexture(context, image, geyserTexture, cellSize, centerX, centerY)
-        }
-      } else if (buildingTexture) {
-        const anchor = mapObjectAnchor(instance.position.x, instance.position.y, size.height, cellSize, originX, originY)
-        const image = buildingTextures[buildingTexture.path]
-        if (image) drawGeyserTexture(context, image, buildingTexture, cellSize, anchor.x, anchor.y, instanceOrientation(instance), rotatableVisualizerForTag(group.tag))
-      }
-    }
-  }, [buildingTextures, generatedBuildingDefinitions, geyserTextures, minionKanimAssets, originX, originY, renderCellSize, save, size.height, size.width, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers])
-
-  useEffect(() => {
-    const canvas = fluidCanvasRef.current
-    const baseCanvas = fluidBaseCanvasRef.current
-    const sim = save.simData
-    if (!canvas || !baseCanvas || !sim || !size.width || !size.height || !viewportSize.width || !viewportSize.height) return
-    if (canvas.width !== viewportPixelWidth) canvas.width = viewportPixelWidth
-    if (canvas.height !== viewportPixelHeight) canvas.height = viewportPixelHeight
-    if (baseCanvas.width !== viewportPixelWidth) baseCanvas.width = viewportPixelWidth
-    if (baseCanvas.height !== viewportPixelHeight) baseCanvas.height = viewportPixelHeight
-    const context = canvas.getContext('2d')
-    const baseContext = baseCanvas.getContext('2d')
-    if (!context || !baseContext) return
-    context.imageSmoothingEnabled = false
-    baseContext.imageSmoothingEnabled = false
-    const view = new DataView(sim.bytes.buffer, sim.bytes.byteOffset, sim.bytes.byteLength)
-    const cellSize = renderCellSize
-    const range = visibleMapRange(size.width, size.height, cellSize, originX, originY, canvas.width, canvas.height)
-    const cellAt = (x: number, y: number) => cachedSimCell(sim, view, x + 1, y + 1)
-    baseContext.clearRect(0, 0, baseCanvas.width, baseCanvas.height)
-    context.clearRect(0, 0, canvas.width, canvas.height)
-    const gasRendered = overlay === 'none' && visibleLayers.gas && oniWorldRenderer.renderGas({
-      context: baseContext,
-      width: size.width,
-      height: size.height,
-      cellSize,
-      originX,
-      originY,
-      range,
-      worldZones: cachedWorldZoneMap(sim),
-      textures,
-      maskSets: terrainMaskSets,
-      cellAt,
-      propertyCacheKey: sim.bytes,
-      isTerrainMaskedAt: () => false,
-      zoneColors: ONI_WORLD_ZONE_COLORS,
-    })
-    const liquidRendered = overlay === 'none' && visibleLayers.liquid && oniWorldRenderer.renderLiquid({
-      context: baseContext,
-      width: size.width,
-      height: size.height,
-      cellSize,
-      originX,
-      originY,
-      range,
-      worldZones: cachedWorldZoneMap(sim),
-      textures,
-      maskSets: terrainMaskSets,
-      cellAt,
-      propertyCacheKey: sim.bytes,
-      isTerrainMaskedAt: () => false,
-      zoneColors: ONI_WORLD_ZONE_COLORS,
-    })
-    if (overlay === 'none') {
-      for (let canvasY = range.minRow; canvasY <= range.maxRow; canvasY++) {
-        const y = size.height - 1 - canvasY
-        for (let x = range.minX; x <= range.maxX; x++) {
-          const cell = cellAt(x, y)
-          if (!cell) continue
-          const element = elementForHash(cell.elementHash)
-          const isVisible = element.state === 'gas' && visibleLayers.gas || element.state === 'liquid' && visibleLayers.liquid
-          if (!isVisible || !element.fluidMaterial || (element.state !== 'gas' && element.state !== 'liquid')) continue
-          if (element.state === 'gas' && gasRendered) continue
-          if (element.state === 'liquid') {
-            if (!liquidRendered) {
-              const above = cellAt(x, y + 1)
-              const aboveState = above ? elementForHash(above.elementHash).state : undefined
-              drawLiquidFallback(baseContext, element.fluidMaterial, cell, originX + x * cellSize, originY + canvasY * cellSize, cellSize, aboveState === 'liquid' || aboveState === 'solid')
-            }
-            continue
-          }
-          drawGasBase(baseContext, element.fluidMaterial, cell, originX + x * cellSize, originY + canvasY * cellSize, cellSize)
-        }
-      }
-    }
-  }, [cachedWorldZoneMap, originX, originY, overlay, renderCellSize, save, size.height, size.width, terrainMaskSets, textures, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers.gas, visibleLayers.liquid])
-
-  useEffect(() => {
-    const canvas = particleCanvasRef.current
-    if (!canvas || !size.width || !size.height || !viewportSize.width || !viewportSize.height) return
-    if (canvas.width !== viewportPixelWidth) canvas.width = viewportPixelWidth
-    if (canvas.height !== viewportPixelHeight) canvas.height = viewportPixelHeight
-    const context = canvas.getContext('2d')
-    if (!context) return
-    context.clearRect(0, 0, canvas.width, canvas.height)
-    if (overlay !== 'none') return
-    let cancelled = false
-    void loadOniParticleTextures().then((particleTextures) => {
-      if (cancelled) return
-      context.clearRect(0, 0, canvas.width, canvas.height)
-      drawOniSavedParticles(context, save, particleTextures, {
-        worldHeight: size.height,
-        cellSize: renderCellSize,
-        originX,
-        originY,
-      })
-    }).catch(() => undefined)
-    return () => { cancelled = true }
-  }, [originX, originY, overlay, renderCellSize, save, size.height, size.width, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width])
-
-  useEffect(() => {
-    const canvas = lightCanvasRef.current
-    const sim = save.simData
-    if (!canvas || !sim || !size.width || !size.height || !viewportSize.width || !viewportSize.height) return
-    if (canvas.width !== viewportPixelWidth) canvas.width = viewportPixelWidth
-    if (canvas.height !== viewportPixelHeight) canvas.height = viewportPixelHeight
-    const context = canvas.getContext('2d')
-    if (!context) return
-    context.clearRect(0, 0, canvas.width, canvas.height)
-    if (overlay !== 'none') return
-    const lights: OniLightInstance[] = []
-    for (const group of save.manager?.groups ?? []) {
-      const definition = oniLightDefinitionForTag(group.tag)
-      if (!definition) continue
-      for (const instance of group.instances) {
-        if (!oniLightIsEnabled(instance, definition.requiresActive)) continue
-        if (instance.position.x < 0 || instance.position.y < 0 || instance.position.x >= size.width || instance.position.y >= size.height) continue
-        lights.push({ x: instance.position.x, y: instance.position.y, definition })
-      }
-    }
-    const view = new DataView(sim.bytes.buffer, sim.bytes.byteOffset, sim.bytes.byteLength)
-    drawOniLightBuffer({
-      context,
-      lights,
-      width: size.width,
-      height: size.height,
-      worldHeight: size.height,
-      cellSize: renderCellSize,
-      originX,
-      originY,
-      cellAt: (x, y) => cachedSimCell(sim, view, x + 1, y + 1),
-    })
-  }, [originX, originY, overlay, renderCellSize, save, size.height, size.width, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width])
-
-  useEffect(() => {
-    const canvas = gridCanvasRef.current
-    if (!canvas || !size.width || !size.height || !viewportSize.width || !viewportSize.height) return
-    if (canvas.width !== viewportPixelWidth) canvas.width = viewportPixelWidth
-    if (canvas.height !== viewportPixelHeight) canvas.height = viewportPixelHeight
-    const context = canvas.getContext('2d')
-    if (!context) return
-    context.clearRect(0, 0, canvas.width, canvas.height)
-    if (!visibleLayers.grid || displayCellSize < 3) return
-    const range = visibleMapRange(size.width, size.height, renderCellSize, originX, originY, canvas.width, canvas.height)
-    context.strokeStyle = 'rgba(237, 230, 207, .14)'
-    context.lineWidth = Math.max(1, Math.ceil(renderCellSize / displayCellSize))
-    context.beginPath()
-    for (let x = range.minX; x <= range.maxX + 1; x++) {
-      const position = originX + x * renderCellSize
-      context.moveTo(position, 0)
-      context.lineTo(position, canvas.height)
-    }
-    for (let y = range.minRow; y <= range.maxRow + 1; y++) {
-      const position = originY + y * renderCellSize
-      context.moveTo(0, position)
-      context.lineTo(canvas.width, position)
-    }
-    context.stroke()
-  }, [displayCellSize, originX, originY, renderCellSize, size.height, size.width, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers.grid])
-
-  useEffect(() => {
-    const canvas = overlayRef.current
-    if (!canvas || !size.width || !size.height || !viewportSize.width || !viewportSize.height) return
-    const cellSize = renderCellSize
-    if (canvas.width !== viewportPixelWidth) canvas.width = viewportPixelWidth
-    if (canvas.height !== viewportPixelHeight) canvas.height = viewportPixelHeight
-    const context = canvas.getContext('2d')
-    if (!context) return
-    context.imageSmoothingEnabled = false
-    context.clearRect(0, 0, canvas.width, canvas.height)
-    const range = visibleMapRange(size.width, size.height, cellSize, originX, originY, canvas.width, canvas.height)
-    let patterns: ReturnType<typeof createElementPatterns> | undefined
-    const sim = save.simData
-    for (const preview of previewCells.values()) {
-      const element = elementForHash(preview.elementHash)
-      const px = originX + preview.x * cellSize
-      const py = originY + (size.height - 1 - preview.y) * cellSize
-      const baseCell = sim ? getWorldCell(sim, preview.x, preview.y) : undefined
-      // Draft cells are not part of the SIMSAVE property textures, so the
-      // original Water shader cannot render them faithfully. Liquid previews
-      // remain transparent until those source properties exist.
-      if (element.state === 'liquid') continue
-      if (baseCell && element.state === 'gas' && element.fluidMaterial) {
-        const previewCell: SimCell = { ...baseCell, elementHash: preview.elementHash }
-        drawGasBase(context, element.fluidMaterial, previewCell, px, py, cellSize)
-      } else {
-        patterns ??= createElementPatterns(context, textures, cellSize, originX, originY + size.height * cellSize)
-        context.fillStyle = patterns.get(element.texture ?? '') ?? element.color
-        context.fillRect(px, py, cellSize, cellSize)
-        context.strokeStyle = 'rgba(240, 208, 141, .8)'
-        context.lineWidth = Math.max(1, Math.ceil(cellSize / 4))
-        context.strokeRect(px + .5, py + .5, cellSize - 1, cellSize - 1)
-      }
-    }
-    if (tool === 'fill' && !spacePan && brushCell && sim) {
-      const fillCache = fillRegionCacheRef.current
-      if (fillCache.bytes !== sim.bytes) {
-        fillCache.bytes = sim.bytes
-        fillCache.regions.clear()
-      }
-      const startIndex = brushCell.y * size.width + brushCell.x
-      let fillCells = fillCache.regions.get(startIndex)
-      if (!fillCells) {
-        fillCells = floodFillCoordinates(sim, size.width, size.height, brushCell.x, brushCell.y)
-        fillCells.forEach((cell) => fillCache.regions.set(cell.y * size.width + cell.x, fillCells!))
-      }
-      if (fillCells.length > 0) {
-        const fillSet = new Set(fillCells.map((cell) => `${cell.x}:${cell.y}`))
-        const fillPath = new Path2D()
-        const boundaryPath = new Path2D()
-        const inViewport = (cell: { x: number; y: number }) => {
-          const canvasY = size.height - 1 - cell.y
-          return cell.x >= range.minX && cell.x <= range.maxX && canvasY >= range.minRow && canvasY <= range.maxRow
-        }
-        fillCells.forEach((cell) => {
-          if (!inViewport(cell)) return
-          const px = originX + cell.x * cellSize
-          const py = originY + (size.height - 1 - cell.y) * cellSize
-          fillPath.rect(px, py, cellSize + .25, cellSize + .25)
-          if (!fillSet.has(`${cell.x - 1}:${cell.y}`)) {
-            boundaryPath.moveTo(px, py)
-            boundaryPath.lineTo(px, py + cellSize)
-          }
-          if (!fillSet.has(`${cell.x + 1}:${cell.y}`)) {
-            boundaryPath.moveTo(px + cellSize, py)
-            boundaryPath.lineTo(px + cellSize, py + cellSize)
-          }
-          if (!fillSet.has(`${cell.x}:${cell.y - 1}`)) {
-            boundaryPath.moveTo(px, py + cellSize)
-            boundaryPath.lineTo(px + cellSize, py + cellSize)
-          }
-          if (!fillSet.has(`${cell.x}:${cell.y + 1}`)) {
-            boundaryPath.moveTo(px, py)
-            boundaryPath.lineTo(px + cellSize, py)
-          }
-        })
-        context.save()
-        context.fillStyle = 'rgba(240, 208, 141, .2)'
-        context.fill(fillPath)
-        context.strokeStyle = 'rgba(240, 208, 141, .9)'
-        context.lineWidth = Math.max(1, Math.min(3, cellSize * .06))
-        context.lineJoin = 'round'
-        context.stroke(boundaryPath)
-        context.restore()
-      }
-    }
-    if (selectedCell) {
-      context.strokeStyle = '#f0d08d'
-      context.lineWidth = Math.max(1, Math.ceil(cellSize / 4))
-      context.strokeRect(originX + selectedCell.x * cellSize + .5, originY + (size.height - 1 - selectedCell.y) * cellSize + .5, cellSize - 1, cellSize - 1)
-    }
-    const brushTool = tool === 'paint' || tool === 'erase' || tool === 'line'
-    if (brushTool && !spacePan && brushCell) {
-      const radius = Math.floor(brushSize / 2)
-      const left = originX + (brushCell.x - radius) * cellSize
-      const top = originY + (size.height - 1 - brushCell.y - radius) * cellSize
-      const brushPixels = brushSize * cellSize
-      context.fillStyle = tool === 'erase' ? 'rgba(255, 226, 196, .16)' : 'rgba(240, 208, 141, .18)'
-      context.strokeStyle = tool === 'erase' ? '#f3c59e' : '#f0d08d'
-      context.lineWidth = Math.max(1, Math.min(3, cellSize * .08))
-      context.fillRect(left, top, brushPixels, brushPixels)
-      context.strokeRect(left + context.lineWidth / 2, top + context.lineWidth / 2, brushPixels - context.lineWidth, brushPixels - context.lineWidth)
-    }
-    if (!brushTool && tool !== 'move' && !spacePan && !isSelecting && brushCell) {
-      const left = originX + brushCell.x * cellSize
-      const top = originY + (size.height - 1 - brushCell.y) * cellSize
-      const hoverColor = tool === 'eyedropper' ? '#8cebf1' : '#f0d08d'
-      context.save()
-      context.fillStyle = tool === 'eyedropper' ? 'rgba(140, 235, 241, .12)' : 'rgba(240, 208, 141, .1)'
-      context.strokeStyle = hoverColor
-      context.lineWidth = Math.max(1, Math.min(3, cellSize * .08))
-      context.setLineDash(tool === 'eyedropper' ? [Math.max(2, cellSize * .18), Math.max(2, cellSize * .12)] : [])
-      context.fillRect(left, top, cellSize, cellSize)
-      context.strokeRect(left + context.lineWidth / 2, top + context.lineWidth / 2, cellSize - context.lineWidth, cellSize - context.lineWidth)
-      context.restore()
-    }
-  }, [brushCell, brushSize, isSelecting, originX, originY, pan.x, pan.y, previewCells, previewVersion, renderCellSize, save, selectedCell, size.height, size.width, spacePan, textures, tool, viewportPixelHeight, viewportPixelWidth, viewportSize.height, viewportSize.width, visibleLayers.ground])
-
-  const canvasStyle = {
-    width: '100%',
-    height: '100%',
-  }
+  // Render chunks at native pixel-art resolution. 8px/cell is only suitable
+  // for the overview and becomes visibly blocky as soon as the camera zooms.
+  const baseCellSize = 32
+  const fitScale = viewportSize.width && viewportSize.height
+    ? Math.min(1, viewportSize.width / (size.width * baseCellSize), viewportSize.height / (size.height * baseCellSize))
+    : 1
   const mapBackgroundStyle = {
     '--map-space-background': `url("${assetPath('/assets/background/space_bg.png')}")`,
     '--map-starfield-background': `url("${assetPath('/assets/background/starfield.png')}")`,
   } as CSSProperties
 
-  const loadMapImage = (path: string) => new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image()
-    image.onload = () => resolve(image)
-    image.onerror = () => reject(new Error(`无法加载地图背景：${path}`))
-    image.src = assetPath(path)
-  })
+  const applyCamera = useCallback((next: MapViewport) => {
+    cameraRef.current = next
+    const nextZoom = MAP_ZOOM_MIN + (MAP_ZOOM_MAX - MAP_ZOOM_MIN) * next.zoomPercent / 100
+    const nextScale = fitScale * nextZoom
+    sceneRef.current?.setCamera(
+      (viewportSize.width - size.width * baseCellSize * nextScale) / 2 + next.pan.x,
+      (viewportSize.height - size.height * baseCellSize * nextScale) / 2 + next.pan.y,
+      nextScale,
+    )
+  }, [fitScale, size.height, size.width, viewportSize.height, viewportSize.width])
+  applyCameraRef.current = applyCamera
 
-  const paintMapBackground = (context: CanvasRenderingContext2D, width: number, height: number, spaceBackground: HTMLImageElement, starfield: HTMLImageElement) => {
-    context.fillStyle = '#090d16'
-    context.fillRect(0, 0, width, height)
-    const coverScale = Math.max(width / spaceBackground.naturalWidth, height / spaceBackground.naturalHeight)
-    const coverWidth = spaceBackground.naturalWidth * coverScale
-    const coverHeight = spaceBackground.naturalHeight * coverScale
-    context.globalAlpha = .86
-    context.drawImage(spaceBackground, (width - coverWidth) / 2, (height - coverHeight) / 2, coverWidth, coverHeight)
-    context.globalCompositeOperation = 'screen'
-    context.globalAlpha = .2
-    for (let y = -starfield.naturalHeight; y < height; y += starfield.naturalHeight) {
-      for (let x = -starfield.naturalWidth; x < width; x += starfield.naturalWidth) {
-        context.drawImage(starfield, x, y)
-      }
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const scene = new PixiWorldScene()
+    let active = true
+    void scene.init(canvas).then((initialized) => {
+      if (!initialized || !active) return
+      sceneRef.current = scene
+      setSceneReady(true)
+      const host = hostRef.current
+      scene.resize(host?.clientWidth ?? 1, host?.clientHeight ?? 1)
+      applyCameraRef.current(cameraRef.current)
+    })
+    return () => { active = false; if (wheelCommitRef.current !== null) window.clearTimeout(wheelCommitRef.current); if (sceneRef.current === scene) sceneRef.current = null; scene.destroy() }
+  }, [])
+
+  useEffect(() => {
+    const host = hostRef.current
+    if (!host) return
+    const update = () => setViewportSize({ width: host.clientWidth, height: host.clientHeight })
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(host)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    sceneRef.current?.resize(viewportSize.width, viewportSize.height)
+    applyCamera(viewport)
+  }, [applyCamera, viewport, viewportSize.height, viewportSize.width])
+
+  useEffect(() => {
+    const scene = sceneRef.current
+    if (!sceneReady || !scene || !save.simData || !size.width || !size.height) return
+    const generation = ++buildRef.current
+    const chunkCells = 64
+    const renderedKeysByLayer = new Map<OniChunkLayer, Set<string>>()
+    let renderer: Awaited<ReturnType<typeof createOniChunkRenderer>> | null = null
+    let cursor = 0
+    let scheduledFrame = 0
+    let tasks: Array<{ distance: number; x: number; row: number; widthCells: number; heightCells: number; key: string }> = []
+    const scheduleNext = () => {
+      scheduledFrame = window.requestAnimationFrame(buildNext)
     }
-    context.globalCompositeOperation = 'source-over'
-    context.globalAlpha = 1
-    context.imageSmoothingEnabled = false
-  }
-
-  const drawMapWatermark = (context: CanvasRenderingContext2D, width: number, height: number) => {
-    const scale = Math.max(1, Math.min(3, Math.max(width, height) / 1600))
-    const padding = 14 * scale
-    const lineHeight = 14 * scale
-    const title = '缺氧存档编辑器'
-    const seed = `地图种子 ${mapCoordinate ?? (mapSeed === undefined ? '未知' : mapSeed)}`
-    const textRight = width - padding - 12 * scale
-    context.save()
-    context.font = `600 ${12 * scale}px "Microsoft YaHei", sans-serif`
-    const titleWidth = context.measureText(title).width
-    context.font = `${9 * scale}px Consolas, monospace`
-    const linkWidth = context.measureText(MAP_EDITOR_URL).width
-    const seedWidth = context.measureText(seed).width
-    const boxWidth = Math.max(titleWidth, linkWidth, seedWidth) + 24 * scale
-    const boxHeight = 12 * scale + lineHeight * 3 + 12 * scale
-    const boxLeft = Math.max(8 * scale, width - boxWidth - padding)
-    const boxTop = Math.max(8 * scale, height - boxHeight - padding)
-    context.fillStyle = 'rgba(8, 12, 18, .78)'
-    context.fillRect(boxLeft, boxTop, boxWidth, boxHeight)
-    context.strokeStyle = 'rgba(240, 208, 141, .38)'
-    context.lineWidth = Math.max(1, scale)
-    context.strokeRect(boxLeft + context.lineWidth / 2, boxTop + context.lineWidth / 2, boxWidth - context.lineWidth, boxHeight - context.lineWidth)
-    context.textAlign = 'right'
-    context.textBaseline = 'middle'
-    context.font = `600 ${12 * scale}px "Microsoft YaHei", sans-serif`
-    context.fillStyle = '#fff4d6'
-    context.fillText(title, textRight, boxTop + 15 * scale)
-    context.font = `${9 * scale}px Consolas, monospace`
-    context.fillStyle = 'rgba(255, 244, 214, .72)'
-    context.fillText(MAP_EDITOR_URL, textRight, boxTop + 15 * scale + lineHeight)
-    context.fillStyle = 'rgba(255, 244, 214, .88)'
-    context.fillText(seed, textRight, boxTop + 15 * scale + lineHeight * 2)
-    context.restore()
-  }
-
-  const downloadMapCanvas = async (canvas: HTMLCanvasElement, fileName: string) => {
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
-    if (!blob) return
-    const link = document.createElement('a')
-    const url = URL.createObjectURL(blob)
-    link.href = url
-    link.download = fileName
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
-  }
-
-  const exportCurrentMapImage = async () => {
-    const baseCanvas = canvasRef.current
-    const backgroundCanvas = backgroundCanvasRef.current
-    const entityBackCanvas = entityBackCanvasRef.current
-    const entityFrontCanvas = entityFrontCanvasRef.current
-    const gasBaseCanvas = fluidBaseCanvasRef.current
-    const gasCanvas = fluidCanvasRef.current
-    const particleCanvas = particleCanvasRef.current
-    const lightCanvas = lightCanvasRef.current
-    const gridCanvas = gridCanvasRef.current
-    if (!baseCanvas || !backgroundCanvas || !entityBackCanvas || !entityFrontCanvas || !gasBaseCanvas || !gasCanvas || !particleCanvas || !lightCanvas || !gridCanvas || !baseCanvas.width || !baseCanvas.height) return
-    const exportCanvas = document.createElement('canvas')
-    exportCanvas.width = baseCanvas.width
-    exportCanvas.height = baseCanvas.height
-    const context = exportCanvas.getContext('2d')
-    if (!context) return
-    try {
-      const [spaceBackground, starfield] = await Promise.all([
-        loadMapImage('/assets/background/space_bg.png'),
-        loadMapImage('/assets/background/starfield.png'),
-      ])
-      paintMapBackground(context, exportCanvas.width, exportCanvas.height, spaceBackground, starfield)
-      context.drawImage(backgroundCanvas, 0, 0)
-      context.drawImage(entityBackCanvas, 0, 0)
-      context.drawImage(gasBaseCanvas, 0, 0)
-      context.drawImage(gasCanvas, 0, 0)
-      context.drawImage(baseCanvas, 0, 0)
-      context.drawImage(entityFrontCanvas, 0, 0)
-      context.drawImage(particleCanvas, 0, 0)
-      context.drawImage(lightCanvas, 0, 0)
-      context.drawImage(gridCanvas, 0, 0)
-      drawMapWatermark(context, exportCanvas.width, exportCanvas.height)
-      await downloadMapCanvas(exportCanvas, '缺氧地图-当前视图.png')
-    } catch {
-      return
-    }
-  }
-
-  const exportPanoramaImage = async () => {
-    const sim = save.simData
-    if (!sim || !size.width || !size.height) return
-    const exportCellSize = Math.max(1, Math.min(PANORAMA_CELL_PIXELS, Math.floor(16000 / Math.max(size.width, size.height))))
-    const exportWidth = size.width * exportCellSize
-    const exportHeight = size.height * exportCellSize
-    const exportCanvas = document.createElement('canvas')
-    exportCanvas.width = exportWidth
-    exportCanvas.height = exportHeight
-    const context = exportCanvas.getContext('2d')
-    if (!context) return
-
-    try {
-      const [spaceBackground, starfield, ...loadedBiomeBackgrounds] = await Promise.all([
-        loadMapImage('/assets/background/space_bg.png'),
-        loadMapImage('/assets/background/starfield.png'),
-        ...Array.from({ length: 19 }, (_, textureIndex) => loadMapImage(biomeBackgroundAsset(textureIndex))),
-      ])
-      paintMapBackground(context, exportWidth, exportHeight, spaceBackground, starfield)
-
-      const view = new DataView(sim.bytes.buffer, sim.bytes.byteOffset, sim.bytes.byteLength)
-      const worldZones = cachedWorldZoneMap(sim)
-      const exportBiomeBackgrounds: Record<number, HTMLImageElement> = { ...biomeBackgrounds }
-      loadedBiomeBackgrounds.forEach((image, textureIndex) => { exportBiomeBackgrounds[textureIndex] = image })
-      const originX = 0
-      const originY = 0
-      const cellSize = exportCellSize
-      const fullRange = { minX: 0, maxX: size.width - 1, minRow: 0, maxRow: size.height - 1 }
-      if (visibleLayers.biome) {
-        oniWorldRenderer.renderBiome({
-          context,
-          worldZones,
-          width: size.width,
-          height: size.height,
-          cellSize,
-          originX,
-          originY,
-          range: fullRange,
-          backgrounds: exportBiomeBackgrounds,
-        })
+    const buildNext = () => {
+      if (generation !== buildRef.current || !renderer) return
+      if (isInteractingRef.current) {
+        scheduleNext()
+        return
       }
-      const patterns = createElementPatterns(context, textures, cellSize, originX, originY + size.height * cellSize)
-      const visibleGrid = worldGrid(save, 'GridVisible')?.bytes
-      const spawnableGrid = worldGrid(save, 'GridSpawnable')?.bytes
-      const damageGrid = worldGrid(save, 'GridDamage')?.bytes
-      const terrainMaskedCells = terrainMaskedCellsByBuilding(save)
-      for (const cells of blockTileCellsByGroup(save).values()) {
-        for (const key of cells) terrainMaskedCells.add(key)
-      }
-      const isTerrainMaskedAt = (x: number, y: number) => terrainMaskedCells.has(blockTileCellKey(x, y))
-      const cellAt = (x: number, y: number) => cachedSimCell(sim, view, x + 1, y + 1)
-      const simIndexAt = (x: number, y: number) => (y + 1) * sim.width + x + 1
-      const damageView = damageGrid ? new DataView(damageGrid.buffer, damageGrid.byteOffset, damageGrid.byteLength) : undefined
-      const damageAt = (x: number, y: number) => {
-        const offset = (y * size.width + x) * 4
-        return damageView && offset >= 0 && offset + 4 <= damageView.byteLength ? damageView.getFloat32(offset, true) : 0
-      }
-      const hasBackwallAt = (x: number, y: number) => {
-        const backwall = readSimBackwall(sim, view, x + 1, y + 1)
-        return backwall ? elementForHash(backwall.elementHash).state === 'solid' : false
-      }
-      const gasRendered = overlay === 'none' && visibleLayers.gas && oniWorldRenderer.renderGas({
-        context,
-        width: size.width,
-        height: size.height,
-        cellSize,
-        originX,
-        originY,
-        range: fullRange,
-        worldZones,
-        textures,
-        maskSets: terrainMaskSets,
-        cellAt,
-        propertyCacheKey: sim.bytes,
-        isTerrainMaskedAt,
-        damageAt,
-        hasBackwallAt,
-        zoneColors: ONI_WORLD_ZONE_COLORS,
-      })
-      const liquidRendered = overlay === 'none' && visibleLayers.liquid && oniWorldRenderer.renderLiquid({
-        context,
-        width: size.width,
-        height: size.height,
-        cellSize,
-        originX,
-        originY,
-        range: fullRange,
-        worldZones,
-        textures,
-        maskSets: terrainMaskSets,
-        cellAt,
-        propertyCacheKey: sim.bytes,
-        isTerrainMaskedAt,
-        damageAt,
-        hasBackwallAt,
-        zoneColors: ONI_WORLD_ZONE_COLORS,
-      })
-
-      // Data overlays must remain above terrain. In the normal view terrain is
-      // emitted after fluid/backwall passes, matching Ground (29) over Liquid
-      // (29); overlay views render terrain first and paint their data last.
-      if (visibleLayers.ground && overlay !== 'none') {
-        oniWorldRenderer.renderTerrain({
-          context,
-          width: size.width,
-          height: size.height,
-          cellSize,
-          originX,
-          originY,
-          range: fullRange,
-          worldZones,
-          textures,
-          maskSets: terrainMaskSets,
-          cellAt,
-          isTerrainMaskedAt,
-          damageAt,
-          hasBackwallAt,
-          zoneColors: ONI_WORLD_ZONE_COLORS,
-        })
-      }
-
-      // Render every cell at export resolution. This does not depend on the current
-      // viewport, zoom, device pixel ratio, selection, or brush preview.
-      for (let canvasY = 0; canvasY < size.height; canvasY++) {
-        const y = size.height - 1 - canvasY
-        for (let x = 0; x < size.width; x++) {
-          const cell = cellAt(x, y)
-          if (!cell) continue
-          const element = elementForHash(cell.elementHash)
-          const px = originX + x * cellSize
-          const py = originY + canvasY * cellSize
-          const backwall = readSimBackwall(sim, view, x + 1, y + 1)
-          const backwallPresent = backwall ? elementForHash(backwall.elementHash).state === 'solid' : false
-          if (visibleLayers.backwall && backwallPresent) {
-            context.fillStyle = 'rgba(185, 164, 132, .55)'
-            context.fillRect(px, py, cellSize, cellSize)
+      if (cursor < tasks.length) {
+        const task = tasks[cursor++]
+        const chunk = renderer.renderChunk(task.x, task.row, task.widthCells, task.heightCells)
+        scene.beginBatch()
+        for (const [layer, canvas] of Object.entries(chunk.layers) as Array<[OniChunkLayer, HTMLCanvasElement | undefined]>) {
+          if (!canvas) continue
+          let renderedKeys = renderedKeysByLayer.get(layer)
+          if (!renderedKeys) {
+            renderedKeys = new Set<string>()
+            renderedKeysByLayer.set(layer, renderedKeys)
           }
-          const isSolid = element.state === 'solid'
-          const elementLayerVisible = element.state === 'solid' && visibleLayers.ground
-            || element.state === 'liquid' && visibleLayers.liquid
-            || element.state === 'gas' && visibleLayers.gas
-          if (!isSolid) {
-            const showElement = element.state === 'special' || elementLayerVisible
-            if (element.state === 'gas' && gasRendered) continue
-            if (element.state === 'liquid' && liquidRendered) continue
-            if (showElement && element.state === 'liquid' && element.fluidMaterial) {
-              const above = cellAt(x, y + 1)
-              const aboveState = above ? elementForHash(above.elementHash).state : undefined
-              drawLiquidFallback(context, element.fluidMaterial, cell, px, py, cellSize, aboveState === 'liquid' || aboveState === 'solid')
-            } else if (showElement && element.state === 'gas' && element.fluidMaterial) {
-              drawGasBase(context, element.fluidMaterial, cell, px, py, cellSize)
-            } else if (showElement) {
-              context.fillStyle = patterns.get(element.texture ?? '') ?? element.color
-              context.fillRect(px, py, cellSize, cellSize)
-            }
-          }
-          if (overlay === 'temperature') {
-            context.fillStyle = temperatureColor(cell.temperature)
-            context.globalAlpha = .72
-            context.fillRect(px, py, cellSize, cellSize)
-            context.globalAlpha = 1
-          } else if (overlay === 'mass') {
-            const intensity = Math.min(1, Math.log10(1 + Math.max(0, cell.mass)) / 2.2)
-            context.fillStyle = `rgba(117, 171, 191, ${0.12 + intensity * 0.88})`
-            context.fillRect(px, py, cellSize, cellSize)
-          } else if (overlay === 'visibility') {
-            const value = visibleGrid?.[y * size.width + x] ?? 0
-            context.fillStyle = value > 0 ? `rgba(127, 169, 212, ${.2 + value / 255 * .72})` : 'rgba(16, 23, 25, .84)'
-            context.fillRect(px, py, cellSize, cellSize)
-          } else if (overlay === 'spawnable') {
-            const value = spawnableGrid?.[y * size.width + x] ?? 0
-            context.fillStyle = value > 0 ? `rgba(112, 157, 123, ${.2 + value / 255 * .72})` : 'rgba(16, 23, 25, .84)'
-            context.fillRect(px, py, cellSize, cellSize)
-          } else if (overlay === 'damage') {
-            const damageValue = Math.max(0, Math.min(1, damageAt(x, y)))
-            context.fillStyle = damageValue > 0 ? `rgba(198, 123, 113, ${.2 + damageValue * .72})` : 'rgba(16, 23, 25, .84)'
-            context.fillRect(px, py, cellSize, cellSize)
-          } else if (overlay === 'disease') {
-            const diseaseOffset = sim.diseaseOffset + simIndexAt(x, y) * SIM_DISEASE_SIZE
-            let diseaseLevel = 0
-            for (let index = 0; index < SIM_DISEASE_SIZE; index++) diseaseLevel += sim.bytes[diseaseOffset + index]
-            const intensity = Math.min(.9, .12 + diseaseLevel / 2040)
-            context.fillStyle = diseaseLevel > 0 ? `rgba(194, 102, 111, ${intensity})` : 'rgba(16, 23, 25, .84)'
-            context.fillRect(px, py, cellSize, cellSize)
-          }
+          renderedKeys.add(task.key)
+          scene.setChunk({ key: task.key, x: chunk.x, y: chunk.y, canvas, layer })
         }
+        scene.endBatch()
       }
-
-      if (visibleLayers.ground && overlay === 'none') {
-        oniWorldRenderer.renderTerrain({
-          context,
-          width: size.width,
-          height: size.height,
-          cellSize,
-          originX,
-          originY,
-          range: fullRange,
-          worldZones,
-          textures,
-          maskSets: terrainMaskSets,
-          cellAt,
-          isTerrainMaskedAt,
-          damageAt,
-          hasBackwallAt,
-          zoneColors: ONI_WORLD_ZONE_COLORS,
-        })
+      if (cursor < tasks.length) scheduleNext()
+      else {
+        const allLayers: OniChunkLayer[] = ['background', 'entitiesBack', 'gas', 'liquid', 'terrain', 'entitiesFront', 'particles', 'light']
+        for (const layer of allLayers) scene.removeMissing(renderedKeysByLayer.get(layer) ?? new Set<string>(), layer)
       }
-
-      context.save()
-      context.setTransform(1, 0, 0, 1, 0, 0)
-      context.globalAlpha = 1
-      context.globalCompositeOperation = 'source-over'
-      context.fillStyle = '#e4b067'
-      if (visibleLayers.minions || mapEntityLayersAreVisible(visibleLayers)) {
-        const utilityCells = buildUtilityCellMap(save)
-        const tileCells = blockTileCellsByGroup(save)
-        for (const { group, instance } of mapObjectsInRenderOrder(save)) {
-          const sceneLayer = mapObjectSceneLayer(group)
-          if (group.tag === 'Minion') {
-            if (!visibleLayers.minions) continue
-            const minionX = Math.round(instance.position.x)
-            const minionY = Math.round(size.height - 1 - instance.position.y)
-            if (minionX >= 0 && minionY >= 0 && minionX < size.width && minionY < size.height) {
-              const anchor = mapObjectAnchor(instance.position.x, instance.position.y, size.height, cellSize, originX, originY)
-              if (minionKanimAssets) {
-                drawMinionKanim(context, minionKanimAssets, minionAccessoryGuids(instance), minionWearableAnimNames(instance), cellSize, anchor.x, anchor.y, minionFacesLeft(instance))
-              } else {
-                context.fillRect(originX + minionX * cellSize + 1, originY + minionY * cellSize + 1, Math.max(1, cellSize - 2), Math.max(1, cellSize - 2))
-              }
-            }
-            continue
-          }
-          const blockTileTexture = blockTileTextureForTag(group.tag)
-          const blockTileCells = blockTileTexture ? tileCells.get(group) : undefined
-          const utilityTexture = utilityTextureForTag(group.tag)
-          const utilityFamily = utilityFamilyForTag(group.tag)
-          const isBuilding = hasSimpleComponent(instance, 'BuildingComplete')
-          const geyserTexture = geyserTextureForTag(group.tag)
-          const buildingTexture = buildingTextureForInstance(group.tag, instance, generatedBuildingDefinitions)
-          const isGeyser = isGeyserInstance(group.tag, instance, geyserTexture)
-          const isCreature = sceneLayer === ONI_SCENE_LAYER_ORDER.Creatures
-          if (!isBuilding && !isGeyser && !buildingTexture && !blockTileTexture && !utilityTexture) continue
-          if (!mapEntityLayerIsVisible(visibleLayers, isGeyser, isCreature, utilityFamily)) continue
-          const x = Math.floor(instance.position.x)
-          const y = Math.floor(instance.position.y)
-          const canvasY = size.height - 1 - y
-          if (x < 0 || canvasY < 0 || x >= size.width || canvasY >= size.height) continue
-          const px = originX + x * cellSize
-          const py = originY + canvasY * cellSize
-          if (utilityTexture) {
-            const image = buildingTextures[utilityTexture.path]
-            if (image) {
-              const connections = utilityDisplayConnections(utilityCells, utilityFamily!, instance, x, y)
-              const anchor = mapObjectAnchor(instance.position.x, instance.position.y, size.height, cellSize, originX, originY)
-              drawUtilityTile(context, image, utilityTexture, connections, anchor.x, anchor.y, cellSize)
-            }
-          } else if (blockTileTexture) {
-            const connectionBits = blockTileConnectionBits(
-              (neighbourX, neighbourY) => blockTileCells?.has(blockTileCellKey(neighbourX, neighbourY)) ?? false,
-              x,
-              y,
-            )
-            const image = buildingTextures[blockTileTexture.path]
-            if (image) {
-              drawBlockTile(context, image, connectionBits, px, py, cellSize)
-            }
-          } else if (isGeyser && !buildingTexture) {
-              const centerX = originX + instance.position.x * cellSize
-              const centerY = originY + (size.height - instance.position.y - .5) * cellSize
-              const image = geyserTexture ? geyserTextures[geyserTexture.path] : undefined
-              if (image && geyserTexture) {
-                drawGeyserTexture(context, image, geyserTexture, cellSize, centerX, centerY)
-              } else {
-                const fallbackX = px + cellSize / 2
-                const fallbackY = py + cellSize / 2
-                const radius = Math.max(2, cellSize * .34)
-                context.fillStyle = 'rgba(112, 190, 203, .9)'
-                context.strokeStyle = '#e8d096'
-                context.lineWidth = Math.max(1, Math.ceil(cellSize / 8))
-                context.beginPath()
-                context.arc(fallbackX, fallbackY, radius, 0, Math.PI * 2)
-                context.fill()
-                context.stroke()
-                context.fillStyle = '#2a5965'
-                context.fillRect(fallbackX - Math.max(1, cellSize * .08), fallbackY - Math.max(1, cellSize * .08), Math.max(2, cellSize * .16), Math.max(2, cellSize * .16))
-              }
-          } else if (buildingTexture) {
-            const image = buildingTextures[buildingTexture.path]
-            if (image) {
-              const anchor = mapObjectAnchor(instance.position.x, instance.position.y, size.height, cellSize, originX, originY)
-              drawGeyserTexture(context, image, buildingTexture, cellSize, anchor.x, anchor.y, instanceOrientation(instance), rotatableVisualizerForTag(group.tag))
-            }
-          }
-        }
-      }
-      context.restore()
-      if (overlay === 'none') {
-        const particleTextures = await loadOniParticleTextures()
-        drawOniSavedParticles(context, save, particleTextures, { worldHeight: size.height, cellSize, originX, originY })
-        const lights: OniLightInstance[] = []
-        for (const group of save.manager?.groups ?? []) {
-          const definition = oniLightDefinitionForTag(group.tag)
-          if (!definition) continue
-          for (const instance of group.instances) {
-            if (!oniLightIsEnabled(instance, definition.requiresActive)) continue
-            if (instance.position.x < 0 || instance.position.y < 0 || instance.position.x >= size.width || instance.position.y >= size.height) continue
-            lights.push({ x: instance.position.x, y: instance.position.y, definition })
-          }
-        }
-        drawOniLightBuffer({ context, lights, width: size.width, height: size.height, worldHeight: size.height, cellSize, originX, originY, cellAt })
-      }
-      drawMapWatermark(context, exportWidth, exportHeight)
-      await downloadMapCanvas(exportCanvas, `缺氧地图-全景-${exportCellSize}px.png`)
-    } catch {
-      return
     }
+    void createOniChunkRenderer(save, visibleLayers, overlay, baseCellSize, () => generation !== buildRef.current).then((prepared) => {
+      if (generation !== buildRef.current) { prepared.destroy(); return }
+      renderer = prepared
+      for (let row = 0; row < size.height; row += chunkCells) for (let x = 0; x < size.width; x += chunkCells) {
+        const widthCells = Math.min(chunkCells, size.width - x)
+        const heightCells = Math.min(chunkCells, size.height - row)
+        const key = `${x}:${row}`
+        tasks.push({ key, x, row, widthCells, heightCells, distance: Math.hypot(x + widthCells / 2 - size.width / 2, row + heightCells / 2 - size.height / 2) })
+      }
+      tasks = tasks.sort((left, right) => left.distance - right.distance)
+      scheduleNext()
+    }).catch((cause) => {
+      if (generation === buildRef.current && !(cause instanceof DOMException && cause.name === 'AbortError')) console.error('ONI 地图分块准备失败。', cause)
+    })
+    return () => {
+      buildRef.current += 1
+      if (scheduledFrame) window.cancelAnimationFrame(scheduledFrame)
+      renderer?.destroy()
+    }
+  }, [overlay, save, sceneReady, size.height, size.width, visibleLayers])
+
+  const pointToCell = (clientX: number, clientY: number) => {
+    const host = hostRef.current
+    const liveZoom = MAP_ZOOM_MIN + (MAP_ZOOM_MAX - MAP_ZOOM_MIN) * cameraRef.current.zoomPercent / 100
+    const liveScale = fitScale * liveZoom
+    if (!host || liveScale <= 0) return null
+    const rect = host.getBoundingClientRect()
+    const originX = (viewportSize.width - size.width * baseCellSize * liveScale) / 2 + cameraRef.current.pan.x
+    const originY = (viewportSize.height - size.height * baseCellSize * liveScale) / 2 + cameraRef.current.pan.y
+    const x = Math.floor((clientX - rect.left - originX) / (baseCellSize * liveScale))
+    const row = Math.floor((clientY - rect.top - originY) / (baseCellSize * liveScale))
+    if (x < 0 || row < 0 || x >= size.width || row >= size.height) return null
+    return { x, y: size.height - 1 - row }
   }
 
-  const activeSelectionBounds = selection ? normalizedSelection(selection) : undefined
-  const updateSelectionDraftOverlay = (draft: MapSelection | null) => {
-    const node = selectionDraftOverlayRef.current
-    if (!node) return
-    if (!draft) {
-      node.hidden = true
-      return
-    }
-    const bounds = normalizedSelection(draft)
-    node.hidden = false
-    node.style.left = `${originX / devicePixelRatio + bounds.minX * displayCellSize}px`
-    node.style.top = `${originY / devicePixelRatio + (size.height - 1 - bounds.maxY) * displayCellSize}px`
-    node.style.width = `${bounds.width * displayCellSize}px`
-    node.style.height = `${bounds.height * displayCellSize}px`
-    const showLabel = bounds.width * displayCellSize >= 52 && bounds.height * displayCellSize >= 34
-    const label = node.querySelector<HTMLElement>('.map-selection-label')
-    if (label) label.hidden = !showLabel
-    if (showLabel) {
-      if (selectionDraftTitleRef.current) selectionDraftTitleRef.current.textContent = `${bounds.width}×${bounds.height}`
-      if (selectionDraftCountRef.current) selectionDraftCountRef.current.textContent = `${bounds.cells.toLocaleString()}格`
-    }
-  }
-
-  return <div
-    ref={viewportRef}
-    style={mapBackgroundStyle}
-    className={`canvas-frame canvas-viewport ${isPanning ? 'is-panning' : ''} ${isSelecting ? 'is-selecting' : ''} ${spacePan ? 'is-space-pan' : ''} ${tool === 'inspect' ? 'is-select-mode' : ''} ${tool !== 'inspect' && tool !== 'move' ? 'is-brush-mode' : ''}`}
-    onWheel={(event) => { event.preventDefault(); event.stopPropagation(); queueWheelZoom(event.deltaY < 0 ? 5 : -5, event.clientX, event.clientY) }}
+  return <div ref={hostRef} style={mapBackgroundStyle} className="canvas-frame canvas-viewport pixi-map-viewport"
+    onWheel={(event) => {
+      event.preventDefault()
+      const current = cameraRef.current
+      const nextPercent = Math.max(0, Math.min(100, current.zoomPercent + (event.deltaY < 0 ? 5 : -5)))
+      const host = hostRef.current
+      if (!host || nextPercent === current.zoomPercent) return
+      const rect = host.getBoundingClientRect()
+      const anchorX = event.clientX - rect.left
+      const anchorY = event.clientY - rect.top
+      const oldScale = fitScale * (MAP_ZOOM_MIN + (MAP_ZOOM_MAX - MAP_ZOOM_MIN) * current.zoomPercent / 100)
+      const nextScale = fitScale * (MAP_ZOOM_MIN + (MAP_ZOOM_MAX - MAP_ZOOM_MIN) * nextPercent / 100)
+      const oldOriginX = (viewportSize.width - size.width * baseCellSize * oldScale) / 2 + current.pan.x
+      const oldOriginY = (viewportSize.height - size.height * baseCellSize * oldScale) / 2 + current.pan.y
+      const worldX = (anchorX - oldOriginX) / oldScale
+      const worldY = (anchorY - oldOriginY) / oldScale
+      const next = { zoomPercent: nextPercent, pan: {
+        x: anchorX - (viewportSize.width - size.width * baseCellSize * nextScale) / 2 - worldX * nextScale,
+        y: anchorY - (viewportSize.height - size.height * baseCellSize * nextScale) / 2 - worldY * nextScale,
+      }}
+      applyCamera(next)
+      if (wheelCommitRef.current !== null) window.clearTimeout(wheelCommitRef.current)
+      wheelCommitRef.current = window.setTimeout(() => {
+        wheelCommitRef.current = null
+        onViewportChange(cameraRef.current)
+      }, 120)
+    }}
     onPointerDown={(event) => {
       if (event.button !== 0 && event.button !== 1) return
-      if (event.button === 1) event.preventDefault()
       event.currentTarget.setPointerCapture(event.pointerId)
-      const temporaryPan = event.button === 1 || spacePanRef.current
-      const mode = temporaryPan || tool === 'move' ? 'pan' : tool === 'inspect' ? 'select' : tool === 'paint' || tool === 'erase' ? 'brush' : tool === 'rectangle' || tool === 'line' ? 'shape' : 'point'
-      const startCell = pointToCell(event.clientX, event.clientY) ?? null
-      pointerRef.current = { mode, startX: event.clientX, startY: event.clientY, panX: pan.x, panY: pan.y, moved: false, lastCell: null, startCell }
-      if (mode === 'brush') {
-        visitedBrushCellsRef.current.clear()
-        onStrokeStart()
-        const cell = startCell
-        if (cell) {
-          const key = `${cell.x}:${cell.y}`
-          visitedBrushCellsRef.current.add(key)
-          pointerRef.current.lastCell = cell
-          onCell(cell.x, cell.y)
-        }
-      } else if (mode === 'shape') {
-        onStrokeStart()
-        if (startCell) onShape(startCell, startCell)
-      } else if (mode === 'point') {
-        if (startCell) onCell(startCell.x, startCell.y)
-      } else if (mode === 'select') {
-        onSelectionChange(null)
-        if (startCell) {
-          selectionDraftRef.current = { start: startCell, end: startCell }
-          updateSelectionDraftOverlay(selectionDraftRef.current)
-          setIsSelecting(true)
-        } else {
-          selectionDraftRef.current = null
-          updateSelectionDraftOverlay(null)
-          setIsSelecting(false)
-        }
-      } else {
-        beginInteractionSnapshot()
-        const interactionLayer = interactionTransformLayer()
-        if (interactionLayer) interactionLayer.style.transform = 'translate3d(0, 0, 0)'
-        setIsPanning(true)
-      }
+      isInteractingRef.current = true
+      const mode = event.button === 1 || tool === 'move' ? 'pan' : tool === 'inspect' ? 'select' : tool === 'paint' || tool === 'erase' ? 'brush' : tool === 'rectangle' || tool === 'line' ? 'shape' : 'point'
+      const cell = pointToCell(event.clientX, event.clientY)
+      pointerRef.current = { mode, id: event.pointerId, startX: event.clientX, startY: event.clientY, panX: viewport.pan.x, panY: viewport.pan.y, startCell: cell, lastCell: cell, moved: false }
+      if (mode === 'brush') { onStrokeStart(); if (cell) onCell(cell.x, cell.y) }
+      else if (mode === 'shape') { onStrokeStart(); if (cell) onShape(cell, cell) }
+      else if (mode === 'point' && cell) onCell(cell.x, cell.y)
     }}
     onPointerMove={(event) => {
       const pointer = pointerRef.current
-      const cell = pointToCell(event.clientX, event.clientY) ?? null
-      const cursorTool = tool !== 'move'
-      if (cursorTool && !spacePanRef.current && pointer?.mode !== 'pan') updateBrushCell(cell)
-      else updateBrushCell(null)
       if (!pointer) return
-      if (pointer.mode === 'brush') {
-        if (!cell) return
-        const path = pointer.lastCell ? lineCells(pointer.lastCell, cell, 1, size.width, size.height) : [cell]
-        path.forEach((point) => {
-          const key = `${point.x}:${point.y}`
-          if (visitedBrushCellsRef.current.has(key)) return
-          visitedBrushCellsRef.current.add(key)
-          onCell(point.x, point.y)
-        })
-        pointer.lastCell = cell
-        return
+      const cell = pointToCell(event.clientX, event.clientY)
+      if (pointer.mode === 'pan') {
+        const dx = event.clientX - pointer.startX; const dy = event.clientY - pointer.startY
+        pointer.moved ||= Math.abs(dx) > 2 || Math.abs(dy) > 2
+        if (pointer.moved) applyCamera({ zoomPercent: cameraRef.current.zoomPercent, pan: { x: pointer.panX + dx, y: pointer.panY + dy } })
+      } else if (pointer.mode === 'brush' && cell && (cell.x !== pointer.lastCell?.x || cell.y !== pointer.lastCell?.y)) {
+        pointer.lastCell = cell; onCell(cell.x, cell.y)
+      } else if (pointer.mode === 'shape' && cell && pointer.startCell) onShape(pointer.startCell, cell)
+      else if (pointer.mode === 'select') {
+        const dx = event.clientX - pointer.startX; const dy = event.clientY - pointer.startY
+        pointer.moved ||= Math.abs(dx) > 3 || Math.abs(dy) > 3
       }
-      if (pointer.mode === 'shape') {
-        if (cell && pointer.startCell) onShape(pointer.startCell, cell)
-        return
-      }
-      if (pointer.mode === 'select') {
-        const dx = event.clientX - pointer.startX
-        const dy = event.clientY - pointer.startY
-        if (Math.abs(dx) > 4 || Math.abs(dy) > 4) pointer.moved = true
-        if (pointer.moved && pointer.startCell && cell) {
-          const currentDraft = selectionDraftRef.current
-          if (currentDraft?.start.x !== pointer.startCell.x || currentDraft.start.y !== pointer.startCell.y || currentDraft.end.x !== cell.x || currentDraft.end.y !== cell.y) {
-            selectionDraftRef.current = { start: pointer.startCell, end: cell }
-            updateSelectionDraftOverlay(selectionDraftRef.current)
-          }
-        }
-        return
-      }
-      if (pointer.mode === 'point') return
-      const dx = event.clientX - pointer.startX
-      const dy = event.clientY - pointer.startY
-      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) pointer.moved = true
-      const interactionLayer = interactionTransformLayer()
-      if (pointer.moved && interactionLayer) scheduleInteractionTransform(`translate3d(${dx}px, ${dy}px, 0)`)
     }}
     onPointerUp={(event) => {
       const pointer = pointerRef.current
-      if (pointer?.mode === 'select') {
-        const endCell = pointToCell(event.clientX, event.clientY) ?? selectionDraftRef.current?.end ?? pointer.startCell
-        if (!pointer.moved && pointer.startCell) {
-          onSelectionChange(null)
-          onCell(pointer.startCell.x, pointer.startCell.y)
-        } else if (pointer.moved && pointer.startCell && endCell) {
-          onSelectionChange({ start: pointer.startCell, end: endCell })
-        }
-        selectionDraftRef.current = null
-        updateSelectionDraftOverlay(null)
-        setIsSelecting(false)
+      if (!pointer) return
+      if (pointer.mode === 'pan') {
+        const next = { zoomPercent: cameraRef.current.zoomPercent, pan: { x: pointer.panX + event.clientX - pointer.startX, y: pointer.panY + event.clientY - pointer.startY } }
+        applyCamera(next); onViewportChange(next)
+      } else if (pointer.mode === 'select') {
+        const cell = pointToCell(event.clientX, event.clientY)
+        if (pointer.startCell && cell && pointer.moved) onSelectionChange({ start: pointer.startCell, end: cell })
+        else if (cell) onCell(cell.x, cell.y)
       }
-      if (pointer?.mode === 'brush' || pointer?.mode === 'shape') onStrokeEnd()
-      if (pointer?.mode === 'pan' && pointer.moved) {
-        const dx = event.clientX - pointer.startX
-        const dy = event.clientY - pointer.startY
-        setPan({ x: pointer.panX + dx, y: pointer.panY + dy })
-        finishInteractionSnapshot()
-      } else if (pointer?.mode === 'pan') {
-        finishInteractionSnapshot()
-      }
+      if (pointer.mode === 'brush' || pointer.mode === 'shape') onStrokeEnd()
       pointerRef.current = null
-      visitedBrushCellsRef.current.clear()
-      setIsPanning(false)
+      isInteractingRef.current = false
       if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
     }}
-    onPointerLeave={() => { if (!pointerRef.current) updateBrushCell(null) }}
-    onPointerCancel={() => { if (pointerRef.current?.mode === 'brush' || pointerRef.current?.mode === 'shape') onStrokeEnd(); if (pointerRef.current?.mode === 'pan') finishInteractionSnapshot(); pointerRef.current = null; selectionDraftRef.current = null; visitedBrushCellsRef.current.clear(); updateBrushCell(null); updateSelectionDraftOverlay(null); setIsSelecting(false); setIsPanning(false) }}
-  >
-    <div ref={canvasLayerRef} className="canvas-layer">
-      <canvas ref={backgroundCanvasRef} className="canvas-background" style={canvasStyle} aria-hidden="true" />
-      <canvas
-        className="canvas-terrain"
-        ref={canvasRef}
-        style={canvasStyle}
-      />
-      <canvas ref={entityBackCanvasRef} className="canvas-entities-back" style={canvasStyle} aria-hidden="true" />
-      <canvas
-        ref={entityFrontCanvasRef}
-        className="canvas-entities-front"
-        style={canvasStyle}
-        aria-hidden="true"
-        data-minion-kanim={minionKanimAssets ? 'ready' : 'loading'}
-      />
-      <canvas ref={fluidBaseCanvasRef} className="canvas-fluid-base" style={canvasStyle} aria-hidden="true" />
-      <canvas ref={fluidCanvasRef} className="canvas-fluid" style={canvasStyle} aria-hidden="true" />
-      <canvas ref={particleCanvasRef} className="canvas-particles" style={canvasStyle} aria-hidden="true" />
-      <canvas ref={lightCanvasRef} className="canvas-light" style={canvasStyle} aria-hidden="true" />
-      <canvas ref={gridCanvasRef} className="canvas-grid" style={canvasStyle} aria-hidden="true" />
-      <canvas ref={overlayRef} className="canvas-overlay" style={canvasStyle} aria-hidden="true" />
-      {activeSelectionBounds && <div
-        className="map-selection-overlay"
-        style={{
-          left: `${originX / devicePixelRatio + activeSelectionBounds.minX * displayCellSize}px`,
-          top: `${originY / devicePixelRatio + (size.height - 1 - activeSelectionBounds.maxY) * displayCellSize}px`,
-          width: `${activeSelectionBounds.width * displayCellSize}px`,
-          height: `${activeSelectionBounds.height * displayCellSize}px`,
-        }}
-      >
-        {activeSelectionBounds.width * displayCellSize >= 52 && activeSelectionBounds.height * displayCellSize >= 34 && <span className="map-selection-label"><strong>{activeSelectionBounds.width}×{activeSelectionBounds.height}</strong><small>{activeSelectionBounds.cells.toLocaleString()}格</small></span>}
-      </div>}
-      <div ref={selectionDraftOverlayRef} className="map-selection-overlay is-draft" hidden aria-hidden="true">
-        <span className="map-selection-label" hidden><strong ref={selectionDraftTitleRef} /><small ref={selectionDraftCountRef} /></span>
-      </div>
-    </div>
-    <canvas ref={interactionCanvasRef} className="canvas-interaction" aria-hidden="true" />
-    <div className="canvas-controls" onPointerDown={(event) => event.stopPropagation()}>
-      <button type="button" title="缩小地图" aria-label="缩小地图" onClick={() => queueCenteredZoom((wheelZoomRef.current?.targetPercent ?? zoomPercent) - 10)}><Minus size={15} /></button>
-      <input type="range" min="0" max="100" step="1" value={pendingZoomPercent} aria-label="地图缩放" onChange={(event) => queueCenteredZoom(Number(event.target.value))} />
-      <output>{pendingZoomPercent}</output>
-      <button type="button" title="放大地图" aria-label="放大地图" onClick={() => queueCenteredZoom((wheelZoomRef.current?.targetPercent ?? zoomPercent) + 10)}><Plus size={15} /></button>
-      <button type="button" className="canvas-reset" title="重置视图" aria-label="重置视图" onClick={focusVisibleMap}>适配</button>
-      <button type="button" title="导出当前地图视图" aria-label="导出当前地图视图" onClick={() => { void exportCurrentMapImage() }}><Download size={15} /></button>
-      <button type="button" title="导出整张高清全景地图" aria-label="导出整张高清全景地图" onClick={() => { void exportPanoramaImage() }}><Maximize2 size={15} /></button>
-    </div>
-  </div>
-}
-
-function temperatureColor(kelvin: number): string {
-  const celsius = kelvin - 273.15
-  const hue = Math.max(0, Math.min(220, 220 - (celsius + 40) * 0.75))
-  const lightness = Math.max(30, Math.min(70, 46 + Math.abs(celsius - 20) * 0.04))
-  return `hsl(${hue} 58% ${lightness}%)`
+  ><canvas ref={canvasRef} className="pixi-map-canvas" /></div>
 }
 
 function DupesView({ save, updateSave, onOpenObject }: { save: ParsedSave; updateSave: (update: (save: ParsedSave) => void) => void; onOpenObject: (index: number) => void }) {

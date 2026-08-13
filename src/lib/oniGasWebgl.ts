@@ -204,13 +204,31 @@ export class OniGasWebGLRenderer {
       if (propertyKey) this.uploadedPropertyCacheKey = propertyKey
     }
 
-    const left = input.originX
-    const top = input.originY
-    const right = left + input.width * input.cellSize
-    const bottom = top + input.height * input.cellSize
+    // Draw only the requested world-cell range. A retained chunk surface has
+    // an origin relative to the complete world, so using the old full-world
+    // quad here made the GPU rasterize (and interpolate across) the entire
+    // world for every chunk. At map edges it also filled the chunk gutter by
+    // sampling the clamped border texels. The half-cell world coordinates are
+    // the same coordinates used by the old full-world quad; only its bounds
+    // are narrowed to the requested columns and top-origin rows.
+    const requestedRange = input.clipToRange
+      ? input.range
+      : { minX: 0, maxX: input.width - 1, minRow: 0, maxRow: input.height - 1 }
+    const minX = Math.max(0, Math.min(input.width - 1, requestedRange.minX))
+    const maxX = Math.max(minX, Math.min(input.width - 1, requestedRange.maxX))
+    const minRow = Math.max(0, Math.min(input.height - 1, requestedRange.minRow))
+    const maxRow = Math.max(minRow, Math.min(input.height - 1, requestedRange.maxRow))
+    const left = input.originX + minX * input.cellSize
+    const top = input.originY + minRow * input.cellSize
+    const right = input.originX + (maxX + 1) * input.cellSize
+    const bottom = input.originY + (maxRow + 1) * input.cellSize
+    const worldLeft = minX - .5
+    const worldRight = maxX + .5
+    const worldTop = input.height - minRow - .5
+    const worldBottom = input.height - maxRow - 1.5
     const vertices = new Float32Array([
-      left, top, -.5, input.height - .5, right, top, input.width - .5, input.height - .5, left, bottom, -.5, -.5,
-      left, bottom, -.5, -.5, right, top, input.width - .5, input.height - .5, right, bottom, input.width - .5, -.5,
+      left, top, worldLeft, worldTop, right, top, worldRight, worldTop, left, bottom, worldLeft, worldBottom,
+      left, bottom, worldLeft, worldBottom, right, top, worldRight, worldTop, right, bottom, worldRight, worldBottom,
     ])
     gl.clearColor(0, 0, 0, 0)
     gl.clear(gl.COLOR_BUFFER_BIT)

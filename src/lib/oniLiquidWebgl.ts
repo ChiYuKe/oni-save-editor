@@ -425,9 +425,22 @@ export class OniLiquidWebGLRenderer {
     bindArray(10, '_Textures', liquidArray)
     bindArray(11, '_SpecularMapTextures', specularArray)
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
+    // aPosition is both clip-space input and the normalized screen UV used by
+    // the ported Liquid.shader. Retained chunks opt into a top-origin world
+    // range which is converted to bottom-origin canvas space. Other callers
+    // retain the original full-screen [0, 1] quad exactly.
+    const requestedRange = input.clipToRange ? input.range : undefined
+    const minX = Math.max(0, Math.min(input.width - 1, requestedRange?.minX ?? 0))
+    const maxX = Math.max(minX, Math.min(input.width - 1, requestedRange?.maxX ?? input.width - 1))
+    const minRow = Math.max(0, Math.min(input.height - 1, requestedRange?.minRow ?? 0))
+    const maxRow = Math.max(minRow, Math.min(input.height - 1, requestedRange?.maxRow ?? input.height - 1))
+    const left = requestedRange ? (input.originX + minX * cellSize) / sourceCanvas.width : 0
+    const right = requestedRange ? (input.originX + (maxX + 1) * cellSize) / sourceCanvas.width : 1
+    const top = requestedRange ? 1 - (input.originY + minRow * cellSize) / sourceCanvas.height : 1
+    const bottom = requestedRange ? 1 - (input.originY + (maxRow + 1) * cellSize) / sourceCanvas.height : 0
     const vertices = new Float32Array([
-      0, 0, 1, 0, 0, 1,
-      0, 1, 1, 0, 1, 1,
+      left, bottom, right, bottom, left, top,
+      left, top, right, bottom, right, top,
     ])
     gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW)
     const position = gl.getAttribLocation(program, 'aPosition')

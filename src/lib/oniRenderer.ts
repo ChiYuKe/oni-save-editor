@@ -121,6 +121,10 @@ export type OniTerrainRenderInput = {
   damageAt?: (x: number, y: number) => number
   hasBackwallAt?: (x: number, y: number) => boolean
   zoneColors: typeof ONI_WORLD_ZONE_COLORS
+  /** Restrict GPU fluid passes to `range`; retained chunk surfaces opt in. */
+  clipToRange?: boolean
+  /** Large retained/export surfaces may exceed a browser's WebGL viewport. */
+  forceCanvas2D?: boolean
 }
 
 export type OniBiomeRenderInput = Pick<OniTerrainRenderInput,
@@ -289,7 +293,7 @@ export class OniWorldRenderer {
   }
 
   renderTerrain(input: OniTerrainRenderInput): void {
-    if (this.substanceRenderer.render(input)) return
+    if (!input.forceCanvas2D && this.substanceRenderer.render(input)) return
     const { context, width, height, cellSize, originX, originY, range, textures, worldZones, maskSets } = input
     const patterns = createElementPatterns(context, textures, cellSize, originX, originY + height * cellSize)
     for (let canvasY = range.minRow; canvasY <= range.maxRow; canvasY++) {
@@ -316,16 +320,18 @@ export class OniWorldRenderer {
     // expensive on large maps.
     context.save()
     context.globalCompositeOperation = 'source-atop'
-    context.fillStyle = 'rgb(51, 51, 51)'
+    context.fillStyle = 'rgba(0, 0, 0, .8)'
     context.fillRect(0, 0, context.canvas.width, context.canvas.height)
     context.restore()
   }
 
   renderGas(input: OniTerrainRenderInput): boolean {
+    if (input.forceCanvas2D) return false
     return this.gasRenderer.render(input)
   }
 
   renderLiquid(input: OniTerrainRenderInput): boolean {
+    if (input.forceCanvas2D) return false
     return this.liquidRenderer.render(input)
   }
 
