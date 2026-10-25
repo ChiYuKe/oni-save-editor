@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>ONI Unity 渲染回归检查</title>
+  <style>
+    body { margin: 32px; color: #dce4dc; background: #182126; font: 16px/1.65 system-ui; }
+    h1 { font-size: 24px; } canvas { border: 1px solid #697876; width: 256px; height: 256px; }
+    section { display: inline-block; margin: 0 24px 12px 0; vertical-align: top; }
+    pre { white-space: pre-wrap; } .pass { color: #9ee0ab; } .fail { color: #ffa0a0; }
+  </style>
+</head>
+<body>
+  <h1>ONI Unity 渲染回归检查</h1>
+  <p>使用实际 WebGL2 着色器，核对色相环绕、气体颜色与透明度、地形边缘亮度和图层顺序。</p>
+  <section><h2>气体</h2><canvas id="gas" width="128" height="128"></canvas></section>
+  <section><h2>地形边缘</h2><canvas id="terrain" width="128" height="128"></canvas></section>
+  <pre id="result">正在运行…</pre>
+  <script type="module">
+    import { elementForHash } from '/src/lib/elements.ts'
+    import { GLSL_HEADER, GLSL_HSL } from '/src/lib/oniShaderCommon.ts'
+    import { OniBiomeWebGLRenderer } from '/src/lib/oniBiomeWebgl.ts'
+    import { OniGasWebGLRenderer } from '/src/lib/oniGasWebgl.ts'
+    import { OniSubstanceWebGLRenderer } from '/src/lib/oniSubstanceWebgl.ts'
+    import { ONI_SUBSTANCE_MATERIALS } from '/src/lib/oniSubstances.generated.ts'
+    import { ONI_CHUNK_LAYERS } from '/src/lib/oniRenderLayers.ts'
+    import { ONI_LIGHTING_SETTINGS, ONI_GAS_TEST_MATERIAL } from '/src/lib/oniShaders.ts'
+
+    const results = []
+    function check(name, condition, detail) {
+      results.push({ name, pass: Boolean(condition), detail })
+    }
+    function near(actual, expected, tolerance = 2) {
+      return actual.every((value, i) => Math.abs(value - expected[i]) <= tolerance)
+    }
+    function pixel(context, x, y) { return [...context.getImageData(x, y, 1, 1).data] }
+    function shader(gl, type, source) {
+      const value = gl.createShader(type)
+      gl.shaderSource(value, source); gl.compileShader(value)
+      if (!gl.getShaderParameter(value, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(value))
+      return value
+    }
+    async function image(rgb, alpha = 255) {
+      const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1
+      const context = canvas.getContext('2d')
+      context.putImageData(new ImageData(new Uint8ClampedArray([...rgb, alpha]), 1, 1), 0, 0)
+      const value = new Image(); value.src = canvas.toDataURL(); await value.decode(); return value
+    }
+    try {
+      // Exercise the actual shared GLSL, including per-channel hue offsets.
+      const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1
+      const gl = canvas.getContext('webgl2')
+      if (!gl) throw new Error('当前浏览器不支持 WebGL2')
+      const program = gl.createProgram()
+      gl.attachShader(program, shader(gl, gl.VERTEX_SHADER, `${GLSL_HEADER}
+        void main() {
+          vec2 p = vec2(gl_VertexID == 1 ? 3.0 : -1.0, gl_VertexID == 2 ? 3.0 : -1.0);
+          gl_Position = vec4(p, 0, 1);
+        }`))
+      gl.attachShader(program, shader(gl, gl.FRAGMENT_SHADER, `${GLSL_HEADER}
+        uniform vec3 u_color; out vec4 color; ${GLSL_HSL}
+        void main() { color = vec4(hsl2rgb(rgb2hsl(u_color)), 1); }`))
+      gl.linkProgram(program)
+      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program))
+      gl.useProgram(program)
+      for (const input of [[255,0,0], [0,255,0], [0,0,255], [255,255,0], [0,255,255], [255,0,255], [255,0,1], [1,0,255], [128,128,128]]) {
+        gl.uniform3f(gl.getUniformLocation(program, 'u_color'), ...input.map(value => value / 255))
+        gl.drawArrays(gl.TRIANGLES, 0, 3)
+        const actual = new Uint8Array(4); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, actual)
+        check(`HSL 往返 ${input.join(',')}`, near([...actual].slice(0,3), input, 1), [...actual])
+      }
+      gl.getExtension('WEBGL_lose_context')?.loseContext()
+
+      const mucin = ONI_SUBSTANCE_MATERIALS.find(material => material.name === 'Mucin')
+      check('DLC 黏液进入液体通道而非未知紫色色块', Boolean(mucin) && elementForHash(mucin.hash).state === 'liquid', mucin && elementForHash(mucin.hash).name)
+      const oxygen = ONI_SUBSTANCE_MATERIALS.find(material => material.name === 'Oxygen')
+      const stone = ONI_SUBSTANCE_MATERIALS.find(material => material.name === 'Abyssalite')
+      const white = await image([255,255,255]); const gray = await image([128,128,128]); const empty = await image([0,0,0], 0)
+      const cell = material => ({ elementHash: material.hash, temperature: 293.15, mass: 1, properties: 0, insulation: 0, strengthInfo: 0 })
+      const base = {
+        width: 4, height: 4, cellSize: 32, originX: 0, originY: 0,
+        range: { minX: 0, maxX: 3, minRow: 0, maxRow: 3 }, worldZones: new Uint8Array(16),
+        zoneColors: { 0: { r: 128, g: 128, b: 128 } }, isTerrainMaskedAt: () => false,
+      }
+      const gasCanvas = document.querySelector('#gas'); const gasContext = gasCanvas.getContext('2d')
+      const gasInput = { ...base, context: gasContext, maskSets: null, cellAt: () => cell(oxygen),
+        textures: { '/assets/render/gasSteam01.png': white, '/assets/render/skullgas.png': white } }
+      const gasRenderer = new OniGasWebGLRenderer()
+      check('GasTest 实际着色器可运行', gasRenderer.render(gasInput))
+      // Unity RGB24 WorldZoneTex has implicit alpha=1. Keep the source format.
+      const pressure = Math.trunc(.15 * 255) / 255
+      const alpha = Math.min(pressure * ONI_GAS_TEST_MATERIAL.spaceAlphaScale, 1) * ONI_GAS_TEST_MATERIAL.alpha
+      const transparent = pixel(gasContext, 64, 64)
+      check('气体透明度只合成一次', Math.abs(transparent[3] - Math.round(alpha * 255)) <= 1, { actual: transparent[3], expected: Math.round(alpha * 255) })
+      gasContext.clearRect(0, 0, 128, 128); gasContext.fillStyle = 'rgb(20,30,40)'; gasContext.fillRect(0, 0, 128, 128)
+      gasRenderer.render(gasInput)
+      const darken = ONI_LIGHTING_SETTINGS.darkenTintBackground
+      const unlit = oxygen.colour.slice(0,3).map((value, i) => value / 255 * Math.sqrt(darken[i]))
+      const luminance = (Math.max(...unlit) + Math.min(...unlit)) / 2
+      const blend = ONI_LIGHTING_SETTINGS.worldZoneGasBlend
+      const expectedGas = unlit.map((value, i) => Math.round(((value * (1 - blend) + luminance * blend) * 255) * alpha + [20,30,40][i] * (1 - alpha)))
+      const actualGas = pixel(gasContext, 64, 64)
+      check('气体颜色匹配 Unity 未受光公式', near(actualGas.slice(0,3), expectedGas, 2), { actual: actualGas.slice(0,3), expected: expectedGas })
+
+      // Use a known mask so the edge formula and source-over alpha can be
+      // checked independently of game texture art or screenshot judgement.
+      const mask = document.createElement('canvas'); mask.width = mask.height = 8
+      const maskContext = mask.getContext('2d'); maskContext.fillStyle = 'rgba(255,255,255,.8)'; maskContext.fillRect(0,0,8,8)
+      const variant = { path: new Path2D(), image: mask }
+      const masks = new Map([[0, new Map(Array.from({ length: 15 }, (_, i) => [i + 1, [variant]]))]])
+      const terrainContext = document.querySelector('#terrain').getContext('2d')
+      const textures = {
+        [stone.textureUrl]: gray,
+        '/assets/render/melt.png': empty, '/assets/render/mudmelt.png': empty, '/assets/render/crackAlpha.png': empty,
+      }
+      const terrainInput = { ...base, context: terrainContext, textures, maskSets: masks,
+        cellAt: (x) => x < 2 ? cell(stone) : undefined }
+      check('Substance 实际着色器可运行', new OniSubstanceWebGLRenderer().render(terrainInput))
+      const edgePixel = pixel(terrainContext, 64, 64)
+      const coverage = .5 - .5 / 32
+      const edgeLight = .2 + Math.pow((1 - coverage) * 1.7, 3)
+      const expectedEdge = Math.round(128 * edgeLight)
+      check('地形边缘使用 Unity 自然地形公式', near(edgePixel.slice(0,3), [expectedEdge,expectedEdge,expectedEdge], 3), { actual: edgePixel, expected: expectedEdge })
+      check('地形蒙版保留 80% 覆盖率', Math.abs(edgePixel[3] - 204) <= 1, edgePixel)
+      const backContext = document.createElement('canvas').getContext('2d')
+      backContext.canvas.width = backContext.canvas.height = 128
+      const propertySource = { ...terrainInput, cellAt: () => cell(ONI_SUBSTANCE_MATERIALS.find(material => material.name === 'Vacuum')), hasBackwallAt: x => x < 2 }
+      check('天然背墙实际材质通道可运行', new OniSubstanceWebGLRenderer().render({ ...terrainInput, context: backContext, surfaceKind: 'backwall', propertySource }))
+      const backEdge = pixel(backContext, 64, 64)
+      const expectedBack = Math.round(128 * (.2 + Math.pow((1 - coverage) * 1.7, 3) * .5))
+      check('背墙边缘使用前景遮挡与背墙覆盖率', near(backEdge.slice(0,3), [expectedBack,expectedBack,expectedBack], 3), { actual: backEdge, expected: expectedBack })
+
+      const bgContext = document.createElement('canvas').getContext('2d')
+      bgContext.canvas.width = bgContext.canvas.height = 128
+      const bgZones = new Uint8Array(16).map((_, i) => i % 4 < 2 ? 0 : 1)
+      const bg = new OniBiomeWebGLRenderer()
+      const bgInput = { ...base, context: bgContext, worldZones: bgZones, backgrounds: { 0: await image([255,0,0]), 1: await image([0,0,255]) } }
+      check('BackWallArray 实际着色器可运行', bg.render(bgInput))
+      const mixed = pixel(bgContext, 64, 64)
+      const expectedMix = [Math.round(255 * coverage), 0, Math.round(255 * (1 - coverage)), 255]
+      check('群落边界混合四角纹理而非硬切', near(mixed, expectedMix, 2), { actual: mixed, expected: expectedMix })
+      check('背景保持 Unity 原始不透明度', near(pixel(bgContext, 32, 64), [255,0,0,255], 1), pixel(bgContext, 32, 64))
+      const spaceContext = document.createElement('canvas').getContext('2d')
+      spaceContext.canvas.width = spaceContext.canvas.height = 128
+      bg.render({ ...bgInput, context: spaceContext, worldZones: new Uint8Array(16).fill(7) })
+      check('太空区不填充群落纹理', pixel(spaceContext, 64, 64)[3] === 0, pixel(spaceContext, 64, 64))
+      check('地图使用 Unity 图层顺序', ONI_CHUNK_LAYERS.join(',') === 'background,gas,entitiesBack,liquid,terrain,entitiesFront,particles,light', ONI_CHUNK_LAYERS)
+    } catch (error) {
+      check('测试执行', false, String(error.stack ?? error))
+    }
+    const failures = results.filter(result => !result.pass).length
+    const output = document.querySelector('#result')
+    output.className = failures ? 'fail' : 'pass'
+    output.textContent = `${failures ? 'FAIL' : 'PASS'} — ${results.length - failures}/${results.length}\n\n` + results.map(result => `${result.pass ? '✓' : '✗'} ${result.name}\n  ${JSON.stringify(result.detail ?? '')}`).join('\n')
+    document.title = `${failures ? 'FAIL' : 'PASS'} ${results.length - failures}/${results.length} | ONI Unity 渲染回归检查`
+  </script>
+</body>
+</html>

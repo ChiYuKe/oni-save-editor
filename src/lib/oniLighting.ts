@@ -1,4 +1,5 @@
 import type { SimCell } from './sim'
+import { elementForHash } from './elements'
 
 export type OniLightShape = 'circle' | 'cone' | 'quad'
 export type OniLightDirection = 'north' | 'east' | 'south' | 'west'
@@ -114,8 +115,12 @@ function valid(grid: LightGrid, x: number, y: number): boolean {
 // canSeeThroughTransparent argument is true.
 function occludes(grid: LightGrid, x: number, y: number): boolean {
   if (!valid(grid, x, y)) return false
-  const properties = grid.cellAt(x, y)?.properties ?? 0
-  return (properties & 4) !== 0 && (properties & 16) === 0
+  const cell = grid.cellAt(x, y)
+  if (!cell) return false
+  if (cell.properties !== undefined) return (cell.properties & 4) !== 0 && (cell.properties & 16) === 0
+  // The disk format stores no runtime property flags. Do not interpret hash
+  // bytes as flags; use the saved element for the available static geometry.
+  return elementForHash(cell.elementHash).state === 'solid'
 }
 
 type Octant = 'N_NW' | 'N_NE' | 'E_NE' | 'E_SE' | 'S_SE' | 'S_SW' | 'W_SW' | 'W_NW'
@@ -348,10 +353,16 @@ export interface OniLightBufferRenderOptions extends LightGrid {
   cellSize: number
   originX: number
   originY: number
+  visibilityCache?: WeakMap<OniLightInstance, Set<number>>
 }
 
 export function drawOniLightBuffer(options: OniLightBufferRenderOptions): number {
-  const { context, lights, worldHeight, cellSize, originX, originY } = options
+  const { context: target, lights, worldHeight, cellSize, originX, originY } = options
+  // Feather the cell visibility buffer before composition. Filtering
+  // only this additive layer preserves sharp terrain and sprite artwork.
+  const buffer = document.createElement('canvas')
+  buffer.width = target.canvas.width; buffer.height = target.canvas.height
+  const context = buffer.getContext('2d')!
   let rendered = 0
   context.save()
   context.globalCompositeOperation = 'lighter'
@@ -361,7 +372,8 @@ export function drawOniLightBuffer(options: OniLightBufferRenderOptions): number
     const lightY = instance.y + definition.offset[1]
     const cellX = Math.floor(lightX)
     const cellY = Math.floor(lightY)
-    const visible = visibleLightCells(options, cellX, cellY, definition)
+    const visible = options.visibilityCache?.get(instance) ?? visibleLightCells(options, cellX, cellY, definition)
+    options.visibilityCache?.set(instance, visible)
     if (visible.size === 0) continue
     const centerX = originX + lightX * cellSize
     const centerY = originY + (worldHeight - lightY) * cellSize
@@ -388,5 +400,12 @@ export function drawOniLightBuffer(options: OniLightBufferRenderOptions): number
     rendered++
   }
   context.restore()
+  if (rendered) {
+    target.save()
+    target.globalCompositeOperation = 'lighter'
+    target.filter = `blur(${Math.max(.6, cellSize * .26)}px)`
+    target.drawImage(buffer, 0, 0)
+    target.restore()
+  }
   return rendered
 }

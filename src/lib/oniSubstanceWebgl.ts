@@ -1,11 +1,51 @@
+import { ONI_SHINE_MATERIALS, type OniShineMaterial } from './oniShineMaterials.generated'
 import { elementForHash } from './elements'
 import { ONI_SUBSTANCE_BY_HASH } from './oniSubstances.generated'
-import { ONI_WORLD_ZONE_COLORS, type OniTerrainRenderInput } from './oniRenderer'
+import type { OniTerrainRenderInput } from './oniRenderer'
 import { getCachedOniPropertyTextures } from './oniPropertyTextures'
+import { GLSL_HEADER, GLSL_HSL, GLSL_WORLD_ZONE_TINT } from './oniShaderCommon'
+import {
+  ONI_CRACK_ALPHA_TEXTURE_KEY,
+  ONI_LIGHTING_SETTINGS,
+  ONI_MELT_TEXTURE_KEY,
+  ONI_MUD_MELT_TEXTURE_KEY,
+  ONI_SUBSTANCE_ALPHA_TEST_THRESHOLD,
+  digMapMapParameters,
+  fallingSolidParameters,
+  stateTransitionParameters,
+  substanceParameters,
+} from './oniShaders'
 import { pickTerrainMaskVariant, type TerrainMaskVariant } from './terrainMasks'
 
-const VERTEX_SHADER = `#version 300 es
-precision highp float;
+/**
+ * Port of `Klei/Substance` from
+ * `ExportedProject/Assets/Shaders/World/Resources/substance.shader`.
+ *
+ * The game compiles four variants through `multi_compile OPAQUE ALPHA` and
+ * `multi_compile MATTE SHINY`. This renderer reproduces all four variants for
+ * map rendering: OPAQUE/ALPHA coverage and MATTE/SHINY materials. SHINY uses
+ * the native material mask alpha, normal noise, frequency and shine colour. The port keeps
+ * the shader's own branch structure in a single GLSL program selected by the
+ * `v_opaque` varying, instead of uploading one program per variant.
+ *
+ * Lighting: `_SubstanceParameters` comes from
+ * `LightingSettings.asset -> substanceEdgeParameters` via Lighting.cs:
+ *
+ *   OPAQUE      : `light = intensity`
+ *   ALPHA/MATTE : `light = intensity
+ *                       + pow((1 - dig) * edgeIntensity, power)`
+ *   Natural ground sets `_IsBackwallEdge = 0` in GroundRenderer.cs.
+ *   both        : `light += ExposedToSunlight * directSunlightScale * _TimeOfDay.y`
+ *
+ * `_ExposedToSunlightTex` is a live simulation property that no save file
+ * carries, so the sunlight term is zero and `_TimeOfDay.y` is irrelevant to the
+ * output. That is the only deliberate omission in this port, and it matches the
+ * game's own behaviour for a cell that is not lit.
+ *
+ * `_WorldZoneForegroundBlend` then cross-fades the zone-tinted colour over the
+ * lit material colour, exactly like `SV_Target0` in the shader.
+ */
+const VERTEX_SHADER = `${GLSL_HEADER}
 in vec2 a_position;
 in vec2 a_world;
 in vec2 a_mask_uv;
@@ -19,6 +59,8 @@ out vec3 v_zone;
 out float v_opaque;
 out vec2 v_property_uv;
 void main() {
+  // Unity's orthographic VP transform maps world cells to clip space; the
+  // browser canvas stores the identical layout with a Y-down viewport.
   vec2 clip = vec2(a_position.x / u_viewport.x * 2.0 - 1.0, 1.0 - a_position.y / u_viewport.y * 2.0);
   gl_Position = vec4(clip, 0.0, 1.0);
   v_world = a_world;
@@ -28,8 +70,7 @@ void main() {
   v_property_uv = vec2((a_world.x + 1.0) / u_grid_size.x, 1.0 - (a_world.y + 1.0) / u_grid_size.y);
 }`
 
-const FRAGMENT_SHADER = `#version 300 es
-precision highp float;
+const FRAGMENT_SHADER = `${GLSL_HEADER}
 uniform sampler2D u_main;
 uniform sampler2D u_masks;
 uniform sampler2D u_solid_dig;
@@ -39,81 +80,94 @@ uniform sampler2D u_state_map;
 uniform sampler2D u_falling_solid;
 uniform sampler2D u_falling_map;
 uniform sampler2D u_dig_damage_map;
+uniform sampler2D u_shine_mask;
+uniform sampler2D u_normal_noise;
+uniform float u_shiny;
+uniform vec4 u_shine_colour;
+uniform vec4 u_normal_st;
+uniform float u_frequency;
+// Camera world XY, orthographic half-height and aspect, shared by every chunk.
+uniform vec4 u_shine_camera;
 uniform float u_world_uv_scale;
 uniform vec4 u_colour_tint;
+// _SubstanceParameters: (intensity, edgeIntensity, directSunlightScale, power).
+uniform vec4 u_substance_parameters;
+// _DigMapMapParameters: (digColour.rgb, digScale).
+uniform vec4 u_dig_parameters;
+// _StateTransitionParameters / _FallingSolidParameters: (1 / scale, offsetX, offsetY, 0).
+uniform vec4 u_state_transition_parameters;
+uniform vec4 u_falling_solid_parameters;
+uniform vec4 u_state_transition_color;
+uniform vec4 u_falling_solid_color;
+uniform float u_world_zone_foreground_blend;
+uniform float u_alpha_test;
+uniform float u_backwall;
 in vec2 v_world;
 in vec2 v_mask_uv;
 in vec3 v_zone;
 in float v_opaque;
 in vec2 v_property_uv;
 out vec4 outColor;
-
-vec3 rgb2hsl(vec3 c) {
-  float hi = max(c.r, max(c.g, c.b));
-  float lo = min(c.r, min(c.g, c.b));
-  float d = hi - lo;
-  float l = (hi + lo) * 0.5;
-  float s = d == 0.0 ? 0.0 : d / (1.0 - abs(2.0 * l - 1.0));
-  float h = 0.0;
-  if (d != 0.0) {
-    if (hi == c.r) h = mod((c.g - c.b) / d, 6.0);
-    else if (hi == c.g) h = (c.b - c.r) / d + 2.0;
-    else h = (c.r - c.g) / d + 4.0;
-    h /= 6.0;
-    if (h < 0.0) h += 1.0;
-  }
-  return vec3(h, s, l);
-}
-
-float hue2rgb(float p, float q, float t) {
-  if (t < 0.0) t += 1.0;
-  if (t > 1.0) t -= 1.0;
-  if (t < 1.0 / 6.0) return p + (q - p) * 6.0 * t;
-  if (t < 0.5) return q;
-  if (t < 2.0 / 3.0) return p + (q - p) * (2.0 / 3.0 - t) * 6.0;
-  return p;
-}
-
-vec3 hsl2rgb(vec3 hsl) {
-  if (hsl.y == 0.0) return vec3(hsl.z);
-  float q = hsl.z < 0.5 ? hsl.z * (1.0 + hsl.y) : hsl.z + hsl.y - hsl.z * hsl.y;
-  float p = 2.0 * hsl.z - q;
-  return vec3(hue2rgb(p, q, hsl.x + 1.0 / 3.0), hue2rgb(p, q, hsl.x), hue2rgb(p, q, hsl.x - 1.0 / 3.0));
-}
-
+${GLSL_HSL}
+${GLSL_WORLD_ZONE_TINT}
 void main() {
-  vec2 mainUV = fract(vec2(v_world.x, -v_world.y) / u_world_uv_scale);
+  // The sprite matrix samples a texture wrapping the world-cell origin, so
+  // world X maps to U and world -Y to V.
+  vec2 mainUV = vec2(v_world.x, -v_world.y) / u_world_uv_scale;
+  // REPEAT wraps the sampler. Keeping continuous UV derivatives avoids false
+  // coarse mip selection at integer texture seams.
   vec4 alphaTest = texture(u_masks, v_mask_uv);
-  if (v_opaque <= 0.5 && alphaTest.a <= 0.600000024) discard;
+  // ALPHA/MATTE: 0.600000024 >= alpha clips the fragment.
+  if (v_opaque <= 0.5 && u_alpha_test >= alphaTest.a) discard;
   vec3 rock = texture(u_main, mainUV).rgb * u_colour_tint.rgb;
   if (v_opaque <= 0.5) rock *= alphaTest.rgb;
   vec3 solidDig = texture(u_solid_dig, v_property_uv).rgb;
-  // Lighting.substanceEdgeParameters from LightingSettings.asset:
-  // intensity=.2, edgeIntensity=1.7, directSunlightScale=.5, power=3.
-  // ExposedToSunlight is zero until that simulation property is connected.
-  float substanceLight = 0.2;
-  if (v_opaque <= 0.5) substanceLight += pow((1.0 - solidDig.r) * 1.7, 3.0);
+  float substanceLight = u_substance_parameters.x;
+  if (v_opaque <= 0.5) {
+    // GroundRenderer: natural backwall edges set _IsBackwallEdge=1,
+    // multiply foreground and backwall vacancies, then halve the edge glow.
+    float edge = (1.0 - solidDig.x) * mix(1.0, 1.0 - solidDig.z, u_backwall);
+    substanceLight += pow(edge * u_substance_parameters.y, u_substance_parameters.w)
+      * mix(1.0, 0.5, u_backwall);
+  }
   rock *= substanceLight;
-  vec4 stateMap = texture(u_state_map, v_world * 5.0);
+  // Substance.shader scrolls these two maps by time * uvOffsetRate, so a still
+  // frame samples the map at world * (1 / uvScale).
+  vec4 stateMap = texture(u_state_map, v_world * u_state_transition_parameters.x);
   float stateAmount = clamp(texture(u_state_change, v_property_uv).r - 0.5, 0.0, 1.0) * stateMap.a * 2.0;
-  rock = mix(rock, stateMap.rgb * vec3(0.5344828), stateAmount);
-  vec4 fallingMap = texture(u_falling_map, v_world * 5.0);
+  rock = mix(rock, stateMap.rgb * u_state_transition_color.rgb, stateAmount);
+  vec4 fallingMap = texture(u_falling_map, v_world * u_falling_solid_parameters.x);
   float fallingAmount = clamp(texture(u_falling_solid, v_property_uv).r - 0.5, 0.0, 1.0) * fallingMap.a * 2.0;
-  rock = mix(rock, fallingMap.rgb * vec3(0.53333336), fallingAmount);
-  float damageAmount = solidDig.g * texture(u_dig_damage_map, v_world * 0.125).a;
-  rock = mix(rock, vec3(0.6764706), damageAmount);
-  vec3 rockHsl = rgb2hsl(rock);
-  vec3 zoneHsl = rgb2hsl(texture(u_world_zone, v_property_uv).rgb);
-  vec3 tinted = hsl2rgb(vec3(zoneHsl.xy, rockHsl.z));
-  vec3 finalRgb = mix(rock, tinted, 0.4);
-  // Substance.shader (ALPHA/MATTE) writes the alpha-test texture's alpha;
-  // the opaque variant writes 1.0. GroundRenderer does not derive coverage
-  // from the red/green channels.
+  rock = mix(rock, fallingMap.rgb * u_falling_solid_color.rgb, fallingAmount);
+  float damageAmount = solidDig.g * texture(u_dig_damage_map, v_world * u_dig_parameters.w).a;
+  rock = mix(rock, u_dig_parameters.rgb, damageAmount);
+  // Native Substance OPAQUE+SHINY / ALPHA+SHINY, before world-zone tint.
+  // The mask's alpha carries the material's polished veins and facets.
+  if (u_shiny > 0.5) {
+    vec2 normalUV = mainUV * u_normal_st.xy
+      + (u_shine_camera.xy + vec2(u_shine_camera.z * 0.1)) * u_normal_st.zw;
+    vec2 normal = texture(u_normal_noise, normalUV).xy * 2.0 - 1.0;
+    float angle = (u_shine_camera.x * 2.0 + u_shine_camera.y) * 0.1;
+    vec2 basisX = vec2(cos(angle), sin(angle));
+    vec2 basisY = vec2(-sin(angle), cos(angle));
+    vec2 projectedUV = (v_world - u_shine_camera.xy)
+      / vec2(2.0 * u_shine_camera.z * u_shine_camera.w, 2.0 * u_shine_camera.z) + 0.5;
+    vec2 wave = sin(projectedUV * u_frequency) * 2.0 - 1.0;
+    vec2 rotated = vec2(dot(basisX, wave), dot(basisY, wave));
+    float shine = clamp(dot(rotated, normal), 0.0, 1.0)
+      * texture(u_shine_mask, mainUV).a * u_shine_colour.a;
+    rock += u_shine_colour.rgb * shine;
+  }
+  vec3 tinted = worldZoneTinted(rock, texture(u_world_zone, v_property_uv).rgb);
+  // SV_Target0.xyz = tinted * blend + rock * (1 - blend).
+  vec3 finalRgb = rock * (1.0 - u_world_zone_foreground_blend)
+    + tinted * u_world_zone_foreground_blend;
+  // OPAQUE writes 1.0; ALPHA/MATTE writes the alpha-test texture's alpha.
   outColor = vec4(finalRgb, v_opaque > 0.5 ? 1.0 : alphaTest.a);
 }`
 
 type MaskAtlas = { canvas: HTMLCanvasElement; rects: WeakMap<TerrainMaskVariant, [number, number, number, number]> }
-type Batch = { texture: HTMLImageElement | HTMLCanvasElement; scale: number; tint: readonly number[]; vertices: number[] }
+type Batch = { texture: HTMLImageElement | HTMLCanvasElement; scale: number; tint: readonly number[]; shine?: OniShineMaterial; vertices: number[] }
 type RenderMaterial = {
   substanceIndex: number
   worldUvScale: number
@@ -165,7 +219,7 @@ export class OniSubstanceWebGLRenderer {
   private initialize(width: number, height: number): WebGL2RenderingContext | undefined {
     if (!this.canvas) {
       this.canvas = document.createElement('canvas')
-      this.gl = this.canvas.getContext('webgl2', { alpha: true, antialias: false, premultipliedAlpha: false }) ?? undefined
+      this.gl = this.canvas.getContext('webgl2', { alpha: true, antialias: false, premultipliedAlpha: true }) ?? undefined
       if (!this.gl) return undefined
       try {
         const program = this.gl.createProgram()
@@ -210,7 +264,10 @@ export class OniSubstanceWebGLRenderer {
     gl.bindTexture(gl.TEXTURE_2D, texture)
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+    // Source TextureImporter enables mipmaps and trilinear filtering.
+    // The generated mask atlas stays at level 0 to avoid bleeding across tiles.
+    if (repeat) gl.generateMipmap(gl.TEXTURE_2D)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, repeat ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, repeat ? gl.REPEAT : gl.CLAMP_TO_EDGE)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, repeat ? gl.REPEAT : gl.CLAMP_TO_EDGE)
@@ -317,7 +374,7 @@ export class OniSubstanceWebGLRenderer {
           const variant = mask === 15 ? undefined : pickTerrainMaskVariant(maskPaths!, mask, x, y)
           const rect = variant && atlas.rects.get(variant)
           if (mask !== 15 && !rect) continue
-          const batch = batches.get(idx) ?? { texture, scale: item.material.worldUvScale, tint: item.material.colourTint, vertices: [] }
+          const batch = batches.get(idx) ?? { texture, scale: item.material.worldUvScale, tint: item.material.colourTint, shine: ONI_SHINE_MATERIALS.get(item.element.hash & 0xffff), vertices: [] }
           batches.set(idx, batch)
           // GroundRenderer's vertex positions are cell centres. The screen
           // quad therefore straddles the integer cell coordinate instead of
@@ -327,7 +384,7 @@ export class OniSubstanceWebGLRenderer {
           const right = left + input.cellSize
           const bottom = top + input.cellSize
           const [u0, v0, u1, v1] = rect ?? [0, 0, 1, 1]
-          const zone = ONI_WORLD_ZONE_COLORS[input.worldZones[y * input.width + x] ?? 3] ?? ONI_WORLD_ZONE_COLORS[3]
+          const zone = input.zoneColors[input.worldZones[y * input.width + x] ?? 3] ?? input.zoneColors[3]
           const z = [zone.r / 255, zone.g / 255, zone.b / 255]
           const opaque = mask === 15 ? 1 : 0
           const vertex = (px: number, py: number, wx: number, wy: number, u: number, v: number) => [px, py, wx, wy, u, v, ...z, opaque]
@@ -342,12 +399,14 @@ export class OniSubstanceWebGLRenderer {
     gl.clear(gl.COLOR_BUFFER_BIT)
     gl.useProgram(this.program)
     gl.enable(gl.BLEND)
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+    // Accumulate premultiplied layers with source-over coverage. The browser
+    // consumes the premultiplied canvas without applying alpha a second time.
+    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
     gl.uniform2f(gl.getUniformLocation(this.program, 'u_viewport'), this.canvas.width, this.canvas.height)
-    const propertyTextures = getCachedOniPropertyTextures(input)
-    const stateMap = input.textures['/assets/render/melt.png']
-    const fallingMap = input.textures['/assets/render/mudmelt.png']
-    const digDamageMap = input.textures['/assets/render/crackAlpha.png']
+    const propertyTextures = getCachedOniPropertyTextures(input.propertySource ?? input)
+    const stateMap = input.textures[ONI_MELT_TEXTURE_KEY]
+    const fallingMap = input.textures[ONI_MUD_MELT_TEXTURE_KEY]
+    const digDamageMap = input.textures[ONI_CRACK_ALPHA_TEXTURE_KEY]
     if (!stateMap || !fallingMap || !digDamageMap) return false
     const propertyKey = input.propertyCacheKey
     const needsPropertyUpload = !propertyKey || this.uploadedPropertyCacheKey !== propertyKey
@@ -383,6 +442,21 @@ export class OniSubstanceWebGLRenderer {
     gl.activeTexture(gl.TEXTURE8)
     gl.bindTexture(gl.TEXTURE_2D, this.texture(digDamageMap, true) ?? null)
     gl.uniform1i(gl.getUniformLocation(this.program, 'u_dig_damage_map'), 8)
+    const uniform4 = (name: string, values: readonly number[]) => {
+      const location = gl.getUniformLocation(this.program!, name)
+      if (location) gl.uniform4f(location, values[0]!, values[1]!, values[2]!, values[3]!)
+    }
+    uniform4('u_substance_parameters', substanceParameters())
+    uniform4('u_dig_parameters', digMapMapParameters())
+    uniform4('u_state_transition_parameters', stateTransitionParameters())
+    uniform4('u_falling_solid_parameters', fallingSolidParameters())
+    uniform4('u_state_transition_color', ONI_LIGHTING_SETTINGS.stateTransitionColor)
+    uniform4('u_falling_solid_color', ONI_LIGHTING_SETTINGS.fallingSolidColor)
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_world_zone_foreground_blend'), ONI_LIGHTING_SETTINGS.worldZoneForegroundBlend)
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_alpha_test'), ONI_SUBSTANCE_ALPHA_TEST_THRESHOLD)
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_backwall'), input.surfaceKind === 'backwall' ? 1 : 0)
+    const camera = input.shineCamera ?? { x: input.width / 2, y: input.height / 2, orthoSize: 20, aspect: 1 }
+    uniform4('u_shine_camera', [camera.x, camera.y, Math.max(.01, camera.orthoSize), Math.max(.01, camera.aspect)])
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer)
     const stride = 10 * 4
     const attribute = (name: string, size: number, offset: number) => {
@@ -402,9 +476,24 @@ export class OniSubstanceWebGLRenderer {
       gl.uniform1i(gl.getUniformLocation(this.program, 'u_main'), 0)
       gl.uniform1f(gl.getUniformLocation(this.program, 'u_world_uv_scale'), batch.scale)
       gl.uniform4f(gl.getUniformLocation(this.program, 'u_colour_tint'), batch.tint[0], batch.tint[1], batch.tint[2], batch.tint[3])
+      const shineMask = batch.shine && input.textures[batch.shine.maskUrl]
+      const normalNoise = batch.shine && input.textures[batch.shine.normalUrl]
+      const shiny = Boolean(shineMask && normalNoise)
+      gl.uniform1f(gl.getUniformLocation(this.program, 'u_shiny'), shiny ? 1 : 0)
+      // Bind every sampler even for MATTE draws (black/neutral valid fallback).
+      gl.activeTexture(gl.TEXTURE9)
+      gl.bindTexture(gl.TEXTURE_2D, this.texture(shineMask ?? this.fallbackTexture('#000'), true) ?? null)
+      gl.uniform1i(gl.getUniformLocation(this.program, 'u_shine_mask'), 9)
+      gl.activeTexture(gl.TEXTURE10)
+      gl.bindTexture(gl.TEXTURE_2D, this.texture(normalNoise ?? this.fallbackTexture('#808080'), true) ?? null)
+      gl.uniform1i(gl.getUniformLocation(this.program, 'u_normal_noise'), 10)
+      uniform4('u_shine_colour', batch.shine?.colour ?? [0, 0, 0, 0])
+      uniform4('u_normal_st', batch.shine?.normalST ?? [1, 1, 0, 0])
+      gl.uniform1f(gl.getUniformLocation(this.program, 'u_frequency'), batch.shine?.frequency ?? 0)
       gl.drawArrays(gl.TRIANGLES, 0, batch.vertices.length / 10)
     }
     input.context.drawImage(this.canvas, 0, 0)
     return true
   }
 }
+

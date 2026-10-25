@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>ONI 液体数据与合成检查</title><style>
+body{background:#182126;color:#dce4dc;font:15px/1.6 system-ui;margin:24px}h1{font-size:21px}canvas{max-width:100%;border:1px solid #76847c}pre{white-space:pre-wrap}.pass{color:#a5e6b4}.fail{color:#ffa0a0}
+</style></head>
+<body><h1>液体数据与合成检查</h1><p>常温 1000kg 水、独立背景输入、图层外透明和覆盖率检查。</p><canvas id="map" width="512" height="512"></canvas><pre id="result">正在运行…</pre>
+<script type="module">
+import { OniLiquidWebGLRenderer } from '/src/lib/oniLiquidWebgl.ts'
+import { ONI_SUBSTANCE_MATERIALS } from '/src/lib/oniSubstances.generated.ts'
+const canvas=document.querySelector('#map'),context=canvas.getContext('2d'),results=[]
+function check(name,pass,detail){results.push({name,pass:Boolean(pass),detail})}
+function pixel(x,y){return [...context.getImageData(x,y,1,1).data]}
+try{
+ const paths=['/assets/render/bubbles.png','/assets/render/normal_metal.png','/assets/render/bgarray_liquids.png','/assets/render/bgarray_liquids_specular.png']
+ const images=await Promise.all(paths.map(async path=>{const image=new Image();image.src=path;await image.decode();return image}))
+ const textures=Object.fromEntries(paths.map((path,i)=>[path,images[i]]))
+ const water=ONI_SUBSTANCE_MATERIALS.find(m=>m.name==='Water'),vacuum=ONI_SUBSTANCE_MATERIALS.find(m=>m.name==='Vacuum')
+ const cellAt=(x,y)=>({elementHash:(x>=4&&x<=11&&y>=1&&y<=6?water:vacuum).hash,temperature:293.15,mass:x>=4&&x<=11&&y>=1&&y<=6?1000:0})
+ const source=document.createElement('canvas');source.width=source.height=512
+ const scene=source.getContext('2d'),renderer=new OniLiquidWebGLRenderer()
+ const input={context,width:16,height:16,cellSize:32,originX:0,originY:0,range:{minX:0,maxX:15,minRow:0,maxRow:15},worldZones:new Uint8Array(256),zoneColors:{0:{r:128,g:128,b:128}},textures,maskSets:null,cellAt,isTerrainMaskedAt:()=>false,sceneSource:source,timeSeconds:0,propertyCacheKey:{}}
+ scene.fillStyle='rgb(160,20,20)';scene.fillRect(0,0,512,512)
+ check('真实液体着色器运行',renderer.render(input))
+ const red=pixel(272,400),outside=pixel(32,32)
+ check('常温满格水有液体覆盖',red[3]>0,red)
+ check('非液体区域保留透明',outside[3]===0,outside)
+ context.clearRect(0,0,512,512);scene.fillStyle='rgb(20,20,160)';scene.fillRect(0,0,512,512)
+ renderer.render(input)
+ const blue=pixel(272,400)
+ check('折射使用独立的场景颜色',Math.abs(red[0]-blue[0])+Math.abs(red[2]-blue[2])>5,{red,blue})
+ check('背景颜色不改变液体覆盖率',Math.abs(red[3]-blue[3])<=1,{red:red[3],blue:blue[3]})
+ const salt=ONI_SUBSTANCE_MATERIALS.find(m=>m.name==='Salt Water')
+ const saltCells=(x,y)=>({elementHash:(x>=4&&x<=11&&y>=1&&y<=6?salt:vacuum).hash,temperature:307.04,mass:x>=4&&x<=11&&y>=1&&y<=6?1100:0})
+ context.clearRect(0,0,512,512);scene.fillStyle='rgb(30,40,50)';scene.fillRect(0,0,512,512)
+ renderer.render({...input,cellAt:saltCells,propertyCacheKey:{}})
+ const sample=context.getImageData(160,336,192,96).data,mean=[0,0,0]
+ for(let i=0;i<sample.length;i+=4)for(let c=0;c<3;c++)mean[c]+=sample[i+c]/(sample.length/4)
+ check('常温海水呈蓝绿并保持纹理，不再整体灰白',mean[1]-mean[0]>20&&mean[2]>mean[0]+20&&Math.max(...mean)<220,mean)
+
+}catch(error){check('执行',false,String(error.stack??error))}
+const failed=results.filter(x=>!x.pass).length,result=document.querySelector('#result')
+result.className=failed?'fail':'pass';result.textContent=(failed?'FAIL':'PASS')+' — '+(results.length-failed)+'/'+results.length+'\n\n'+results.map(x=>(x.pass?'✓':'✗')+' '+x.name+'\n '+JSON.stringify(x.detail??'')).join('\n')
+document.title=(failed?'FAIL':'PASS')+' | ONI 液体数据与合成检查'
+</script></body></html>

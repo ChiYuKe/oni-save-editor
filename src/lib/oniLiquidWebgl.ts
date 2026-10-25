@@ -1,6 +1,8 @@
 import v21LiquidSource from './oniLiquidV21.glsl?raw'
+import originalLiquidSource from './oniLiquidOriginal.glsl?raw'
 import { getCachedOniPropertyTextures } from './oniPropertyTextures'
 import type { OniTerrainRenderInput } from './oniRenderer'
+import { ONI_LIQUID_DEFAULTS, ONI_LIQUID_TEXTURE_SCROLL_SPEEDS } from './oniShaders'
 
 // The exported Texture2DArray is 1024 x 16384: sixteen 1024px slices. The
 // shader only selects the first twelve substance ids in this build, but the
@@ -23,19 +25,28 @@ function extractStage(source: string, stage: 'VERTEX' | 'FRAGMENT'): string {
   throw new Error(`ONI 液体 Shader 的 ${stage} 阶段未闭合。`)
 }
 
-const V21_VERTEX_SHADER = `#version 300 es
+const LIQUID_VERTEX_SHADER = `#version 300 es
 precision highp float;
 precision highp int;
 precision highp sampler2DArray;
 ${extractStage(v21LiquidSource, 'VERTEX')
     .replace(/^#version 300 es\s*$/gm, '')}`
 
-const V21_FRAGMENT_SHADER = `#version 300 es
+// Keep the game's original fragment calculations. Adapt only GLSL version,
+// desktop uniform-location qualifiers and canvas premultiplication.
+const originalFragment = extractStage(originalLiquidSource, 'FRAGMENT')
+  // Property uploads already use bottom-origin rows; remove the desktop-only flip.
+  .replace('vs_TEXCOORD2.xy * vec2(1.0, -1.0) + vec2(0.0, 1.0)', 'vs_TEXCOORD2.xy')
+  .replace(/^#version[^\n]*$/gm, '')
+  .replace(/^#extension[^\n]*$/gm, '')
+  .replace(/UNITY_LOCATION\(\d+\)\s+(?=uniform)/g, '')
+  .replace('void main()\n{', `void main()\n{\n  if (any(lessThan(vs_TEXCOORD2, vec2(0.))) || any(greaterThan(vs_TEXCOORD2, vec2(1.)))) discard;`)
+  .replace('    SV_Target2 = vec4(0.0, 0.0, 0.0, 0.0);', '    SV_Target2 = vec4(0.0, 0.0, 0.0, 0.0);\n    SV_Target0.rgb *= SV_Target0.a;')
+const LIQUID_FRAGMENT_SHADER = `#version 300 es
 precision highp float;
 precision highp int;
 precision highp sampler2DArray;
-${extractStage(v21LiquidSource, 'FRAGMENT')
-    .replace(/^#version 300 es\s*$/gm, '')}`
+${originalFragment}`
 
 function compile(gl: WebGL2RenderingContext, type: number, source: string): WebGLShader {
   const shader = gl.createShader(type)
@@ -86,6 +97,8 @@ export class OniLiquidWebGLRenderer {
   private materialData?: WebGLTexture
   private liquidData?: WebGLTexture
   private mrt0Copy?: WebGLTexture
+  private mrt1Copy?: WebGLTexture
+  private mrtMaskCanvas?: HTMLCanvasElement
   private mrtWidth = 0
   private mrtHeight = 0
   private imageTextures = new WeakMap<HTMLImageElement, WebGLTexture>()
@@ -96,13 +109,13 @@ export class OniLiquidWebGLRenderer {
   private initialize(width: number, height: number): WebGL2RenderingContext | undefined {
     if (!this.canvas) {
       this.canvas = document.createElement('canvas')
-      this.gl = this.canvas.getContext('webgl2', { alpha: true, antialias: false, premultipliedAlpha: false }) ?? undefined
+      this.gl = this.canvas.getContext('webgl2', { alpha: true, antialias: false, premultipliedAlpha: true }) ?? undefined
       if (!this.gl) return undefined
       try {
         const program = this.gl.createProgram()
         if (!program) return undefined
-        const vertex = compile(this.gl, this.gl.VERTEX_SHADER, V21_VERTEX_SHADER)
-        const fragment = compile(this.gl, this.gl.FRAGMENT_SHADER, V21_FRAGMENT_SHADER)
+        const vertex = compile(this.gl, this.gl.VERTEX_SHADER, LIQUID_VERTEX_SHADER)
+        const fragment = compile(this.gl, this.gl.FRAGMENT_SHADER, LIQUID_FRAGMENT_SHADER)
         this.gl.attachShader(program, vertex)
         this.gl.attachShader(program, fragment)
         this.gl.linkProgram(program)
@@ -159,7 +172,8 @@ export class OniLiquidWebGLRenderer {
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image)
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+    gl.generateMipmap(gl.TEXTURE_2D)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT)
@@ -194,6 +208,8 @@ export class OniLiquidWebGLRenderer {
       gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, layer, layerSize, layerSize, 1, gl.RGBA, gl.UNSIGNED_BYTE, canvas)
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
     }
+    gl.generateMipmap(gl.TEXTURE_2D_ARRAY)
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
     this.arrayTextures.set(image, texture)
     return texture
   }
@@ -267,7 +283,7 @@ export class OniLiquidWebGLRenderer {
     }
     const t = uniforms.time
     const zoomRatio = Math.max(0, Math.min(1, uniforms.orthoSize / 20))
-    set4f('_Time', t, t * 20, t * 40, t * 60)
+    set4f('_Time', t / 20, t, t * 2, t * 3)
     set4f('_ScreenParams', uniforms.screenWidth, uniforms.screenHeight, 1 + 1 / uniforms.screenWidth, 1 + 1 / uniforms.screenHeight)
     set4f('_ShineParams2', .1, 0, 0, 0)
     set4f('_CameraZoomInfo', uniforms.orthoSize, uniforms.aspect, 20, zoomRatio)
@@ -276,55 +292,61 @@ export class OniLiquidWebGLRenderer {
     const camera = location('_WorldSpaceCameraPos')
     if (camera) gl.uniform3f(camera, uniforms.cameraX, uniforms.cameraY, 0)
     set4f('unity_OrthoParams', 0, uniforms.orthoSize, 0, 0)
+    // liquid.shader indexes _TextureScrollSpeeds[layer]; LiquidShaderProperties.asset
+    // serialises one speed per substance texture layer.
+    const scrollSpeeds = location('_TextureScrollSpeeds')
+    if (scrollSpeeds) gl.uniform1fv(scrollSpeeds, ONI_LIQUID_TEXTURE_SCROLL_SPEEDS as unknown as Float32List)
+    const d = ONI_LIQUID_DEFAULTS
     const values: Record<string, number> = {
-      _BoilingTreshold: .8,
-      _FreezingTreshold: .1,
-      _BoilOverride_DistortionStrength: .048,
-      _BoilOverride_DistortionFrequency: .84,
-      _BoilOverride_DistortionSpeed: 1.002,
-      _AirBubbleMinBoilingPointRequired: .178,
-      _AirBubbleLargeMinBoilingPointRequired: .323,
-      _AirBubbles_Sample1_MaxOpacity: .147,
-      _AirBubbles_Sample1_SizeModifier: .83333,
-      _AirBubbles_Sample1_SpeedModifier: 1.36,
-      _AirBubbles_Sample2_MaxOpacity: .298,
-      _AirBubbles_Sample2_SizeModifier: 1.25,
-      _AirBubbles_Sample2_SpeedModifier: 2.54,
-      _DistortionBubbles_Sample1_SizeModifier: 1,
-      _DistortionBubbles_Sample1_SpeedModifier: .9,
-      _DistortionBubbles_Sample2_SizeModifier: 5,
-      _DistortionBubbles_Sample2_SpeedModifier: .3,
-      _FreezeOverride_SolidColorStrength: .4,
-      _FreezeOverride_OpacityStrength: .6,
-      _FreezeOverride_DistortionStrength: 0,
-      _FreezeOverride_DistortionFrequency: 0,
-      _FreezeOverride_DistortionSpeed: 0,
-      _LiquidSelectStart: .31,
-      _LiquidSelectRangeNear: .04,
-      _LiquidSelectRangeFar: .09,
-      _LiquidSelectRangeNearOrthoSize: 4,
-      _LiquidSelectRangeFarOrthoSize: 20,
-      _CausticSpeed: 1.21,
-      _CausticFrequency: 1.17,
-      _CausticCount: 4,
-      _CausticScale: 1.2,
-      _Opacity: .77,
-      _OpaqueLiquidsOpacity: .95,
-      _ZoomedOutOpacity: .5,
-      _ZoomedInOpacity: .4,
-      _ZoomedOutOpacityInfluenceRadius: 20,
-      _ZoomedInOpacityInfluenceRadius: 12,
-      _WaveSpeed: 2,
-      _WaveFrequency: 1,
-      _WaveCount: 5,
-      _WaveHeight: 5,
-      _DistortionStrength: .018,
-      _DistortionFrequency: 1,
-      _DistortionSpeed: 1,
-      _LiquidScrollSpeed: .02,
+      _BoilingTreshold: d.boilingThreshold,
+      _FreezingTreshold: d.freezingThreshold,
+      _BoilOverride_DistortionStrength: d.boilOverrideDistortionStrength,
+      _BoilOverride_DistortionFrequency: d.boilOverrideDistortionFrequency,
+      _BoilOverride_DistortionSpeed: d.boilOverrideDistortionSpeed,
+      _AirBubbleMinBoilingPointRequired: d.airBubbleMinBoilingPointRequired,
+      _AirBubbleLargeMinBoilingPointRequired: d.airBubbleLargeMinBoilingPointRequired,
+      _AirBubbles_Sample1_MaxOpacity: d.airBubblesSample1MaxOpacity,
+      _AirBubbles_Sample1_SizeModifier: d.airBubblesSample1SizeModifier,
+      _AirBubbles_Sample1_SpeedModifier: d.airBubblesSample1SpeedModifier,
+      _AirBubbles_Sample2_MaxOpacity: d.airBubblesSample2MaxOpacity,
+      _AirBubbles_Sample2_SizeModifier: d.airBubblesSample2SizeModifier,
+      _AirBubbles_Sample2_SpeedModifier: d.airBubblesSample2SpeedModifier,
+      _DistortionBubbles_Sample1_SizeModifier: d.distortionBubblesSample1SizeModifier,
+      _DistortionBubbles_Sample1_SpeedModifier: d.distortionBubblesSample1SpeedModifier,
+      _DistortionBubbles_Sample2_SizeModifier: d.distortionBubblesSample2SizeModifier,
+      _DistortionBubbles_Sample2_SpeedModifier: d.distortionBubblesSample2SpeedModifier,
+      _BubbleDistortionStrengthModifier: d.bubbleDistortionStrengthModifier,
+      _FreezeOverride_SolidColorStrength: d.freezeOverrideSolidColorStrength,
+      _FreezeOverride_OpacityStrength: d.freezeOverrideOpacityStrength,
+      _FreezeOverride_DistortionStrength: d.freezeOverrideDistortionStrength,
+      _FreezeOverride_DistortionFrequency: d.freezeOverrideDistortionFrequency,
+      _FreezeOverride_DistortionSpeed: d.freezeOverrideDistortionSpeed,
+      _LiquidSelectStart: d.liquidSelectStart,
+      _LiquidSelectRangeNear: d.liquidSelectRangeNear,
+      _LiquidSelectRangeFar: d.liquidSelectRangeFar,
+      _LiquidSelectRangeNearOrthoSize: d.liquidSelectRangeNearOrthoSize,
+      _LiquidSelectRangeFarOrthoSize: d.liquidSelectRangeFarOrthoSize,
+      _CausticSpeed: d.causticSpeed,
+      _CausticFrequency: d.causticFrequency,
+      _CausticCount: d.causticCount,
+      _CausticScale: d.causticScale,
+      _Opacity: d.opacity,
+      _OpaqueLiquidsOpacity: d.opaqueLiquidsOpacity,
+      _ZoomedOutOpacity: d.zoomedOutOpacity,
+      _ZoomedInOpacity: d.zoomedInOpacity,
+      _ZoomedOutOpacityInfluenceRadius: d.zoomedOutOpacityInfluenceRadius,
+      _ZoomedInOpacityInfluenceRadius: d.zoomedInOpacityInfluenceRadius,
+      _WaveSpeed: d.waveSpeed,
+      _WaveFrequency: d.waveFrequency,
+      _WaveCount: d.waveCount,
+      _WaveHeight: d.waveHeight,
+      _DistortionStrength: d.distortionStrength,
+      _DistortionFrequency: d.distortionFrequency,
+      _DistortionSpeed: d.distortionSpeed,
     }
     Object.entries(values).forEach(([name, value]) => set1f(name, value))
-    set4f('_MoltenMetalColor', 1, 1, .3, 1)
+    const molten = d.moltenMetalColor
+    set4f('_MoltenMetalColor', molten[0], molten[1], molten[2], molten[3])
     set4f('_NormalNoise_ST', .4, .6, .03, .03)
   }
 
@@ -361,8 +383,31 @@ export class OniLiquidWebGLRenderer {
     const liquidArray = liquidArrayImage ? this.imageArrayTexture(liquidArrayImage) : undefined
     const specularArray = specularArrayImage ? this.imageArrayTexture(specularArrayImage) : undefined
     if (!this.solidLiquidGasMass || !this.liquid || !this.liquidLinear || !this.liquidClip || !this.materialData || !this.liquidData || !bubbles || !normalNoise || !liquidArray || !specularArray) return false
-    this.mrt0Copy = this.uploadCanvas(this.mrt0Copy, sourceCanvas)
-    if (!this.mrt0Copy) return false
+    const scene = input.sceneSource ?? sourceCanvas
+    if ((this.mrtWidth !== scene.width || this.mrtHeight !== scene.height) && this.mrt1Copy) {
+      gl.deleteTexture(this.mrt1Copy); this.mrt1Copy = undefined
+    }
+    this.mrt0Copy = this.uploadCanvas(this.mrt0Copy, scene)
+    if (input.sceneMaskSource) {
+      this.mrt1Copy = this.uploadCanvas(this.mrt1Copy, input.sceneMaskSource)
+    } else {
+    // MRT1 stores rendering masks, not a second copy of scene RGB. With no
+    // imported normal/shine masks, use neutral RGB and the scene coverage.
+    const mask = this.mrtMaskCanvas ?? document.createElement('canvas')
+    this.mrtMaskCanvas = mask
+    if (mask.width !== scene.width) mask.width = scene.width
+    if (mask.height !== scene.height) mask.height = scene.height
+    const maskContext = mask.getContext('2d')
+    if (!maskContext) return false
+    maskContext.globalCompositeOperation = 'copy'
+    maskContext.drawImage(scene, 0, 0)
+    maskContext.globalCompositeOperation = 'source-in'
+    maskContext.fillStyle = '#000'
+    maskContext.fillRect(0, 0, mask.width, mask.height)
+    maskContext.globalCompositeOperation = 'source-over'
+    this.mrt1Copy = this.uploadCanvas(this.mrt1Copy, mask)
+    }
+    if (!this.mrt0Copy || !this.mrt1Copy) return false
 
     const cellSize = input.cellSize
     const orthoSize = sourceCanvas.height / (2 * cellSize)
@@ -370,7 +415,7 @@ export class OniLiquidWebGLRenderer {
     const cameraX = (sourceCanvas.width / 2 - input.originX) / cellSize + 1
     const cameraY = input.height - (sourceCanvas.height / 2 - input.originY) / cellSize + 1
     const uniforms: LiquidUniforms = {
-      time: performance.now() / 1000,
+      time: input.timeSeconds ?? 0,
       cameraX,
       cameraY,
       orthoSize,
@@ -417,10 +462,7 @@ export class OniLiquidWebGLRenderer {
     bind2d(5, '_LiquidDataTex', this.liquidData)
     bind2d(6, '_BoilingBubblesTex', bubbles)
     bind2d(7, 'MRT0_Copy', this.mrt0Copy)
-    // This port has one Canvas2D source rather than Unity's separate MRT0/MRT1
-    // targets. The original code uploaded the same frame twice; binding the
-    // shared copy preserves the available data and halves the upload cost.
-    bind2d(8, 'MRT1_Copy', this.mrt0Copy)
+    bind2d(8, 'MRT1_Copy', this.mrt1Copy)
     bind2d(9, '_NormalNoise', normalNoise)
     bindArray(10, '_Textures', liquidArray)
     bindArray(11, '_SpecularMapTextures', specularArray)
@@ -448,7 +490,7 @@ export class OniLiquidWebGLRenderer {
     gl.enableVertexAttribArray(position)
     gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 8, 0)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
-    // Copy the v21 liquid result to the canvas default framebuffer before
+    // Copy the native liquid result to the canvas default framebuffer before
     // handing it back to Canvas2D.
     gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null)
     gl.blitFramebuffer(
@@ -473,3 +515,5 @@ export class OniLiquidWebGLRenderer {
     return true
   }
 }
+
+

@@ -1,8 +1,32 @@
 import { getCachedOniPropertyTextures } from './oniPropertyTextures'
 import type { OniTerrainRenderInput } from './oniRenderer'
+import { GLSL_HEADER, GLSL_HSL, GLSL_WORLD_ZONE_TINT } from './oniShaderCommon'
+import {
+  ONI_GAS_BAD_GAS_TEXTURE_KEY,
+  ONI_GAS_DETAIL_TEXTURE_KEY,
+  ONI_GAS_TEST_MATERIAL,
+  ONI_LIGHTING_SETTINGS,
+} from './oniShaders'
 
-const VERTEX_SHADER = `#version 300 es
-precision highp float;
+/**
+ * Port of `Klei/GasTest` from
+ * `ExportedProject/Assets/Shaders/World/Resources/gastest.shader`.
+ *
+ * Alpha follows the shader exactly:
+ *   `opacity     = mix(_GasOpacity.x, _GasOpacity.y, sqrt(pressure))`
+ *   `bgDetail    = _GasDetailTex / _BGUVScaleOffset.xx`
+ *   `fgDetail    = _GasDetailTex / _FGUVScaleOffset.xx`
+ *   `detail      = mix(mix(bg, badGas.a, danger), mix(fg, badGas.a, danger),
+ *                      abs(_GasParameters.x - 0.5) * 2)`
+ *   `alpha       = clamp(detail^2 * opacity * clamp(pressure, 0, 1) * _SpaceAlphaScale, 0, 1)`
+ *   `SV_Target0.w = alpha * _Alpha`
+ *
+ * Colour is `sqrt(mix(gas^2 * _DarkenTintBackground, gas^2, light))` blended with the
+ * world-zone tint by `_WorldZoneGasBlend`. `_LightBufferTex` is the game's
+ * deferred light buffer, which the browser has no equivalent of yet, so the port
+ * uses the shader's unlit limit (`light = 0`) instead of sampling it.
+ */
+const VERTEX_SHADER = `${GLSL_HEADER}
 in vec2 a_position;
 in vec2 a_world;
 uniform vec2 u_viewport;
@@ -16,8 +40,7 @@ void main() {
   v_property_uv = vec2((a_world.x + 1.5) / u_grid_size.x, 1.0 - (a_world.y + 1.5) / u_grid_size.y);
 }`
 
-const FRAGMENT_SHADER = `#version 300 es
-precision highp float;
+const FRAGMENT_SHADER = `${GLSL_HEADER}
 uniform sampler2D u_world_zone;
 uniform sampler2D u_gas_pressure;
 uniform sampler2D u_gas_colour;
@@ -30,70 +53,48 @@ uniform float u_alpha;
 uniform float u_world_zone_gas_blend;
 uniform vec3 u_darken_tint_background;
 uniform float u_gas_phase;
+uniform float u_time;
+uniform float u_background_uv_scale;
+uniform float u_foreground_uv_scale;
 in vec2 v_world;
 in vec2 v_property_uv;
 out vec4 outColor;
-
-vec3 rgb2hsl(vec3 c) {
-  float hi = max(c.r, max(c.g, c.b));
-  float lo = min(c.r, min(c.g, c.b));
-  float d = hi - lo;
-  float l = (hi + lo) * 0.5;
-  float s = d == 0.0 ? 0.0 : d / (1.0 - abs(2.0 * l - 1.0));
-  float h = 0.0;
-  if (d != 0.0) {
-    if (hi == c.r) h = mod((c.g - c.b) / d, 6.0);
-    else if (hi == c.g) h = (c.b - c.r) / d + 2.0;
-    else h = (c.r - c.g) / d + 4.0;
-    h = fract(h / 6.0);
-  }
-  return vec3(h, s, l);
-}
-float hue2rgb(float p, float q, float t) {
-  t = fract(t);
-  if (t < 1.0 / 6.0) return p + (q - p) * 6.0 * t;
-  if (t < 0.5) return q;
-  if (t < 2.0 / 3.0) return p + (q - p) * (2.0 / 3.0 - t) * 6.0;
-  return p;
-}
-vec3 hsl2rgb(vec3 hsl) {
-  if (hsl.y == 0.0) return vec3(hsl.z);
-  float q = hsl.z < 0.5 ? hsl.z * (1.0 + hsl.y) : hsl.z + hsl.y - hsl.z * hsl.y;
-  float p = 2.0 * hsl.z - q;
-  return vec3(hue2rgb(p, q, hsl.x + 1.0 / 3.0), hue2rgb(p, q, hsl.x), hue2rgb(p, q, hsl.x - 1.0 / 3.0));
-}
+${GLSL_HSL}
+${GLSL_WORLD_ZONE_TINT}
 void main() {
   float pressure = texture(u_gas_pressure, v_property_uv).r;
-  if (pressure <= 0.0) discard;
+  // "_GasPressureTex.Sample(...).wxyz" puts the stored pressure byte in .x.
   vec3 gasColour = texture(u_gas_colour, v_property_uv).rgb;
   float danger = texture(u_gas_danger, v_property_uv).r;
-  float backgroundDetail = mix(texture(u_gas_detail, v_world / 17.0).r, texture(u_bad_gas, v_world / 17.0).a, danger);
-  float foregroundDetail = mix(texture(u_gas_detail, v_world / 25.0).r, texture(u_bad_gas, v_world / 25.0).a, danger);
-  // GasTest.shader blends the two detail planes using _GasParameters.x. The
-  // save format does not contain FlowOffsetRenderer's transient offset RT;
-  // phase zero is the game's initial deterministic sample and selects FG.
+  // Saves contain density but no live FlowOffsetRenderer velocity field.
+  // Advect the two detail planes gently in world coordinates; keep the saved
+  // pressure/colour masks stationary so artwork never transports matter.
+  vec2 backgroundUV = (v_world + vec2(0.055, -0.08) * u_time) / u_background_uv_scale;
+  vec2 foregroundUV = (v_world + vec2(-0.08, -0.04) * u_time) / u_foreground_uv_scale;
+  float backgroundDetail = mix(texture(u_gas_detail, backgroundUV).r,
+                               texture(u_bad_gas, backgroundUV).a, danger);
+  float foregroundDetail = mix(texture(u_gas_detail, foregroundUV).r,
+                               texture(u_bad_gas, foregroundUV).a, danger);
   float detailPhase = abs(u_gas_phase - 0.5) * 2.0;
   float detail = mix(backgroundDetail, foregroundDetail, detailPhase);
   float gasOpacity = mix(u_gas_opacity.x, u_gas_opacity.y, sqrt(pressure));
   float detailAlpha = detail * detail * gasOpacity;
   float normalizedPressure = clamp(pressure, 0.0, 1.0);
   float pressureAlpha = detailAlpha * normalizedPressure;
+  // SubworldZoneRenderData creates WorldZoneTex as RGB24, whose sampled alpha
+  // is implicitly 1. Preserve that contract, including the source shader's
+  // alpha-based SpaceAlphaScale branch; do not invent a saved zone alpha.
+  vec4 zoneSample = texture(u_world_zone, v_property_uv);
+  vec3 zone = zoneSample.rgb;
+  // GasTest: spaceAlpha = clamp(pressureAlpha * _SpaceAlphaScale, 0, 1), then
+  // alpha = mix(pressureAlpha, spaceAlpha, zone.a). So the _SpaceAlphaScale
+  // clamp only applies inside the space region.
   float spaceAlpha = clamp(pressureAlpha * u_space_alpha_scale, 0.0, 1.0);
-  // WorldZoneTex is the game's RGB24 texture, so its sampled alpha is not a
-  // region mask. GasTest applies the configured space scale to the RGB zone
-  // texture's coverage directly.
-  vec3 zone = texture(u_world_zone, v_property_uv).rgb;
-  float alpha = spaceAlpha * u_alpha;
-
-  // The light buffer is a separate browser canvas. Preserve GasTest's source
-  // colour space and dark-tint path here; the live light layer is composited
-  // after this pass, so it remains additive just like the editor's other FX.
+  float alpha = mix(pressureAlpha, spaceAlpha, zoneSample.a) * u_alpha;
+  // _LightBufferTex is unavailable; light = 0 is the shader's unlit limit.
   vec3 gasLinear = gasColour * gasColour;
-  vec3 darkLinear = gasLinear * u_darken_tint_background;
-  vec3 litGas = sqrt(max(darkLinear + (gasLinear - darkLinear), vec3(0.0)));
-  vec3 gasHsl = rgb2hsl(litGas);
-  vec3 zoneHsl = rgb2hsl(zone);
-  vec3 zoneTint = hsl2rgb(vec3(zoneHsl.xy, gasHsl.z));
+  vec3 litGas = sqrt(gasLinear * u_darken_tint_background);
+  vec3 zoneTint = worldZoneTinted(litGas, zone);
   outColor = vec4(mix(litGas, zoneTint, u_world_zone_gas_blend), alpha);
 }`
 
@@ -188,8 +189,8 @@ export class OniGasWebGLRenderer {
   }
 
   render(input: OniTerrainRenderInput): boolean {
-    const detailImage = input.textures['/assets/render/gasSteam01.png']
-    const dangerImage = input.textures['/assets/render/skullgas.png']
+    const detailImage = input.textures[ONI_GAS_DETAIL_TEXTURE_KEY]
+    const dangerImage = input.textures[ONI_GAS_BAD_GAS_TEXTURE_KEY]
     if (!detailImage || !dangerImage) return false
     const gl = this.initialize(input.context.canvas.width, input.context.canvas.height)
     if (!gl || !this.canvas || !this.program || !this.buffer) return false
@@ -233,16 +234,22 @@ export class OniGasWebGLRenderer {
     gl.clearColor(0, 0, 0, 0)
     gl.clear(gl.COLOR_BUFFER_BIT)
     gl.useProgram(this.program)
-    gl.enable(gl.BLEND)
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+    // This canvas contains one gas pass. Preserve its straight RGBA; Canvas2D
+    // applies SrcAlpha/OneMinusSrcAlpha once when compositing the layer.
+    // Blending onto transparent black here squared alpha and darkened RGB.
+    gl.disable(gl.BLEND)
     gl.uniform2f(gl.getUniformLocation(this.program, 'u_viewport'), this.canvas.width, this.canvas.height)
     gl.uniform2f(gl.getUniformLocation(this.program, 'u_grid_size'), properties.width, properties.height)
-    gl.uniform2f(gl.getUniformLocation(this.program, 'u_gas_opacity'), 1, 1)
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_space_alpha_scale'), 2)
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_alpha'), .5)
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_world_zone_gas_blend'), .1)
-    gl.uniform3f(gl.getUniformLocation(this.program, 'u_darken_tint_background'), .8455882, .8455882, .8455882)
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_gas_phase'), 0)
+    gl.uniform2f(gl.getUniformLocation(this.program, 'u_gas_opacity'), ONI_LIGHTING_SETTINGS.gasMinOpacity, ONI_LIGHTING_SETTINGS.gasMaxOpacity)
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_space_alpha_scale'), ONI_GAS_TEST_MATERIAL.spaceAlphaScale)
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_alpha'), ONI_GAS_TEST_MATERIAL.alpha)
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_world_zone_gas_blend'), ONI_LIGHTING_SETTINGS.worldZoneGasBlend)
+    const backgroundTint = ONI_LIGHTING_SETTINGS.darkenTintBackground
+    gl.uniform3f(gl.getUniformLocation(this.program, 'u_darken_tint_background'), backgroundTint[0], backgroundTint[1], backgroundTint[2])
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_time'), input.timeSeconds ?? 0)
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_gas_phase'), ONI_GAS_TEST_MATERIAL.flowPhase + .2 * Math.sin((input.timeSeconds ?? 0) * .35))
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_background_uv_scale'), ONI_GAS_TEST_MATERIAL.backgroundUvScale)
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_foreground_uv_scale'), ONI_GAS_TEST_MATERIAL.foregroundUvScale)
     const bind = (unit: number, name: string, texture: WebGLTexture | undefined) => {
       gl.activeTexture(gl.TEXTURE0 + unit)
       gl.bindTexture(gl.TEXTURE_2D, texture ?? null)
@@ -267,3 +274,5 @@ export class OniGasWebGLRenderer {
     return true
   }
 }
+
+

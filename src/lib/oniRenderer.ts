@@ -3,6 +3,8 @@ import { ONI_SUBSTANCE_BY_HASH } from './oniSubstances.generated'
 import { OniSubstanceWebGLRenderer } from './oniSubstanceWebgl'
 import { OniGasWebGLRenderer } from './oniGasWebgl'
 import { OniLiquidWebGLRenderer } from './oniLiquidWebgl'
+import { OniBiomeWebGLRenderer } from './oniBiomeWebgl'
+import { ONI_BACKGROUND_SETTINGS, ONI_ZONE_TEXTURE_ARRAY_INDICES } from './oniShaders'
 import type { SimCell } from './sim'
 import { pickTerrainMaskVariant, type TerrainMaskPaths, type TerrainMaskSets } from './terrainMasks'
 
@@ -88,14 +90,10 @@ export const ONI_WORLD_ZONE_COLORS: Record<number, OniZoneColor> = {
   27: { r: 192, g: 100, b: 16 },
 }
 
-const ZONE_TEXTURE_ARRAY_INDICES = [
-  0, 1, 2, 3, 4, 5, 5, 3, 6, 7,
-  8, 9, 10, 11, 12, 7, 3, 13, 0, 0,
-  0, 14, 15, 16, 4, 6, 18, 17,
-]
+const ZONE_TEXTURE_ARRAY_INDICES = ONI_ZONE_TEXTURE_ARRAY_INDICES
 
 const WORLD_ZONE_FOREGROUND_BLEND = .4
-const BIOME_BACKGROUND_WORLD_CELLS = 20
+const BIOME_BACKGROUND_WORLD_CELLS = 20 / ONI_BACKGROUND_SETTINGS.uvScale
 const DEFAULT_ELEMENT_WORLD_UV_SCALE = 8
 
 type GroundMaskSample = {
@@ -117,12 +115,23 @@ export type OniTerrainRenderInput = {
   cellAt: (x: number, y: number) => SimCell | undefined
   /** Stable save identity used by GPU passes to reuse derived property textures. */
   propertyCacheKey?: object
+  /** Backwalls sample their own materials but the foreground simulation properties. */
+  surfaceKind?: 'ground' | 'backwall'
+  propertySource?: OniTerrainRenderInput
   isTerrainMaskedAt: (x: number, y: number) => boolean
   damageAt?: (x: number, y: number) => number
   hasBackwallAt?: (x: number, y: number) => boolean
   zoneColors: typeof ONI_WORLD_ZONE_COLORS
   /** Restrict GPU fluid passes to `range`; retained chunk surfaces opt in. */
   clipToRange?: boolean
+  /** Pre-liquid scene colour, including biome, gas and objects behind liquid. */
+  sceneSource?: HTMLCanvasElement
+  /** Native MRT1 masks from surfaces behind liquid (G = water transparency). */
+  sceneMaskSource?: HTMLCanvasElement
+  /** One shared camera for SHINY projection; never derive it from chunk bounds. */
+  shineCamera?: { x: number; y: number; orthoSize: number; aspect: number }
+  /** Shared snapshot time for all retained chunks. */
+  timeSeconds?: number
   /** Large retained/export surfaces may exceed a browser's WebGL viewport. */
   forceCanvas2D?: boolean
 }
@@ -247,10 +256,12 @@ function drawGroundMaskQuad(
  * two separate approximations.
  */
 export class OniWorldRenderer {
+  private readonly biomeRenderer = new OniBiomeWebGLRenderer()
   private readonly substanceRenderer = new OniSubstanceWebGLRenderer()
   private readonly gasRenderer = new OniGasWebGLRenderer()
   private readonly liquidRenderer = new OniLiquidWebGLRenderer()
   renderBiome(input: OniBiomeRenderInput): void {
+    if (this.biomeRenderer.render(input)) return
     const { context, worldZones, width, height, cellSize, originX, originY, range, backgrounds } = input
     const paths = new Map<number, Path2D>()
     const fallbackColors = new Map<number, OniZoneColor>()
@@ -271,7 +282,7 @@ export class OniWorldRenderer {
     }
 
     context.save()
-    context.globalAlpha = .84
+    context.globalAlpha = 1
     context.imageSmoothingEnabled = true
     for (const [textureIndex, path] of paths) {
       const image = backgrounds[textureIndex]

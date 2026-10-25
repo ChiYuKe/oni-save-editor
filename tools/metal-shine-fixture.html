@@ -1,0 +1,56 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>金属高光对照</title><style>
+body{margin:24px;background:#182126;color:#dce4dc;font:15px/1.6 system-ui}canvas{display:block;width:100%;max-width:1024px;border:1px solid #536168}h1{font-size:22px}pre{white-space:pre-wrap}.pass{color:#a5e6b4}.fail{color:#ffa0a0}.labels{display:grid;grid-template-columns:repeat(8,1fr);max-width:1024px;text-align:center}
+</style></head><body><h1>金属与矿石高光对照</h1><p>上图：原来的普通材质；下图：接入 Unity 原始高光遮罩、法线噪声和材质颜色。</p><div class="labels"><span>金</span><span>铜</span><span>铁</span><span>铝</span><span>钴</span><span>金汞齐</span><span>钻石</span><span>砂岩</span></div><canvas id="before" width="1024" height="256"></canvas><canvas id="after" width="1024" height="256"></canvas><pre id="result">正在检查…</pre><script type="module">
+import { OniSubstanceWebGLRenderer } from '/src/lib/oniSubstanceWebgl.ts'
+import { ONI_SUBSTANCE_MATERIALS } from '/src/lib/oniSubstances.generated.ts'
+import { ONI_SHINE_MATERIALS } from '/src/lib/oniShineMaterials.generated.ts'
+import { createTerrainMaskSets, TERRAIN_MASK_ATLAS_URL } from '/src/lib/terrainMasks.ts'
+import { ONI_LIGHTING_SETTINGS } from '/src/lib/oniShaders.ts'
+const results=[];const check=(name,pass,detail)=>results.push({name,pass:Boolean(pass),detail})
+const before=document.querySelector('#before').getContext('2d'),after=document.querySelector('#after').getContext('2d')
+const pixels=context=>new Uint8ClampedArray(context.getImageData(0,0,1024,256).data)
+try {
+const names=['Gold','Copper','Iron','Aluminum','Cobalt','Gold Amalgam','Diamond','Sandstone']
+const materials=names.map(name=>ONI_SUBSTANCE_MATERIALS.find(m=>m.name===name))
+const common=['/assets/render/melt.png','/assets/render/mudmelt.png','/assets/render/crackAlpha.png']
+const paths=[...new Set([...common,TERRAIN_MASK_ATLAS_URL,...materials.flatMap(m=>{const s=ONI_SHINE_MATERIALS.get(m.hash);return [m.textureUrl,...(s?[s.maskUrl,s.normalUrl]:[])]})])]
+const textures=Object.fromEntries(await Promise.all(paths.map(path=>new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve([path,img]);img.onerror=()=>reject(Error(path));img.src=path}))))
+const cellAt=(x,y)=>{if(x<0||x>=32||y<0||y>=8)return;const m=materials[Math.floor(x/4)];return {elementHash:m.hash,temperature:293.15,mass:1000}}
+const input={width:32,height:8,cellSize:32,originX:0,originY:0,range:{minX:0,maxX:31,minRow:0,maxRow:7},worldZones:new Uint8Array(256).fill(3),zoneColors:{3:{r:128,g:128,b:128}},textures,maskSets:createTerrainMaskSets(textures[TERRAIN_MASK_ATLAS_URL]),cellAt,isTerrainMaskedAt:()=>false,shineCamera:{x:0,y:0,orthoSize:20,aspect:1},propertyCacheKey:{}}
+const matte=Object.fromEntries(Object.entries(textures).filter(([path])=>!path.includes('/shine/')))
+const renderer=new OniSubstanceWebGLRenderer()
+check('真实 MATTE 与 SHINY 着色器运行',renderer.render({...input,context:before,textures:matte})&&renderer.render({...input,context:after}))
+const baseline=pixels(before),shiny=pixels(after)
+for(let index=0;index<materials.length;index++){
+let changes=0
+for(let y=32;y<224;y++)for(let x=index*128+32;x<index*128+96;x++)for(let c=0;c<3;c++){const at=(y*1024+x)*4+c;if(baseline[at]!==shiny[at])changes++}
+check(names[index]+(index===7?' 保持普通材质':' 高光纹理恢复'),index===7?changes===0:changes>(index===6?10:100),changes)
+}
+const chunkCanvas=document.createElement('canvas');chunkCanvas.width=512;chunkCanvas.height=256
+const chunkContext=chunkCanvas.getContext('2d');renderer.render({...input,context:chunkContext,originX:-512,range:{minX:16,maxX:31,minRow:0,maxRow:7}})
+const chunkPixels=chunkContext.getImageData(0,0,512,256).data
+let seamDifference=0
+for(let y=32;y<224;y++)for(let x=32;x<480;x++)for(let c=0;c<4;c++)seamDifference=Math.max(seamDifference,Math.abs(chunkPixels[(y*512+x)*4+c]-shiny[(y*1024+x+512)*4+c]))
+check('分块绘制保持同一高光坐标，无接缝',seamDifference<=2,seamDifference)
+check('高光不改变地形覆盖率',baseline.every((v,i)=>i%4!==3||Math.abs(v-shiny[i])<=1))
+const transparent=document.createElement('canvas');transparent.width=transparent.height=2
+const masked={...textures};for(const s of ONI_SHINE_MATERIALS.values())if(masked[s.maskUrl])masked[s.maskUrl]=transparent
+after.clearRect(0,0,1024,256);renderer.render({...input,context:after,textures:masked})
+check('遮罩透明区域不产生高光',pixels(after).every((v,i)=>Math.abs(v-baseline[i])<=1))
+after.clearRect(0,0,1024,256);renderer.render({...input,context:after,shineCamera:{x:20,y:10,orthoSize:20,aspect:1}})
+const moved=pixels(after);check('SHINY 响应相机参数',moved.some((v,i)=>Math.abs(v-shiny[i])>5))
+// Independent constant-texture check: saturated dot term => mask.a * ShineColour.a.
+const constant=(rgba)=>{const c=document.createElement('canvas');c.width=c.height=2;const ctx=c.getContext('2d');ctx.fillStyle=rgba;ctx.fillRect(0,0,2,2);return c}
+const gold=materials[0],shine=ONI_SHINE_MATERIALS.get(gold.hash)
+const controlled={...textures,[gold.textureUrl]:constant('rgb(128,128,128)'),[shine.normalUrl]:constant('rgb(0,0,0)'),[shine.maskUrl]:constant('white')}
+after.clearRect(0,0,1024,256);renderer.render({...input,context:after,textures:controlled})
+const actual=[...after.getImageData(64,128,1,1).data]
+const rgb=shine.colour.slice(0,3).map(v=>128/255*ONI_LIGHTING_SETTINGS.substanceEdgeParameters.intensity+v*shine.colour[3])
+const luminance=(Math.max(...rgb)+Math.min(...rgb))/2,blend=ONI_LIGHTING_SETTINGS.worldZoneForegroundBlend
+const expected=rgb.map(v=>Math.round((v*(1-blend)+luminance*blend)*255))
+check('高光强度与 Unity 遮罩/颜色公式一致',expected.every((v,i)=>Math.abs(v-actual[i])<=3),{actual,expected})
+after.clearRect(0,0,1024,256);renderer.render({...input,context:after})
+}catch(error){check('执行',false,String(error.stack??error))}
+const failed=results.filter(r=>!r.pass).length;document.querySelector('#result').className=failed?'fail':'pass';document.querySelector('#result').textContent=(failed?'FAIL':'PASS')+' — '+(results.length-failed)+'/'+results.length+'\n'+results.map(r=>(r.pass?'✓ ':'✗ ')+r.name+' '+JSON.stringify(r.detail??'')).join('\n');document.title=(failed?'FAIL':'PASS')+' | 金属高光对照'
+</script></body></html>
+
