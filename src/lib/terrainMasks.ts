@@ -190,10 +190,9 @@ function createTerrainMaskPathsForRects(atlas: HTMLImageElement, sourceRects: Re
       paths.set(mask, [])
       continue
     }
-    const rects = sourceRects[sourceMask]
-    paths.set(mask, source.map((_, index) => {
-      const sourceCanvas = createMaskCanvas(atlas, rects[index])
-      const image = rotateCanvas(sourceCanvas, turns)
+    paths.set(mask, source.map((variant) => {
+      if (turns === 0) return variant
+      const image = rotateCanvas(variant.image, turns)
       return { image, path: pathFromMask(image) }
     }))
   }
@@ -204,10 +203,15 @@ export function createTerrainMaskPaths(atlas: HTMLImageElement): TerrainMaskPath
   return createTerrainMaskPathsForRects(atlas, SOURCE_MASK_RECTS_BY_BIOME.sand_stone)
 }
 
+const maskSetsCache = new WeakMap<HTMLImageElement, TerrainMaskSets>()
 export function createTerrainMaskSets(atlas: HTMLImageElement): TerrainMaskSets {
+  const cached = maskSetsCache.get(atlas)
+  if (cached) return cached
   const byName = new Map(Object.entries(SOURCE_MASK_RECTS_BY_BIOME).map(([name, rects]) => [name, createTerrainMaskPathsForRects(atlas, rects)]))
   const fallback = byName.get('sand_stone') ?? new Map<number, TerrainMaskVariant[]>()
-  return new Map(Array.from({ length: 28 }, (_, zoneType) => [zoneType, byName.get(ZONE_MASK_BIOMES[zoneType]) ?? fallback]))
+  const result = new Map(Array.from({ length: 28 }, (_, zoneType) => [zoneType, byName.get(ZONE_MASK_BIOMES[zoneType]) ?? fallback]))
+  maskSetsCache.set(atlas, result)
+  return result
 }
 
 export function terrainMaskForCell(

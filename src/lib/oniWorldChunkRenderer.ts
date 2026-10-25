@@ -1,3 +1,5 @@
+import { ONI_WEB_ASSETS } from './oniWebAssets.generated'
+import { loadRenderImage } from './oniRenderAssets'
 import { seaTreeVisuals } from './oniSeaTree'
 import { forestTreeVisuals } from './oniForestTree'
 import { drawOniLightBuffer, type OniLightInstance } from './oniLighting'
@@ -82,6 +84,8 @@ export interface OniWorldChunkRenderer {
   readonly width: number
   readonly height: number
   readonly cellSize: number
+  readonly revision: number
+  readonly ready: Promise<void>
   renderChunk(x: number, row: number, widthCells: number, heightCells: number, options?: OniChunkRenderOptions): OniRenderedChunk
   destroy(): void
 }
@@ -480,14 +484,33 @@ function buildWorldZoneMap(save: ParsedSave, width: number, height: number): Uin
 }
 
 function loadImage(path: string): Promise<HTMLImageElement | null> {
-  return new Promise((resolve) => {
-    const image = new Image()
-    image.decoding = 'async'
-    image.onload = () => resolve(image)
-    image.onerror = () => resolve(null)
-    image.src = assetPath(path)
+  const compact = ONI_WEB_ASSETS[path]
+  return compact ? loadRenderImage(assetPath(compact)).then(image => image ?? loadRenderImage(assetPath(path))) : loadRenderImage(assetPath(path))
+}
+
+let manifestCache: Promise<Record<string, SpriteDefinition>> | undefined
+function loadBuildingManifest(): Promise<Record<string, SpriteDefinition>> {
+  return manifestCache ??= fetch(assetPath('/assets/buildings/manifest.json')).then(async response => {
+    if (!response.ok) throw new Error(`Building manifest HTTP ${response.status}`)
+    return await response.json() as Record<string, SpriteDefinition>
+  }).catch(() => { manifestCache = undefined; return {} })
+}
+let biomeCache: Promise<Record<number, HTMLImageElement>> | undefined
+function loadBiomeImages(): Promise<Record<number, HTMLImageElement>> {
+  return biomeCache ??= Promise.all(Array.from({ length: 19 }, async (_, index) => ({ index, image: await loadImage(biomeBackgroundAsset(index)) }))).then(entries => {
+    if (entries.some(entry => !entry.image)) biomeCache = undefined
+    return Object.fromEntries(entries.flatMap(({ index, image }) => image ? [[index, image]] : []))
   })
 }
+let terrainMaskCache: Promise<HTMLImageElement | null> | undefined
+function loadTerrainMask(): Promise<HTMLImageElement | null> {
+  return terrainMaskCache ??= loadImage(TERRAIN_MASK_ATLAS_URL).then(image => {
+    if (!image) terrainMaskCache = undefined
+    return image
+  })
+}
+const elementHashesCache = new WeakMap<Uint8Array, Set<number>>()
+const worldZonesCache = new WeakMap<ParsedSave, Uint8Array>()
 
 async function loadImages(paths: Iterable<string>): Promise<Record<string, HTMLImageElement>> {
   const pairs = await Promise.all([...new Set(paths)].map(async (path) => ({ path, image: await loadImage(path) })))
@@ -598,9 +621,10 @@ export async function createOniChunkRenderer(
   const view = new DataView(sim.bytes.buffer, sim.bytes.byteOffset, sim.bytes.byteLength)
   const propertyCacheKey = sim.bytes
   const managerGroups = save.manager?.groups ?? []
-  const usedElementHashes = new Set<number>()
+  let usedElementHashes = elementHashesCache.get(sim.bytes)
   const cellCache = new Map<number, SimCell | undefined>()
   let destroyed = false
+  let assetRevision = 0
   const cellAt = (x: number, y: number) => {
     if (x < -1 || y < -1 || x > size.width || y > size.height) return undefined
     const key = (y + 1) * sim.width + x + 1
@@ -609,11 +633,14 @@ export async function createOniChunkRenderer(
   }
   // Load only the element art that this save can actually show. Start these
   // requests before preparing objects so image decoding overlaps the CPU work.
-  for (let y = -1; y <= size.height; y++) for (let x = -1; x <= size.width; x++) {
-    const cell = cellAt(x, y)
-    if (cell) usedElementHashes.add(cell.elementHash)
-    const backwall = readSimBackwall(sim, view, x + 1, y + 1)
-    if (backwall) usedElementHashes.add(backwall.elementHash)
+  if (!usedElementHashes) {
+    usedElementHashes = new Set<number>()
+    // Scan just the two hash fields, avoiding a world-sized allocation of cell objects.
+    for (let index = 0; index < sim.cellCount; index++) {
+      usedElementHashes.add(view.getUint16(sim.cellOffset + index * 16, true))
+      usedElementHashes.add(view.getUint16(sim.backwallOffset + index * sim.backwallSize, true))
+    }
+    elementHashesCache.set(sim.bytes, usedElementHashes)
   }
   const texturePaths = [
     ...[...usedElementHashes].flatMap((hash) => {
@@ -629,17 +656,18 @@ export async function createOniChunkRenderer(
   ]
   const texturesPromise = loadImages(texturePaths)
   const biomePromise = visibleLayers.biome
-    ? Promise.all(Array.from({ length: 19 }, async (_, index) => ({ index, image: await loadImage(biomeBackgroundAsset(index)) })))
-    : Promise.resolve([] as Array<{ index: number; image: HTMLImageElement | null }>)
+    ? loadBiomeImages()
+    : Promise.resolve({} as Record<number, HTMLImageElement>)
   const maskPromise = visibleLayers.ground || visibleLayers.backwall || visibleLayers.gas || visibleLayers.liquid
-    ? loadImage(TERRAIN_MASK_ATLAS_URL)
+    ? loadTerrainMask()
     : Promise.resolve(null)
   const needsObjectManifest = visibleLayers.entities !== false || visibleLayers.buildings !== false || visibleLayers.geysers !== false
   const manifestPromise = needsObjectManifest
-    ? fetch(assetPath('/assets/buildings/manifest.json')).then(async (response): Promise<Record<string, SpriteDefinition>> => response.ok ? await response.json() as Record<string, SpriteDefinition> : {})
+    ? loadBuildingManifest()
     : Promise.resolve({} as Record<string, SpriteDefinition>)
 
-  const worldZones = buildWorldZoneMap(save, size.width, size.height)
+  let worldZones = worldZonesCache.get(save)
+  if (!worldZones) { worldZones = buildWorldZoneMap(save, size.width, size.height); worldZonesCache.set(save, worldZones) }
   if (isCancelled()) throw new DOMException('地图准备已取消。', 'AbortError')
   const fullManifest = await manifestPromise
   const plantVisuals = new Map([...spaceTreeVisuals(save), ...forestTreeVisuals(save), ...seaTreeVisuals(save)])
@@ -695,11 +723,11 @@ export async function createOniChunkRenderer(
     if (item.geyser && item.isGeyser && !item.building) objectTexturePaths.add(item.geyser.path)
     if (item.building) objectTexturePaths.add(item.building.path)
   }
-  const [textures, biomeEntries, maskImage, objectTextures] = await Promise.all([
+  const objectTextures: Record<string, HTMLImageElement> = {}
+  const [textures, biomeBackgrounds, maskImage] = await Promise.all([
     texturesPromise,
     biomePromise,
     maskPromise,
-    loadImages(objectTexturePaths),
   ])
   if (isCancelled()) throw new DOMException('地图准备已取消。', 'AbortError')
   // Minion wearable atlases are optional detail and can be tens of megabytes.
@@ -708,10 +736,8 @@ export async function createOniChunkRenderer(
   let minionAssets: MinionKanimAssets | null = null
   const minionWearables = [...new Set(preparedObjects.filter((item) => item.group.tag === 'Minion').flatMap((item) => minionWearableAnimNames(item.instance)))]
   if ((visibleLayers.minions ?? true) && preparedObjects.some((item) => item.group.tag === 'Minion')) {
-    void loadMinionKanimAssets(minionWearables).then((assets) => { if (!destroyed) minionAssets = assets }).catch(() => {})
+    void loadMinionKanimAssets(minionWearables).then((assets) => { if (!destroyed) { minionAssets = assets; assetRevision++; fluidViewport = undefined } }).catch(() => {})
   }
-  const biomeBackgrounds: Record<number, HTMLImageElement> = {}
-  biomeEntries.forEach(({ index, image }) => { if (image) biomeBackgrounds[index] = image })
   const maskSets: TerrainMaskSets | null = maskImage ? createTerrainMaskSets(maskImage) : null
   const visibleGrid = worldGrid(save, 'GridVisible')?.bytes
   const spawnableGrid = worldGrid(save, 'GridSpawnable')?.bytes
@@ -742,11 +768,21 @@ export async function createOniChunkRenderer(
   const snapshotTime = performance.now() / 1000
   const nativeCellSize = baseCellSize
   let fluidViewport: FluidViewportCache | undefined
+  // Terrain reaches the screen without waiting for every object in the save.
+  // Invalidate retained scenery once details arrive, including the water composite.
+  const ready = loadImages(objectTexturePaths).then(images => {
+    if (destroyed) return
+    Object.assign(objectTextures, images)
+    assetRevision++
+    fluidViewport = undefined
+  })
 
   return {
     width: size.width,
     height: size.height,
     cellSize: baseCellSize,
+    get revision() { return assetRevision },
+    ready,
     renderChunk(x, row, widthCells, heightCells, options) {
       const baseCellSize = options?.cellSize ?? nativeCellSize
       const fluidsOnly = options?.fluidsOnly === true

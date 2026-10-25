@@ -84,6 +84,7 @@
           entities: view === 'all', buildings: view === 'all', minions: view === 'all', geysers: view === 'all',
           power: view === 'all', plumbing: view === 'all', ventilation: view === 'all', automation: view === 'all', shipment: view === 'all',
         }, 'none', 48)
+        await renderer.ready
         const chunk = renderer.renderChunk(x, row, 40, 30)
         context.clearRect(0, 0, canvas.width, canvas.height)
         for (const layer of ONI_CHUNK_LAYERS) if (chunk.layers[layer]) {

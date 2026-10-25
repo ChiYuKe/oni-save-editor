@@ -111,3 +111,12 @@ SIMSAVE v14/v15 的磁盘格子记录共 16 字节，与 Unity 进程里的 `Sim
 液体进一步使用 `oniLiquidOriginal.glsl` 中的原始片元计算，只适配 WebGL 语法、属性纹理的纵向坐标及 Canvas 预乘 alpha。`MRT0_Copy` 与 `MRT1_Copy` 不再绑定同一张颜色图：前者为场景颜色，后者为中性 RGB 的覆盖蒙版。完整游戏的材质专用法线/高光蒙版仍未复现。
 
 `Substance.SubstanceTexture.None=0` 在材质属性纹理中保持 0，普通水不再被错误映射到第 13 类纹理。`tools/liquid-data-fixture.html` 的 5 项实际 GPU 检查覆盖常温满格水、非液体区透明、独立场景颜色及覆盖率不受场景颜色影响。
+
+
+## 静态站点地图加载
+
+地图先加载地形、背景与流体所需资源，再异步补齐建筑贴图；细节到达后会重绘当前视口和液体折射场景。贴图对象、地形蒙版和建筑清单在同页内复用，解码图像缓存设有容量上限，加载失败可重试。
+
+`python scripts/generate-oni-web-assets.py` 使用 Pillow 生成无损 WebP 版本，并逐像素校验；原始 PNG 保留，WebP 加载失败时回退。16 层液体数组重排为 4×4 图集以满足 WebP 尺寸限制，上传 GPU 时恢复原始分层，未降低分辨率。无需在 GitHub Actions 上安装 Pillow，部署直接使用提交的生成资源。
+
+`tools/map-load-fixture.html` 检查同页重复加载与重新解析存档时的准备时间、画面一致性、缓存复用和细节完成后的刷新；该本地检查页需要 `ONI_VISUAL_FIXTURE`。

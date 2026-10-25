@@ -8,6 +8,7 @@ const status=document.querySelector('#status'),canvas=document.querySelector('ca
 try{
  const save=parseSave(new Uint8Array(await (await fetch('/__oni_fixture__')).arrayBuffer()))
  const renderer=await createOniChunkRenderer(save,{biome:true,backwall:true,ground:true,gas:true,liquid:true,lighting:true,entities:true,buildings:true,minions:true,geysers:true,power:true,plumbing:true,ventilation:true,automation:true,shipment:true},'none',32)
+ await renderer.ready
  const scene=new PixiWorldScene();if(!await scene.init(canvas))throw Error('Pixi init')
  scene.resize(960,720)
  let frames=0

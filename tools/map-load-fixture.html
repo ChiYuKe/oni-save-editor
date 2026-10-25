@@ -1,0 +1,39 @@
+<!doctype html><meta charset="utf-8"><title>地图加载耗时</title><style>body{background:#151b20;color:#eee;font:15px system-ui}canvas{max-width:960px;width:100%}</style><pre id="result">读取存档…</pre><canvas id="map"></canvas><script type="module">
+import {parseSave} from '/src/lib/save.ts'
+import {createOniChunkRenderer} from '/src/lib/oniWorldChunkRenderer.ts'
+import {loadRenderImage} from '/src/lib/oniRenderAssets.ts'
+import {createTerrainMaskSets,TERRAIN_MASK_ATLAS_URL} from '/src/lib/terrainMasks.ts'
+import {ONI_CHUNK_LAYERS} from '/src/lib/oniRenderLayers.ts'
+const result=document.querySelector('#result'),canvas=document.querySelector('canvas')
+try{
+ const bytes=new Uint8Array(await(await fetch('/__oni_fixture__')).arrayBuffer())
+ let start=performance.now();const save=parseSave(bytes);const parse=performance.now()-start
+ const original=save.simData.bytes.slice();let previousHash;
+ const hash=bytes=>bytes.reduce((sum,value)=>Math.imul(sum^value,16777619),2166136261)>>>0
+ const rows=[{stage:'parse',ms:Math.round(parse)}];result.textContent=JSON.stringify(rows,null,2)
+ const visibility={biome:true,backwall:true,ground:true,gas:true,liquid:true,lighting:true,entities:true,buildings:true,minions:false,geysers:true,power:true,plumbing:true,ventilation:true,automation:true,shipment:true}
+ for(let pass=0;pass<4;pass++){
+  await new Promise(requestAnimationFrame)
+  const currentSave=pass===3?parseSave(bytes):save
+  const resourceCount=performance.getEntriesByType('resource').length
+  start=performance.now();const renderer=await createOniChunkRenderer(currentSave,visibility,'none',48)
+  const terrainReady=performance.now()-start;const initialRevision=renderer.revision;await renderer.ready
+  if(renderer.revision<=initialRevision)throw Error('细节加载后地图未失效刷新')
+  const preparation=performance.now()-start;start=performance.now()
+  const chunk=renderer.renderChunk(65,149,40,30,{timeSeconds:0})
+  const draw=performance.now()-start
+  canvas.width=1920;canvas.height=1440;const ctx=canvas.getContext('2d')
+  for(const layer of ONI_CHUNK_LAYERS)if(chunk.layers[layer]){ctx.globalCompositeOperation=layer==='light'?'lighter':'source-over';ctx.drawImage(chunk.layers[layer],0,0)}
+  const pixels=hash(ctx.getImageData(0,0,canvas.width,canvas.height).data)
+  if(previousHash!==undefined && pixels!==previousHash)throw Error('缓存改变了绘制结果')
+  previousHash=pixels
+  if(hash(save.simData.bytes)!==hash(original))throw Error('存档数据改变')
+  const [maskA,maskB]=await Promise.all([loadRenderImage(TERRAIN_MASK_ATLAS_URL),loadRenderImage(TERRAIN_MASK_ATLAS_URL)])
+  if(!maskA||maskA!==maskB||createTerrainMaskSets(maskA)!==createTerrainMaskSets(maskB))throw Error('贴图或蒙版未复用')
+  rows.push({pass,freshParse:pass===3,pixelHash:pixels,terrainReadyMs:Math.round(terrainReady),prepareMs:Math.round(preparation),drawMs:Math.round(draw),requests:performance.getEntriesByType('resource').length-resourceCount})
+  renderer.destroy();result.textContent=JSON.stringify(rows,null,2)
+ }
+ result.textContent+='\nPASS 重复加载像素一致、存档未变、贴图与蒙版复用'
+ document.title='完成 | 地图加载耗时'
+}catch(e){result.textContent=String(e.stack??e);document.title='失败 | 地图加载耗时'}
+</script>

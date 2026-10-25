@@ -1652,10 +1652,11 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
       if (generation !== buildRef.current || !renderer) return
       if (document.hidden || isInteractingRef.current) { scheduleNext(); return }
       const view = sceneViewportForCamera(scene.visibleWorldRect(), size.width, size.height, baseCellSize, window.devicePixelRatio || 1)
-      if (view && view.key !== sceneKey) {
-        if (pendingSceneKey !== view.key) { pendingSceneKey = view.key; pendingSince = now }
+      const viewKey = view ? `${view.key}:${renderer.revision}` : ''
+      if (view && viewKey !== sceneKey) {
+        if (pendingSceneKey !== viewKey) { pendingSceneKey = viewKey; pendingSince = now }
         if (!sceneKey || now - pendingSince >= 120) {
-          sceneKey = view.key; sceneComplete = false; cursor = 0; tasks = []; renderedKeysByLayer.clear()
+          sceneKey = viewKey; sceneComplete = false; cursor = 0; tasks = []; renderedKeysByLayer.clear()
           for (let row = view.row; row < view.bottom; row += view.tile) for (let x = view.x; x < view.right; x += view.tile) {
             tasks.push({ x, row, widthCells: Math.min(view.tile, size.width - x), heightCells: Math.min(view.tile, size.height - row),
               key: `${x}:${row}`, cellSize: view.cellSize, distance: Math.hypot(x - (view.x + view.right) / 2, row - (view.row + view.bottom) / 2) })
