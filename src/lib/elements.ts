@@ -1,3 +1,5 @@
+import { ONI_SUBSTANCE_MATERIALS } from './oniSubstances.generated'
+
 export type ElementState = 'solid' | 'liquid' | 'gas' | 'vacuum' | 'special'
 
 export interface FluidMaterialStyle {
@@ -173,6 +175,28 @@ export const ELEMENTS: ElementDefinition[] = [
   { hash: 0x63d4, name: '液态核废料 Liquid Nuclear Waste', state: 'liquid', color: '#91dd5b', fluidMaterial: { gradientTop: '#9dff25', gradientBottom: '#6bbf30', usesCaustics: false, glows: true, opaque: false, flowSpeed: .52 } },
   { hash: 0xe3e7, name: '岩浆 Magma', state: 'liquid', color: '#ff1a00', fluidMaterial: { gradientTop: '#ff5800', gradientBottom: '#ff1a00', usesCaustics: false, glows: true, opaque: true, flowSpeed: .44 } },
 ]
+
+// The curated table supplies localized names and fluid style overrides.
+// Complete it from the game's SubstanceHookup so DLC substances do not turn
+// into arbitrary purple "special" cells or bypass the solid/fluid renderers.
+const curatedHashes = new Set(ELEMENTS.map(element => element.hash))
+for (const substance of ONI_SUBSTANCE_MATERIALS) {
+  if (curatedHashes.has(substance.hash)) continue
+  const rawState = substance.state.toLowerCase()
+  const state: ElementState = rawState === 'solid' || rawState === 'liquid' || rawState === 'gas' || rawState === 'vacuum'
+    ? rawState : 'special'
+  const color = '#' + substance.colour.slice(0, 3).map(value => value.toString(16).padStart(2, '0')).join('')
+  ELEMENTS.push({
+    hash: substance.hash, name: substance.name, state, color,
+    texture: substance.textureUrl || undefined, worldUvScale: substance.worldUvScale,
+    terrainOrder: substance.substanceIndex,
+    fluidMaterial: state === 'liquid' || state === 'gas' ? {
+      gradientTop: color, gradientBottom: color, usesCaustics: substance.usesCaustics,
+      glows: substance.glows, opaque: substance.isOpaqueLiquid, flowSpeed: 1,
+    } : undefined,
+  })
+  curatedHashes.add(substance.hash)
+}
 
 const ELEMENT_BY_HASH = new Map(ELEMENTS.map((element) => [element.hash, element]))
 

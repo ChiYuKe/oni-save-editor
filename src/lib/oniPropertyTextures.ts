@@ -1,4 +1,6 @@
+import { liquidGradientColour } from './oniLiquidColour'
 import { elementForHash } from './elements'
+import { ONI_LIQUID_DEFAULTS } from './oniShaders'
 import { ONI_SUBSTANCE_BY_HASH } from './oniSubstances.generated'
 import type { OniTerrainRenderInput } from './oniRenderer'
 
@@ -22,7 +24,7 @@ const TEMPERATURE_STATE_CHANGE_RANGE = .05
 const PRESSURE_RANGE_MIN_KPA = 0
 const PRESSURE_RANGE_MAX_KPA = 200
 const MIN_PRESSURE_VISIBILITY = .15
-const LIQUID_TEX_MAX_MASS_KG = 2000
+const LIQUID_TEX_MAX_MASS_KG = ONI_LIQUID_DEFAULTS.maxMassKg
 const propertyTextureCache = new WeakMap<object, OniPropertyTextureData>()
 
 function byte(value: number): number {
@@ -142,17 +144,16 @@ export function buildOniPropertyTextures(input: OniTerrainRenderInput): OniPrope
           : Math.pow(Math.min(Math.max(cell.mass, 0) / LIQUID_TEX_MAX_MASS_KG, 1), .45)
         const fallbackColor: readonly [number, number, number] = [material.colour[0], material.colour[1], material.colour[2]]
         const fluid = element.fluidMaterial
-        const gradient = colorBytes(fluid?.gradientBottom, fallbackColor)
+        const temperatureSpan = material.highTemp - material.lowTemp
+        const temperatureRatio = temperatureSpan > 0
+          ? Math.max(0, Math.min(1, (cell.temperature - material.lowTemp) / temperatureSpan)) : .5
+        const gradient = liquidGradientColour(cell.elementHash, temperatureRatio, fallbackColor)
         const liquidOffset = pixel * 4
         liquid[liquidOffset] = gradient[0]
         liquid[liquidOffset + 1] = gradient[1]
         liquid[liquidOffset + 2] = gradient[2]
         liquid[liquidOffset + 3] = byte(amount)
 
-        const temperatureSpan = material.highTemp - material.lowTemp
-        const temperatureRatio = temperatureSpan > 0
-          ? Math.max(0, Math.min(1, (cell.temperature - material.lowTemp) / temperatureSpan))
-          : .5
         const temperatureByte = Math.trunc(temperatureRatio * 255)
         const lowColor = colorBytes(fluid?.gradientBottom, fallbackColor)
         const highColor = colorBytes(fluid?.gradientTop, fallbackColor)
@@ -184,7 +185,7 @@ export function buildOniPropertyTextures(input: OniTerrainRenderInput): OniPrope
         materialData[massOffset] = flags
         materialData[massOffset + 1] = 0
         materialData[massOffset + 2] = 0
-        materialData[massOffset + 3] = material.substanceTexture > 0 ? material.substanceTexture & 0xff : 13
+        materialData[massOffset + 3] = material.substanceTexture & 0xff
       }
       gasDanger[pixel] = material?.name === 'Oxygen' ? 0 : 255
 

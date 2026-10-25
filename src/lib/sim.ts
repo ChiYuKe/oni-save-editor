@@ -1,3 +1,5 @@
+import { ONI_SUBSTANCE_BY_HASH } from './oniSubstances.generated'
+
 export const SIM_HEADER_SIZE = 29
 export const SIM_CELL_SIZE = 16
 export const SIM_DISEASE_SIZE = 8
@@ -6,9 +8,14 @@ export const SIM_BACKWALL_SIZE_LEGACY = 4
 
 export interface SimCell {
   elementHash: number
-  properties: number
-  insulation: number
-  strengthInfo: number
+  /** Full signed SimHash stored on disk. elementHash is its UI-compatible low 16 bits. */
+  elementId?: number
+  /** Optional runtime hints for standalone lighting fixtures; absent from SIMSAVE. */
+  properties?: number
+  insulation?: number
+  strengthInfo?: number
+  /** Uninterpreted final float. Its bytes are preserved on every edit. */
+  auxiliary?: number
   temperature: number
   mass: number
 }
@@ -30,8 +37,6 @@ export interface SimData {
   backwallSize: number
   bytes: Uint8Array
 }
-
-export type SimElementProfile = Pick<SimCell, 'properties' | 'insulation'>
 
 const SIM_MAGIC = [0x53, 0x49, 0x4d, 0x53, 0x41, 0x56, 0x45, 0x00]
 
@@ -78,12 +83,13 @@ export function readSimCell(data: SimData, view: DataView, x: number, y: number)
   const offset = simCellOffset(data, x, y)
   if (offset === undefined) return undefined
   return {
-    elementHash: view.getUint16(offset, true),
-    properties: data.bytes[offset + 2],
-    insulation: data.bytes[offset + 3],
-    strengthInfo: data.bytes[offset + 4],
-    temperature: view.getFloat32(offset + 8, true),
-    mass: view.getFloat32(offset + 12, true),
+    // Disk records are NOT the packed in-memory Sim.Cell struct:
+    // int32 SimHash, float temperature(K), float mass(kg), preserved float.
+    elementHash: view.getUint32(offset, true) & 0xffff,
+    elementId: view.getInt32(offset, true),
+    temperature: view.getFloat32(offset + 4, true),
+    mass: view.getFloat32(offset + 8, true),
+    auxiliary: view.getFloat32(offset + 12, true),
   }
 }
 
@@ -104,36 +110,6 @@ export function readSimBackwall(data: SimData, view: DataView, x: number, y: num
     mass: view.getFloat32(offset + 4, true),
     temperature: view.getFloat32(offset + 8, true),
   }
-}
-
-/**
- * Returns the most common per-element property bytes in this save.
- * The SIM format stores these bytes separately from the element hash, and
- * copying them from a known cell keeps a replacement compatible with the
- * game's native cell state.
- */
-export function getSimElementProfile(data: SimData, elementHash: number): SimElementProfile | undefined {
-  const view = new DataView(data.bytes.buffer, data.bytes.byteOffset, data.bytes.byteLength)
-  const profiles = new Map<string, { properties: number; insulation: number; count: number }>()
-  for (let index = 0; index < data.cellCount; index++) {
-    const offset = data.cellOffset + index * SIM_CELL_SIZE
-    if (view.getUint16(offset, true) !== (elementHash & 0xffff)) continue
-    const properties = data.bytes[offset + 2]
-    const insulation = data.bytes[offset + 3]
-    const key = `${properties}:${insulation}`
-    const profile = profiles.get(key)
-    if (profile) profile.count += 1
-    else profiles.set(key, { properties, insulation, count: 1 })
-  }
-  let best: SimElementProfile | undefined
-  let bestCount = -1
-  profiles.forEach((profile) => {
-    if (profile.count > bestCount) {
-      bestCount = profile.count
-      best = { properties: profile.properties, insulation: profile.insulation }
-    }
-  })
-  return best
 }
 
 export function worldCellCoordinates(x: number, y: number): { x: number; y: number } {
@@ -157,12 +133,26 @@ export function setSimCells(data: SimData, cells: Array<{ x: number; y: number; 
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   offsets.forEach(({ offset, patch }) => {
     if (offset === undefined) return
-    if (patch.elementHash !== undefined) view.setUint16(offset, patch.elementHash & 0xffff, true)
-    if (patch.properties !== undefined) bytes[offset + 2] = patch.properties & 0xff
-    if (patch.insulation !== undefined) bytes[offset + 3] = patch.insulation & 0xff
-    if (patch.strengthInfo !== undefined) bytes[offset + 4] = patch.strengthInfo & 0xff
-    if (patch.temperature !== undefined && Number.isFinite(patch.temperature)) view.setFloat32(offset + 8, patch.temperature, true)
-    if (patch.mass !== undefined && Number.isFinite(patch.mass)) view.setFloat32(offset + 12, Math.max(0, patch.mass), true)
+    if (patch.properties !== undefined || patch.insulation !== undefined || patch.strengthInfo !== undefined) {
+      throw new Error('运行时属性不在 SIMSAVE 格子记录中，不能写入。')
+    }
+    if (patch.elementHash !== undefined || patch.elementId !== undefined) {
+      const hash = patch.elementHash ?? (patch.elementId! & 0xffff)
+      let id = patch.elementId ?? ONI_SUBSTANCE_BY_HASH.get(hash & 0xffff)?.elementId
+      if (id === undefined && (view.getUint32(offset, true) & 0xffff) === hash) id = view.getInt32(offset, true)
+      if (id === undefined || !Number.isInteger(id) || (id & 0xffff) !== (hash & 0xffff)) {
+        throw new Error('无法确定元素的完整 SimHash；已取消写入。')
+      }
+      view.setInt32(offset, id, true)
+    }
+    if (patch.temperature !== undefined) {
+      if (!Number.isFinite(patch.temperature) || patch.temperature < 0) throw new Error('温度必须为不小于 0 的开尔文值。')
+      view.setFloat32(offset + 4, patch.temperature, true)
+    }
+    if (patch.mass !== undefined) {
+      if (!Number.isFinite(patch.mass) || patch.mass < 0) throw new Error('质量必须为不小于 0 的数值。')
+      view.setFloat32(offset + 8, patch.mass, true)
+    }
   })
   return { ...data, bytes }
 }
