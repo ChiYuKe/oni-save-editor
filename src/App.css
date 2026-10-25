@@ -33,8 +33,11 @@ h2 { color: var(--ink); font-size: 15px; font-weight: 650; letter-spacing: 0; }
 .app-shell { min-height: 100vh; display: flex; flex-direction: column; background: var(--paper); }
 .saved-shell { height: 100vh; overflow: hidden; }
 .topbar { position: relative; z-index: 5; display: flex; justify-content: center; padding: 24px 24px 10px; background: var(--paper); }
-.saved-shell .topbar { flex: 0 0 auto; min-height: 72px; align-items: center; padding: 0 32px; background: #15181c; border-bottom: 1px solid #353a40; }
-.saved-shell .topbar-pill { width: 100%; max-width: none; min-height: 72px; padding: 0; background: transparent; border: 0; border-radius: 0; }
+.saved-shell .topbar { flex: 0 0 auto; min-height: 48px; align-items: center; padding: 0 24px; background: #15181c; border-bottom: 1px solid #353a40; }
+.saved-shell .topbar-pill { width: 100%; max-width: none; min-height: 48px; column-gap: 16px; row-gap: 4px; padding: 0; background: transparent; border: 0; border-radius: 0; }
+.saved-shell .brand-mark { width: 26px; height: 26px; flex-basis: 26px; border-radius: 7px; }
+.saved-shell .topnav button { min-height: 28px; }
+.saved-shell .topbar-actions .button { min-height: 30px; padding: 0 12px; }
 .template-shell .topbar { padding-top: 16px; }
 .template-shell .topbar-pill { grid-template-columns: minmax(170px, 1fr) auto; }
 .topbar-pill { width: min(100%, 1180px); min-height: 60px; display: grid; grid-template-columns: minmax(170px, 1fr) auto minmax(170px, 1fr); align-items: center; gap: 24px; padding: 10px 13px 10px 17px; color: var(--white); background: #242529; border: 1px solid #35363b; border-radius: 999px; }
