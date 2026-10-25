@@ -1,29 +1,26 @@
 import { Application, Container, Sprite, Texture } from 'pixi.js'
+import { ONI_CHUNK_LAYERS } from './oniRenderLayers'
 
 export type WorldChunkLayer = 'background' | 'gas' | 'terrain' | 'entitiesBack' | 'liquid' | 'entitiesFront' | 'particles' | 'light' | 'overlay'
 
-const WORLD_CHUNK_LAYER_ORDER: Record<WorldChunkLayer, number> = {
-  background: 0,
-  entitiesBack: 10,
-  gas: 20,
-  liquid: 30,
-  terrain: 40,
-  entitiesFront: 50,
-  particles: 60,
-  light: 70,
-  overlay: 80,
-}
+const WORLD_CHUNK_LAYER_ORDER = Object.fromEntries(
+  [...ONI_CHUNK_LAYERS, 'overlay'].map((layer, index) => [layer, index * 10]),
+) as Record<WorldChunkLayer, number>
 
 export type WorldChunk = {
   key: string
   x: number
   y: number
   canvas: HTMLCanvasElement
+  width?: number
+  height?: number
   layer?: WorldChunkLayer
   /** Stable within a layer, for example a saved object's scene/Z order. */
   order?: number
   /** Crisp editor overlays opt out; world artwork uses linear sampling. */
   scaleMode?: 'linear' | 'nearest'
+  /** Viewport-sized dynamic textures do not need a new mip pyramid each frame. */
+  mipmaps?: boolean
 }
 
 type RetainedChunk = {
@@ -51,7 +48,7 @@ export class PixiWorldScene {
       await this.app.init({
         canvas,
         preference: 'webgl',
-        antialias: false,
+        antialias: true,
         autoDensity: true,
         resolution: Math.min(2, Math.max(1, window.devicePixelRatio || 1)),
         backgroundAlpha: 0,
@@ -99,9 +96,11 @@ export class PixiWorldScene {
       if (previous.canvas === chunk.canvas) {
         previous.sprite.position.set(chunk.x, chunk.y)
         previous.sprite.zIndex = zIndex
-        // ONI assets are pixel art. Linear filtering makes every cell look
-        // blurred when the retained chunk is scaled by the camera.
-        previous.texture.source.scaleMode = chunk.scaleMode ?? 'nearest'
+        previous.sprite.blendMode = layer === 'light' ? 'add' : 'normal'
+        previous.sprite.width = chunk.width ?? chunk.canvas.width
+        previous.sprite.height = chunk.height ?? chunk.canvas.height
+        previous.texture.source.scaleMode = chunk.scaleMode ?? 'linear'
+        previous.texture.source.autoGenerateMipmaps = chunk.mipmaps ?? chunk.scaleMode !== 'nearest'
         previous.texture.source.update()
         this.render()
         return
@@ -111,11 +110,15 @@ export class PixiWorldScene {
     // skipCache avoids Pixi's global resource cache retaining disposable
     // chunk canvases after a world or save is closed.
     const texture = Texture.from(chunk.canvas, true)
-    texture.source.scaleMode = chunk.scaleMode ?? 'nearest'
+    texture.source.scaleMode = chunk.scaleMode ?? 'linear'
+    texture.source.autoGenerateMipmaps = chunk.mipmaps ?? chunk.scaleMode !== 'nearest'
     const sprite = new Sprite(texture)
     sprite.position.set(chunk.x, chunk.y)
+    sprite.width = chunk.width ?? chunk.canvas.width
+    sprite.height = chunk.height ?? chunk.canvas.height
     sprite.cullable = true
     sprite.zIndex = zIndex
+    sprite.blendMode = layer === 'light' ? 'add' : 'normal'
     this.world.addChild(sprite)
     this.chunks.set(retainedKey, { canvas: chunk.canvas, sprite, texture })
     this.render()
@@ -125,12 +128,13 @@ export class PixiWorldScene {
     this.batchDepth += 1
   }
 
-  endBatch(): void {
+  endBatch(immediate = false): void {
     if (this.batchDepth <= 0) return
     this.batchDepth -= 1
     if (this.batchDepth === 0 && this.batchDirty) {
       this.batchDirty = false
-      this.render()
+      if (immediate) this.renderNow()
+      else this.render()
     }
   }
 
@@ -150,10 +154,23 @@ export class PixiWorldScene {
     this.removeMissing(new Set(), layer)
   }
 
+  visibleWorldRect() {
+    const scale = this.world.scale.x
+    return { x: -this.world.position.x / scale, y: -this.world.position.y / scale,
+      width: this.app.screen.width / scale, height: this.app.screen.height / scale, scale }
+  }
+
   setCamera(x: number, y: number, scale: number): void {
     this.world.position.set(x, y)
     this.world.scale.set(scale)
     this.render()
+  }
+
+  private renderNow(): void {
+    if (!this.initialized || this.destroyed) return
+    if (this.frame) cancelAnimationFrame(this.frame)
+    this.frame = 0
+    this.app.render()
   }
 
   render(): void {

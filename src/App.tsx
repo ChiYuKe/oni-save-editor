@@ -1,3 +1,9 @@
+import { sceneViewportForCamera } from './lib/oniSceneViewport'
+import { createOniCellOutline } from './lib/oniCellOutline'
+import { gridSelectionRect } from './lib/oniGridSelection'
+import { createOniCellTooltip } from './lib/oniCellTooltip'
+import { OniFluidFrameClock } from './lib/oniFluidFrameClock'
+import { fluidViewportForCamera } from './lib/oniFluidViewport'
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type SetStateAction } from 'react'
 import {
   AlertTriangle,
@@ -31,6 +37,7 @@ import {
   X,
 } from 'lucide-react'
 import './App.css'
+import { ONI_CHUNK_LAYERS } from './lib/oniRenderLayers'
 import { buildSave, type ParsedSave } from './lib/save'
 import { ELEMENTS, defaultElementValues, elementForHash, elementOptions, formatHash } from './lib/elements'
 import {
@@ -51,7 +58,7 @@ import {
   worldSize,
 } from './lib/editor'
 import type { SavedObjectInstance, Value } from './lib/model'
-import { getSimElementProfile, getWorldCell, readSimCell, setWorldCells, type SimCell } from './lib/sim'
+import { getWorldCell, readSimCell, setWorldCells, type SimCell } from './lib/sim'
 import {
   createTerrainBoundaryPath,
   createTerrainCellPath,
@@ -886,7 +893,6 @@ function MapView({ save, updateSave, viewport, onViewportChange }: { save: Parse
   const [selectedElement, setSelectedElement] = useState(0x0307)
   const undoStackRef = useRef<MapEdit[][]>([])
   const redoStackRef = useRef<MapEdit[][]>([])
-  const elementProfilesRef = useRef(new Map<number, { properties: number; insulation: number } | undefined>())
   const strokeActiveRef = useRef(false)
   const pendingStrokeRef = useRef(new Map<string, MapCellUpdate>())
   const previewCellsRef = useRef(new Map<string, MapPreviewCell>())
@@ -940,21 +946,10 @@ function MapView({ save, updateSave, viewport, onViewportChange }: { save: Parse
   }
 
   const elementPatch = (hash: number, current?: SimCell): Partial<SimCell> => {
-    const profile = sim
-      ? (elementProfilesRef.current.has(hash)
-        ? elementProfilesRef.current.get(hash)
-        : (() => {
-            const next = getSimElementProfile(sim, hash)
-            elementProfilesRef.current.set(hash, next)
-            return next
-          })())
-      : undefined
-    if (hash === 0xbf75) return { elementHash: hash, properties: profile?.properties ?? 0x39, insulation: profile?.insulation ?? 0x2d, temperature: 0, mass: 0 }
+    if (hash === 0xbf75) return { elementHash: hash, temperature: 0, mass: 0 }
     const defaults = defaultElementValues(hash)
     return {
       elementHash: hash,
-      properties: profile?.properties ?? current?.properties ?? 0,
-      insulation: profile?.insulation ?? current?.insulation ?? 0xff,
       temperature: current && current.temperature > 0 ? current.temperature : defaults.temperature,
       mass: current && current.mass > 0 ? current.mass : defaults.mass,
     }
@@ -1067,6 +1062,7 @@ function MapView({ save, updateSave, viewport, onViewportChange }: { save: Parse
 
   const handleCell = (x: number, y: number) => {
     if (tool === 'inspect' || tool === 'eyedropper') {
+      setSelection(null)
       const cell = sim ? getWorldCell(sim, x, y) : undefined
       setLastCell({ x, y })
       if (cell) setSelectedElement(cell.elementHash)
@@ -1191,11 +1187,10 @@ function MapView({ save, updateSave, viewport, onViewportChange }: { save: Parse
             <label className="sim-field"><span>元素</span><select value={selectedCell.elementHash} onChange={(event) => patchCell(lastCell, elementPatch(Number(event.target.value), selectedCell))}>
               {selectedElementList.map((element) => <option key={element.hash} value={element.hash}>{element.name}</option>)}
             </select></label>
-            <label className="sim-field"><span>温度 °C</span><input type="number" step="0.1" value={(selectedCell.temperature - 273.15).toFixed(2)} onChange={(event) => { const value = Number(event.target.value); if (Number.isFinite(value)) patchCell(lastCell, { temperature: value + 273.15 }) }} /></label>
-            <label className="sim-field"><span>质量 kg</span><input type="number" min="0" step="0.001" value={selectedCell.mass.toFixed(3)} onChange={(event) => { const value = Number(event.target.value); if (Number.isFinite(value)) patchCell(lastCell, { mass: value }) }} /></label>
+            {elementForHash(selectedCell.elementHash).state === 'vacuum' ? <div className="map-stat"><span>温度</span><strong>—（真空）</strong></div> : <><label className="sim-field"><span>温度 °C</span><input type="number" min="-273.15" step="0.1" value={(selectedCell.temperature - 273.15).toFixed(2)} onChange={(event) => { const value = Number(event.target.value); if (Number.isFinite(value) && value >= -273.15) patchCell(lastCell, { temperature: value + 273.15 }) }} /></label></>}
+            <label className="sim-field"><span>质量 kg</span><input type="number" min="0" step="0.001" value={selectedCell.mass.toFixed(3)} onChange={(event) => { const value = Number(event.target.value); if (Number.isFinite(value) && value >= 0) patchCell(lastCell, { mass: value }) }} /></label>
             <div className="map-stat"><span>状态</span><strong>{elementForHash(selectedCell.elementHash).state}</strong></div>
-            <div className="map-stat"><span>属性字节</span><strong>{formatHash(selectedCell.properties)}</strong></div>
-            <div className="map-stat"><span>绝缘 / 强度</span><strong>{selectedCell.insulation} / {selectedCell.strengthInfo}</strong></div>
+            <div className="map-stat"><span>完整元素 ID</span><strong>{selectedCell.elementId}</strong></div>
           </> : <div className="inspector-empty map-empty"><Search size={18} /><span>选择一个单元查看数据</span></div>}
           </>}
           <div className="map-stat"><span>模拟网格</span><strong>{sim ? `${sim.width} × ${sim.height}` : '—'}</strong></div>
@@ -1516,8 +1511,30 @@ function createElementPatterns(context: CanvasRenderingContext2D, textures: Reco
 
 
 
-function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSize, viewport, onViewportChange, onCell, onSelectionChange, onShape, onStrokeStart, onStrokeEnd }: { save: ParsedSave; visibleLayers: MapLayerVisibility; overlay: MapOverlay; tool: MapTool; brushSize: number; viewport: MapViewport; onViewportChange: Dispatch<SetStateAction<MapViewport>>; selectedCell: { x: number; y: number } | null; selection: MapSelection | null; previewCells: Map<string, MapPreviewCell>; previewVersion: number; onCell: (x: number, y: number) => void; onSelectionChange: (selection: MapSelection | null) => void; onShape: (start: { x: number; y: number }, end: { x: number; y: number }) => void; onStrokeStart: () => void; onStrokeEnd: () => void }) {
+function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSize, viewport, onViewportChange, selectedCell, selection, onCell, onSelectionChange, onShape, onStrokeStart, onStrokeEnd }: { save: ParsedSave; visibleLayers: MapLayerVisibility; overlay: MapOverlay; tool: MapTool; brushSize: number; viewport: MapViewport; onViewportChange: Dispatch<SetStateAction<MapViewport>>; selectedCell: { x: number; y: number } | null; selection: MapSelection | null; previewCells: Map<string, MapPreviewCell>; previewVersion: number; onCell: (x: number, y: number) => void; onSelectionChange: (selection: MapSelection | null) => void; onShape: (start: { x: number; y: number }, end: { x: number; y: number }) => void; onStrokeStart: () => void; onStrokeEnd: () => void }) {
+  const tooltipRef = useRef<ReturnType<typeof createOniCellTooltip> | null>(null)
+  useEffect(() => {
+    const tooltip = createOniCellTooltip(save)
+    tooltipRef.current = tooltip
+    return () => { tooltip.destroy(); if (tooltipRef.current === tooltip) tooltipRef.current = null }
+  }, [save])
   const hostRef = useRef<HTMLDivElement>(null)
+  const outlinesRef = useRef<ReturnType<typeof createOniCellOutline> | null>(null)
+  const hoverCellRef = useRef<{ x: number; y: number } | null>(null)
+  const selectedCellRef = useRef(selectedCell)
+  const selectionRef = useRef(selection)
+  const draftSelectionRef = useRef<MapSelection | null>(null)
+  selectedCellRef.current = selectedCell
+  selectionRef.current = selection
+  const refreshOutlinesRef = useRef<() => void>(() => {})
+  useEffect(() => {
+    if (!hostRef.current) return
+    const outlines = createOniCellOutline(hostRef.current)
+    outlinesRef.current = outlines
+    refreshOutlinesRef.current()
+    return () => { outlines.destroy(); if (outlinesRef.current === outlines) outlinesRef.current = null }
+  }, [])
+  useEffect(() => { refreshOutlinesRef.current() }, [selectedCell, selection])
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const sceneRef = useRef<PixiWorldScene | null>(null)
   const pointerRef = useRef<{ mode: 'pan' | 'select' | 'brush' | 'shape' | 'point'; id: number; startX: number; startY: number; panX: number; panY: number; startCell: { x: number; y: number } | null; lastCell: { x: number; y: number } | null; moved: boolean } | null>(null)
@@ -1529,8 +1546,7 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
   const [sceneReady, setSceneReady] = useState(false)
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 })
   const size = worldSize(save)
-  // Render chunks at native pixel-art resolution. 8px/cell is only suitable
-  // for the overview and becomes visibly blocky as soon as the camera zooms.
+  // Camera/world units stay fixed; static raster density follows the visible camera.
   const baseCellSize = 32
   const fitScale = viewportSize.width && viewportSize.height
     ? Math.min(1, viewportSize.width / (size.width * baseCellSize), viewportSize.height / (size.height * baseCellSize))
@@ -1539,6 +1555,19 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
     '--map-space-background': `url("${assetPath('/assets/background/space_bg.png')}")`,
     '--map-starfield-background': `url("${assetPath('/assets/background/starfield.png')}")`,
   } as CSSProperties
+
+  refreshOutlinesRef.current = () => {
+    const current = cameraRef.current
+    const scale = fitScale * (MAP_ZOOM_MIN + (MAP_ZOOM_MAX - MAP_ZOOM_MIN) * current.zoomPercent / 100)
+    const originX = (viewportSize.width - size.width * baseCellSize * scale) / 2 + current.pan.x
+    const originY = (viewportSize.height - size.height * baseCellSize * scale) / 2 + current.pan.y
+    const rect = (start: { x: number; y: number } | null, end = start) => start && end
+      ? gridSelectionRect({ start, end }, size.height, baseCellSize * scale, originX, originY) : undefined
+    const selected = draftSelectionRef.current ?? selectionRef.current
+    outlinesRef.current?.update('hover', rect(hoverCellRef.current))
+    outlinesRef.current?.update('selected', selected ? undefined : rect(selectedCellRef.current))
+    outlinesRef.current?.update('range', selected ? rect(selected.start, selected.end) : undefined)
+  }
 
   const applyCamera = useCallback((next: MapViewport) => {
     cameraRef.current = next
@@ -1549,6 +1578,7 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
       (viewportSize.height - size.height * baseCellSize * nextScale) / 2 + next.pan.y,
       nextScale,
     )
+    refreshOutlinesRef.current()
   }, [fitScale, size.height, size.width, viewportSize.height, viewportSize.width])
   applyCameraRef.current = applyCamera
 
@@ -1587,53 +1617,83 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
     const scene = sceneRef.current
     if (!sceneReady || !scene || !save.simData || !size.width || !size.height) return
     const generation = ++buildRef.current
-    const chunkCells = 64
     const renderedKeysByLayer = new Map<OniChunkLayer, Set<string>>()
     let renderer: Awaited<ReturnType<typeof createOniChunkRenderer>> | null = null
     let cursor = 0
     let scheduledFrame = 0
-    let tasks: Array<{ distance: number; x: number; row: number; widthCells: number; heightCells: number; key: string }> = []
+    let sceneKey = '', pendingSceneKey = '', pendingSince = 0, sceneComplete = false
+    let animationFrame = 0
+    const fluidClock = new OniFluidFrameClock()
+    const animateFluids = overlay === 'none' && (visibleLayers.gas || visibleLayers.liquid)
+    const updateFluids = (now: number) => {
+      if (generation !== buildRef.current || !renderer) return
+      animationFrame = window.requestAnimationFrame(updateFluids)
+      if (document.hidden || isInteractingRef.current || !fluidClock.shouldRender(now)) return
+      const viewport = fluidViewportForCamera(scene.visibleWorldRect(), size.width, size.height, baseCellSize, window.devicePixelRatio || 1)
+      if (!viewport) return
+      const start = performance.now()
+      const chunk = renderer.renderChunk(viewport.x, viewport.row, viewport.widthCells, viewport.heightCells,
+        { fluidsOnly: true, cellSize: viewport.cellSize, timeSeconds: now / 1000 })
+      scene.beginBatch()
+      for (const layer of ['gas', 'liquid'] as const) {
+        const canvas = chunk.layers[layer]
+        if (canvas) scene.setChunk({ key: 'fluid-animation', layer, canvas, x: viewport.x * baseCellSize, y: viewport.row * baseCellSize,
+          width: viewport.widthCells * baseCellSize, height: viewport.heightCells * baseCellSize, mipmaps: false })
+        scene.removeMissing(canvas ? new Set(['fluid-animation']) : new Set(), layer)
+      }
+      scene.endBatch(true)
+      fluidClock.recordCost(performance.now() - start)
+    }
+    let tasks: Array<{ distance: number; x: number; row: number; widthCells: number; heightCells: number; key: string; cellSize: number }> = []
     const scheduleNext = () => {
       scheduledFrame = window.requestAnimationFrame(buildNext)
     }
-    const buildNext = () => {
+    const buildNext = (now: number) => {
       if (generation !== buildRef.current || !renderer) return
-      if (isInteractingRef.current) {
-        scheduleNext()
-        return
+      if (document.hidden || isInteractingRef.current) { scheduleNext(); return }
+      const view = sceneViewportForCamera(scene.visibleWorldRect(), size.width, size.height, baseCellSize, window.devicePixelRatio || 1)
+      if (view && view.key !== sceneKey) {
+        if (pendingSceneKey !== view.key) { pendingSceneKey = view.key; pendingSince = now }
+        if (!sceneKey || now - pendingSince >= 120) {
+          sceneKey = view.key; sceneComplete = false; cursor = 0; tasks = []; renderedKeysByLayer.clear()
+          for (let row = view.row; row < view.bottom; row += view.tile) for (let x = view.x; x < view.right; x += view.tile) {
+            tasks.push({ x, row, widthCells: Math.min(view.tile, size.width - x), heightCells: Math.min(view.tile, size.height - row),
+              key: `${x}:${row}`, cellSize: view.cellSize, distance: Math.hypot(x - (view.x + view.right) / 2, row - (view.row + view.bottom) / 2) })
+          }
+          tasks.sort((a, b) => a.distance - b.distance)
+        }
       }
       if (cursor < tasks.length) {
         const task = tasks[cursor++]
-        const chunk = renderer.renderChunk(task.x, task.row, task.widthCells, task.heightCells)
+        const chunk = renderer.renderChunk(task.x, task.row, task.widthCells, task.heightCells, { skipFluids: animateFluids, cellSize: task.cellSize })
         scene.beginBatch()
         for (const [layer, canvas] of Object.entries(chunk.layers) as Array<[OniChunkLayer, HTMLCanvasElement | undefined]>) {
-          if (!canvas) continue
+          if (!canvas || (animateFluids && (layer === 'gas' || layer === 'liquid'))) continue
           let renderedKeys = renderedKeysByLayer.get(layer)
           if (!renderedKeys) {
             renderedKeys = new Set<string>()
             renderedKeysByLayer.set(layer, renderedKeys)
           }
           renderedKeys.add(task.key)
-          scene.setChunk({ key: task.key, x: chunk.x, y: chunk.y, canvas, layer })
+          scene.setChunk({ key: task.key, x: task.x * baseCellSize, y: task.row * baseCellSize,
+            width: task.widthCells * baseCellSize, height: task.heightCells * baseCellSize, canvas, layer })
         }
         scene.endBatch()
       }
-      if (cursor < tasks.length) scheduleNext()
-      else {
-        const allLayers: OniChunkLayer[] = ['background', 'entitiesBack', 'gas', 'liquid', 'terrain', 'entitiesFront', 'particles', 'light']
-        for (const layer of allLayers) scene.removeMissing(renderedKeysByLayer.get(layer) ?? new Set<string>(), layer)
+      if (!sceneComplete && cursor === tasks.length) {
+        sceneComplete = true
+        const allLayers: readonly OniChunkLayer[] = ONI_CHUNK_LAYERS
+        for (const layer of allLayers) {
+          if (animateFluids && (layer === 'gas' || layer === 'liquid')) continue
+          scene.removeMissing(renderedKeysByLayer.get(layer) ?? new Set<string>(), layer)
+        }
       }
+      scheduleNext()
     }
     void createOniChunkRenderer(save, visibleLayers, overlay, baseCellSize, () => generation !== buildRef.current).then((prepared) => {
       if (generation !== buildRef.current) { prepared.destroy(); return }
       renderer = prepared
-      for (let row = 0; row < size.height; row += chunkCells) for (let x = 0; x < size.width; x += chunkCells) {
-        const widthCells = Math.min(chunkCells, size.width - x)
-        const heightCells = Math.min(chunkCells, size.height - row)
-        const key = `${x}:${row}`
-        tasks.push({ key, x, row, widthCells, heightCells, distance: Math.hypot(x + widthCells / 2 - size.width / 2, row + heightCells / 2 - size.height / 2) })
-      }
-      tasks = tasks.sort((left, right) => left.distance - right.distance)
+      if (animateFluids) animationFrame = window.requestAnimationFrame(updateFluids)
       scheduleNext()
     }).catch((cause) => {
       if (generation === buildRef.current && !(cause instanceof DOMException && cause.name === 'AbortError')) console.error('ONI 地图分块准备失败。', cause)
@@ -1641,6 +1701,7 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
     return () => {
       buildRef.current += 1
       if (scheduledFrame) window.cancelAnimationFrame(scheduledFrame)
+      if (animationFrame) window.cancelAnimationFrame(animationFrame)
       renderer?.destroy()
     }
   }, [overlay, save, sceneReady, size.height, size.width, visibleLayers])
@@ -1662,6 +1723,9 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
   return <div ref={hostRef} style={mapBackgroundStyle} className="canvas-frame canvas-viewport pixi-map-viewport"
     onWheel={(event) => {
       event.preventDefault()
+      tooltipRef.current?.hide()
+      hoverCellRef.current = null
+      refreshOutlinesRef.current()
       const current = cameraRef.current
       const nextPercent = Math.max(0, Math.min(100, current.zoomPercent + (event.deltaY < 0 ? 5 : -5)))
       const host = hostRef.current
@@ -1688,6 +1752,9 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
     }}
     onPointerDown={(event) => {
       if (event.button !== 0 && event.button !== 1) return
+      tooltipRef.current?.hide()
+      hoverCellRef.current = null
+      refreshOutlinesRef.current()
       event.currentTarget.setPointerCapture(event.pointerId)
       isInteractingRef.current = true
       const mode = event.button === 1 || tool === 'move' ? 'pan' : tool === 'inspect' ? 'select' : tool === 'paint' || tool === 'erase' ? 'brush' : tool === 'rectangle' || tool === 'line' ? 'shape' : 'point'
@@ -1697,10 +1764,18 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
       else if (mode === 'shape') { onStrokeStart(); if (cell) onShape(cell, cell) }
       else if (mode === 'point' && cell) onCell(cell.x, cell.y)
     }}
+    onPointerLeave={() => { tooltipRef.current?.hide(); hoverCellRef.current = null; refreshOutlinesRef.current() }}
     onPointerMove={(event) => {
       const pointer = pointerRef.current
-      if (!pointer) return
       const cell = pointToCell(event.clientX, event.clientY)
+      if (!pointer) {
+        hoverCellRef.current = event.pointerType === 'touch' ? null : cell
+        refreshOutlinesRef.current()
+        if (cell && event.pointerType !== 'touch') tooltipRef.current?.show(cell.x, cell.y, event.clientX, event.clientY)
+        else tooltipRef.current?.hide()
+        return
+      }
+      tooltipRef.current?.hide()
       if (pointer.mode === 'pan') {
         const dx = event.clientX - pointer.startX; const dy = event.clientY - pointer.startY
         pointer.moved ||= Math.abs(dx) > 2 || Math.abs(dy) > 2
@@ -1711,6 +1786,10 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
       else if (pointer.mode === 'select') {
         const dx = event.clientX - pointer.startX; const dy = event.clientY - pointer.startY
         pointer.moved ||= Math.abs(dx) > 3 || Math.abs(dy) > 3
+        if (pointer.moved && pointer.startCell && cell) {
+          draftSelectionRef.current = { start: pointer.startCell, end: cell }
+          refreshOutlinesRef.current()
+        }
       }
     }}
     onPointerUp={(event) => {
@@ -1726,8 +1805,19 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
       }
       if (pointer.mode === 'brush' || pointer.mode === 'shape') onStrokeEnd()
       pointerRef.current = null
+      draftSelectionRef.current = null
+      refreshOutlinesRef.current()
       isInteractingRef.current = false
       if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    }}
+    onPointerCancel={() => {
+      tooltipRef.current?.hide()
+      const pointer = pointerRef.current
+      if (pointer?.mode === 'brush' || pointer?.mode === 'shape') onStrokeEnd()
+      pointerRef.current = null
+      draftSelectionRef.current = null
+      refreshOutlinesRef.current()
+      isInteractingRef.current = false
     }}
   ><canvas ref={canvasRef} className="pixi-map-canvas" /></div>
 }

@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>ONI 地形与背景近景核对</title>
+  <style>
+    body { margin: 20px; background: #151b20; color: #e3e6e5; font: 14px/1.6 system-ui; }
+    h1 { font-size: 20px; margin: 0 0 8px; } p { color: #afbcbe; }
+    canvas { display: block; width: 100%; max-width: 960px; height: auto; background: #131a23; border: 1px solid #536168; }
+    a { color: #b6d4ba; } select { margin: 0 16px 12px 4px; padding: 5px; }
+    #status { white-space: pre-wrap; } nav { margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <h1>地形与背景近景核对</h1>
+  <p>固定同一存档、同一区域，以近景检查材质与明暗。页面只读取存档。</p>
+  <nav><label>查看<select id="mode"><option value="all">完整场景</option><option value="terrain">自然地形</option><option value="background">群落背景和天然背墙</option></select></label><label><input id="animate" type="checkbox" checked>气体和液体动态</label> <label><input id="lighting" type="checkbox" checked>光源与光晕</label> <a id="download" download="oni-render-closeup.png">保存当前画面 PNG</a></nav>
+  <div id="map-frame" style="position:relative;width:100%;max-width:960px;overflow:hidden"><canvas id="map" width="960" height="720"></canvas></div>
+  <p id="animation-checks"></p><p id="animation-speed"></p><p id="sample"></p>
+  <p id="status">正在读取本地测试存档…</p>
+  <script type="module">
+    import { createOniCellOutline } from '/src/lib/oniCellOutline.ts'
+    import { createOniCellTooltip } from '/src/lib/oniCellTooltip.ts'
+    import { parseSave } from '/src/lib/save.ts'
+    import { getWorldCell } from '/src/lib/sim.ts'
+    import { elementForHash } from '/src/lib/elements.ts'
+    import { worldSize } from '/src/lib/editor.ts'
+    import { createOniChunkRenderer } from '/src/lib/oniWorldChunkRenderer.ts'
+    import { OniFluidFrameClock, ONI_FLUID_TARGET_FPS } from '/src/lib/oniFluidFrameClock.ts'
+    import { ONI_CHUNK_LAYERS } from '/src/lib/oniRenderLayers.ts'
+    const canvas = document.querySelector('#map'), context = canvas.getContext('2d')
+    const status = document.querySelector('#status'), mode = document.querySelector('#mode')
+    const animate = document.querySelector('#animate'), lighting = document.querySelector('#lighting')
+    let renderer, animationFrame = 0, renderGeneration = 0
+    try {
+      const response = await fetch('/__oni_fixture__')
+      if (!response.ok) throw new Error('请使用设置了 ONI_VISUAL_FIXTURE 的本地开发服务器。')
+      const name = decodeURIComponent(response.headers.get('X-Fixture-Name') ?? 'save.sav')
+      const save = parseSave(new Uint8Array(await response.arrayBuffer()))
+      const size = worldSize(save)
+      const headquarters = save.manager?.groups.find(group => /^(Headquarters|ExobaseHeadquarters)$/i.test(group.tag))?.instances[0]
+      const params = new URLSearchParams(location.search)
+      const x = params.has('x') ? Number(params.get('x')) : Math.max(0, Math.min(size.width - 40, Math.floor((headquarters?.position.x ?? size.width / 2) - 20)))
+      const row = params.has('row') ? Number(params.get('row')) : Math.max(0, Math.min(size.height - 30, Math.floor(size.height - (headquarters?.position.y ?? size.height / 2) - 15)))
+      const cellTooltip = createOniCellTooltip(save)
+      const cellOutlines = createOniCellOutline(document.querySelector('#map-frame'))
+      let hoverCell, selectedCell
+      const pointerCell = event => {
+        const bounds = canvas.getBoundingClientRect()
+        const col = Math.floor((event.clientX - bounds.left - canvas.clientLeft) / canvas.clientWidth * 40)
+        const canvasRow = Math.floor((event.clientY - bounds.top - canvas.clientTop) / canvas.clientHeight * 30)
+        return col >= 0 && col < 40 && canvasRow >= 0 && canvasRow < 30 ? { col, row: canvasRow } : undefined
+      }
+      function refreshCellOutlines() {
+        const rect = cell => cell ? { x: canvas.offsetLeft + canvas.clientLeft + cell.col * canvas.clientWidth / 40,
+          y: canvas.offsetTop + canvas.clientTop + cell.row * canvas.clientHeight / 30,
+          width: canvas.clientWidth / 40, height: canvas.clientHeight / 30 } : undefined
+        cellOutlines.update('hover', rect(hoverCell)); cellOutlines.update('selected', rect(selectedCell))
+      }
+      new ResizeObserver(refreshCellOutlines).observe(canvas)
+      canvas.addEventListener('click', event => { if (event.button === 0) { selectedCell = pointerCell(event); refreshCellOutlines() } })
+      canvas.addEventListener('pointerleave', () => { hoverCell = undefined; refreshCellOutlines() })
+      canvas.addEventListener('pointermove', event => {
+        if (event.buttons || event.pointerType === 'touch') { cellTooltip.hide(); hoverCell = undefined; refreshCellOutlines(); return }
+        hoverCell = pointerCell(event); refreshCellOutlines()
+        const bounds = canvas.getBoundingClientRect()
+        const col = Math.floor((event.clientX - bounds.left - canvas.clientLeft) / canvas.clientWidth * 40)
+        const canvasRow = Math.floor((event.clientY - bounds.top - canvas.clientTop) / canvas.clientHeight * 30)
+        if (col < 0 || col >= 40 || canvasRow < 0 || canvasRow >= 30) { cellTooltip.hide(); return }
+        cellTooltip.show(x + col, size.height - 1 - row - canvasRow, event.clientX, event.clientY)
+      })
+      canvas.addEventListener('pointerleave', cellTooltip.hide)
+      canvas.addEventListener('pointerdown', cellTooltip.hide)
+      window.addEventListener('pagehide', () => { cellTooltip.destroy(); cellOutlines.destroy() }, { once: true })
+      async function render() {
+        const generation = ++renderGeneration
+        cancelAnimationFrame(animationFrame)
+        const view = mode.value
+        status.textContent = '正在绘制材质…'
+        renderer?.destroy()
+        renderer = await createOniChunkRenderer(save, {
+          lighting: lighting.checked && view === 'all', biome: view !== 'terrain', backwall: view !== 'terrain',
+          gas: view === 'all', liquid: view === 'all', ground: view !== 'background',
+          entities: view === 'all', buildings: view === 'all', minions: view === 'all', geysers: view === 'all',
+          power: view === 'all', plumbing: view === 'all', ventilation: view === 'all', automation: view === 'all', shipment: view === 'all',
+        }, 'none', 48)
+        const chunk = renderer.renderChunk(x, row, 40, 30)
+        context.clearRect(0, 0, canvas.width, canvas.height)
+        for (const layer of ONI_CHUNK_LAYERS) if (chunk.layers[layer]) {
+          context.globalCompositeOperation = layer === 'light' ? 'lighter' : 'source-over'
+          context.drawImage(chunk.layers[layer], 0, 0, canvas.width, canvas.height)
+        }
+        context.globalCompositeOperation = 'source-over'
+        if (params.has('verify')) {
+          const hash = bytes => bytes.reduce((sum, value) => Math.imul(sum ^ value, 16777619), 2166136261) >>> 0
+          const original = hash(save.simData.bytes)
+          const first = renderer.renderChunk(x, row, 40, 30, { fluidsOnly: true, cellSize: 48, timeSeconds: 0 })
+          const before = Object.fromEntries(['gas', 'liquid'].map(layer => [layer, first.layers[layer] ? hash(first.layers[layer].getContext('2d').getImageData(0,0,960,720).data) : null]))
+          const second = renderer.renderChunk(x, row, 40, 30, { fluidsOnly: true, cellSize: 48, timeSeconds: 12 })
+          const lines = ['gas', 'liquid'].map(layer => {
+            const image = second.layers[layer]
+            return layer + ': ' + (image && image === first.layers[layer] && before[layer] !== hash(image.getContext('2d').getImageData(0,0,960,720).data) ? 'PASS 画面变化、复用画布' : 'FAIL')
+          })
+          lines.push(hash(save.simData.bytes) === original ? 'PASS 存档数据未变' : 'FAIL 存档数据变化')
+          lines.push(Object.keys(second.layers).every(layer => ['gas','liquid'].includes(layer)) ? 'PASS 仅更新流体层' : 'FAIL 重画了静态层')
+          document.querySelector('#animation-checks').textContent = lines.join(' · ')
+        }
+        const fluidClock = new OniFluidFrameClock()
+        let frameCount = 0, frameTotal = 0, windowStart = 0, windowFrames = 0, displayFrames = 0
+        function paint(layers) {
+          context.clearRect(0, 0, canvas.width, canvas.height)
+          for (const layer of ONI_CHUNK_LAYERS) {
+            const source = layers?.[layer] ?? chunk.layers[layer]
+            if (source) {
+              context.globalCompositeOperation = layer === 'light' ? 'lighter' : 'source-over'
+              context.drawImage(source, 0, 0, canvas.width, canvas.height)
+            }
+          }
+        }
+        function tick(now) {
+          if (generation !== renderGeneration) return
+          animationFrame = requestAnimationFrame(tick)
+          if (document.hidden || !animate.checked || view !== 'all') return
+          if (!windowStart) windowStart = now
+          displayFrames++
+          if (!fluidClock.shouldRender(now)) return
+          const start = performance.now()
+          const fluids = renderer.renderChunk(x, row, 40, 30, { fluidsOnly: true, cellSize: 48, timeSeconds: now / 1000 })
+          paint(fluids.layers)
+          const cost = performance.now() - start
+          fluidClock.recordCost(cost)
+          frameTotal += cost; frameCount++; windowFrames++
+          if (now - windowStart >= 1000) {
+            const elapsed = (now - windowStart) / 1000
+            document.querySelector('#animation-speed').textContent = '目标 ' + ONI_FLUID_TARGET_FPS + ' FPS · 实际 ' + (windowFrames / elapsed).toFixed(1) + ' FPS · 浏览器刷新 ' + (displayFrames / elapsed).toFixed(1) + ' Hz · 平均绘制 ' + (frameTotal / frameCount).toFixed(1) + ' ms'
+            windowStart = now; windowFrames = 0; displayFrames = 0
+          }
+        }
+        animationFrame = requestAnimationFrame(tick)
+        document.querySelector('#download').href = canvas.toDataURL('image/png')
+        document.querySelector('#download').onclick = () => {
+          document.querySelector('#download').href = canvas.toDataURL('image/png')
+        }
+        const sampleX = x + 21, sampleY = size.height - 1 - (row + 18)
+        const sample = getWorldCell(save.simData, sampleX, sampleY)
+        if (sample) document.querySelector('#sample').textContent = '存档单元样本 (' + sampleX + ', ' + sampleY + ')：' + elementForHash(sample.elementHash).name + ' · ' + (sample.temperature - 273.15).toFixed(2) + '°C · ' + sample.mass.toFixed(3) + ' kg'
+
+        status.textContent = name + ' · 固定区域 X=' + x + '，顶部行=' + row + ' · 40×30 格 · ' + mode.selectedOptions[0].textContent
+        document.title = '已完成 | ONI 地形与背景近景核对'
+        if (params.has('hoverTest')) {
+          const bounds = canvas.getBoundingClientRect()
+          canvas.dispatchEvent(new PointerEvent('pointermove', { pointerType: 'mouse',
+            clientX: bounds.left + canvas.clientLeft + canvas.clientWidth * 21.5 / 40,
+            clientY: bounds.top + canvas.clientTop + canvas.clientHeight * 18.5 / 30 }))
+          if (params.has('selectionTest')) {
+            canvas.dispatchEvent(new MouseEvent('click', { button: 0,
+              clientX: bounds.left + canvas.clientLeft + canvas.clientWidth * 21.5 / 40,
+              clientY: bounds.top + canvas.clientTop + canvas.clientHeight * 18.5 / 30 }))
+          }
+          const panel = document.querySelector('.oni-cell-tooltip')
+          const position = panel?.querySelector('.oni-cell-position')?.textContent ?? ''
+          const temperature = panel?.textContent ?? ''
+          document.querySelector('#animation-checks').textContent = !panel.hidden && position.includes('X ' + (x + 21)) && position.includes('Y ' + sampleY) && temperature.includes((sample.temperature - 273.15).toFixed(2)) ? 'PASS 悬浮单元坐标和温度对应存档' : 'FAIL 悬浮信息'
+        }
+      }
+      mode.addEventListener('change', () => { void render().catch(error => { status.textContent = String(error.stack ?? error) }) })
+      lighting.addEventListener('change', () => { void render().catch(error => { status.textContent = String(error.stack ?? error) }) })
+      await render()
+    } catch (error) { status.textContent = String(error.stack ?? error); document.title = '失败 | ONI 地形与背景近景核对' }
+  </script>
+</body>
+</html>
+

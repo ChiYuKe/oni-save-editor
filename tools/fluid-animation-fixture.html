@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>气液动态检查</title>
+<style>body{background:#182126;color:#dce4dc;font:15px/1.6 system-ui;margin:24px}canvas{width:384px;max-width:45vw;border:1px solid #76847c}pre{white-space:pre-wrap}.pass{color:#a5e6b4}.fail{color:#ffa0a0}</style></head>
+<body><h1>气体和液体动态检查</h1><p>上半区气体缓慢漂移，下半区水面、折射和内部纹理持续变化。</p><canvas id="gas" width="384" height="384"></canvas> <canvas id="liquid" width="384" height="384"></canvas><pre id="result">正在检查…</pre><output id="performance"></output>
+<script type="module">
+import { OniFluidFrameClock } from '/src/lib/oniFluidFrameClock.ts'
+import { OniGasWebGLRenderer } from '/src/lib/oniGasWebgl.ts'
+import { OniLiquidWebGLRenderer } from '/src/lib/oniLiquidWebgl.ts'
+import { ONI_SUBSTANCE_MATERIALS } from '/src/lib/oniSubstances.generated.ts'
+import { ONI_GAS_DETAIL_TEXTURE_KEY, ONI_GAS_BAD_GAS_TEXTURE_KEY } from '/src/lib/oniShaders.ts'
+const results=[]
+function check(name,pass,detail){results.push({name,pass:Boolean(pass),detail})}
+try {
+const paths=[ONI_GAS_DETAIL_TEXTURE_KEY,ONI_GAS_BAD_GAS_TEXTURE_KEY,'/assets/render/bubbles.png','/assets/render/normal_metal.png','/assets/render/bgarray_liquids.png','/assets/render/bgarray_liquids_specular.png']
+const textures=Object.fromEntries(await Promise.all(paths.map(path=>new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve([path,img]);img.onerror=reject;img.src=path}))))
+const material=name=>ONI_SUBSTANCE_MATERIALS.find(m=>m.name===name)
+const water=material('Water'),oxygen=material('Oxygen'),vacuum=material('Vacuum'),stone=material('Sandstone')
+const cell=(m,mass)=>({elementHash:m.hash,elementId:m.hash,temperature:293.15,mass})
+const cellAt=(x,y)=> x<2||x>13||y<1||y>13?cell(vacuum,0): y===1||x===2||x===13?cell(stone,1000): y<7?cell(water,1000):cell(oxygen,1.5)
+const gasContext=document.querySelector('#gas').getContext('2d'),liquidContext=document.querySelector('#liquid').getContext('2d')
+const scene=document.createElement('canvas');scene.width=scene.height=384
+const sceneContext=scene.getContext('2d'),gradient=sceneContext.createLinearGradient(0,0,384,384)
+gradient.addColorStop(0,'#244048');gradient.addColorStop(1,'#95764a');sceneContext.fillStyle=gradient;sceneContext.fillRect(0,0,384,384)
+for(let y=0;y<384;y+=24){sceneContext.fillStyle=y%48?'#577465':'#36535b';sceneContext.fillRect(0,y,384,3)}
+const gas=new OniGasWebGLRenderer(),liquid=new OniLiquidWebGLRenderer()
+const input={width:16,height:16,cellSize:24,originX:0,originY:0,range:{minX:0,maxX:15,minRow:0,maxRow:15},worldZones:new Uint8Array(256),zoneColors:{0:{r:128,g:128,b:128}},textures,maskSets:null,cellAt,isTerrainMaskedAt:()=>false,sceneSource:scene,propertyCacheKey:{},clipToRange:true}
+function frame(time){gasContext.clearRect(0,0,384,384);liquidContext.clearRect(0,0,384,384);const g=gas.render({...input,context:gasContext,timeSeconds:time}),l=liquid.render({...input,context:liquidContext,timeSeconds:time});return g&&l}
+const pixels=c=>new Uint8ClampedArray(c.getImageData(0,0,384,384).data)
+const changed=(a,b)=>a.reduce((sum,v,i)=>sum+(v!==b[i]?1:0),0)
+check('气体和液体着色器运行',frame(0))
+const gas0=pixels(gasContext),liquid0=pixels(liquidContext)
+frame(12);const gas12=pixels(gasContext),liquid12=pixels(liquidContext)
+const gasDelta=changed(gas0,gas12),liquidDelta=changed(liquid0,liquid12)
+check('气体在时间推进后发生变化',gasDelta>100,gasDelta)
+check('液体在时间推进后发生变化',liquidDelta>100,liquidDelta)
+frame(12)
+check('固定时间可重复，无叠加残影',changed(gas12,pixels(gasContext))===0&&changed(liquid12,pixels(liquidContext))===0)
+check('真空区域保持透明',gas12[3]===0&&liquid12[3]===0)
+const failures=results.filter(r=>!r.pass).length
+const output=document.querySelector('#result');output.className=failures?'fail':'pass';output.textContent=(failures?'FAIL':'PASS')+' — '+(results.length-failures)+'/'+results.length+'\n'+results.map(r=>(r.pass?'✓ ':'✗ ')+r.name+' '+(r.detail??'')).join('\n')
+document.title=(failures?'FAIL':'PASS')+' | 气液动态检查'
+const clock=new OniFluidFrameClock();let count=0,total=0
+function tick(now){requestAnimationFrame(tick);if(document.hidden||!clock.shouldRender(now))return;const start=performance.now();frame(now/1000);const cost=performance.now()-start;clock.recordCost(cost);total+=cost;count++;document.querySelector('#performance').textContent='已更新 '+count+' 帧 · 平均绘制 '+(total/count).toFixed(1)+' ms'}
+requestAnimationFrame(tick)
+}catch(error){document.querySelector('#result').textContent='FAIL '+String(error.stack??error);document.title='FAIL | 气液动态检查'}
+</script></body></html>
+
+

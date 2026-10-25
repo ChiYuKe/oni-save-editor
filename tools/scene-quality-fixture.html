@@ -1,0 +1,36 @@
+<!doctype html><meta charset="utf-8"><title>地图清晰度检查</title><style>body{background:#151b20;color:#eee;font:14px system-ui}canvas{width:960px;height:720px;max-width:100%;image-rendering:auto}</style><canvas id="map"></canvas><p id="status">检查中…</p><script type="module">
+import { PixiWorldScene } from '/src/lib/pixiWorldScene.ts'
+import { createOniChunkRenderer } from '/src/lib/oniWorldChunkRenderer.ts'
+import { sceneViewportForCamera } from '/src/lib/oniSceneViewport.ts'
+import { parseSave } from '/src/lib/save.ts'
+import { ONI_CHUNK_LAYERS } from '/src/lib/oniRenderLayers.ts'
+const status=document.querySelector('#status'),canvas=document.querySelector('canvas')
+try{
+ const save=parseSave(new Uint8Array(await (await fetch('/__oni_fixture__')).arrayBuffer()))
+ const renderer=await createOniChunkRenderer(save,{biome:true,backwall:true,ground:true,gas:true,liquid:true,lighting:true,entities:true,buildings:true,minions:true,geysers:true,power:true,plumbing:true,ventilation:true,automation:true,shipment:true},'none',32)
+ const scene=new PixiWorldScene();if(!await scene.init(canvas))throw Error('Pixi init')
+ scene.resize(960,720)
+ let frames=0
+ for(const scale of [1,2]){
+  scene.setCamera(-65*32*scale,-160*32*scale,scale)
+  const view=sceneViewportForCamera(scene.visibleWorldRect(),736,304,32,window.devicePixelRatio||1)
+  const keys=new Map(ONI_CHUNK_LAYERS.map(layer=>[layer,new Set()]))
+  scene.beginBatch()
+  for(let row=view.row;row<view.bottom;row+=view.tile)for(let x=view.x;x<view.right;x+=view.tile){
+   const width=Math.min(view.tile,736-x),height=Math.min(view.tile,304-row)
+   const chunk=renderer.renderChunk(x,row,width,height,{cellSize:view.cellSize})
+   if(chunk.x!==x*view.cellSize||chunk.width!==width*view.cellSize)throw Error('raster bounds')
+   for(const layer of ONI_CHUNK_LAYERS){const source=chunk.layers[layer];if(!source)continue
+    const key=x+':'+row;keys.get(layer).add(key)
+    scene.setChunk({key,layer,canvas:source,x:x*32,y:row*32,width:width*32,height:height*32})
+   }
+   frames++
+  }
+  for(const layer of ONI_CHUNK_LAYERS)scene.removeMissing(keys.get(layer),layer)
+  scene.endBatch(true)
+ }
+ status.textContent='PASS Pixi近景：两档缩放、屏幕密度、地图位置、分块替换与图层合成 · '+frames+' 块'
+ document.title='PASS 地图清晰度检查'
+ window.addEventListener('pagehide',()=>{renderer.destroy();scene.destroy()},{once:true})
+}catch(e){status.textContent='FAIL '+(e.stack??e);document.title='FAIL 地图清晰度检查'}
+</script>
