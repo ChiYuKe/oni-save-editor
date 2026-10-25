@@ -1,0 +1,7 @@
+.oni-cell-tooltip { position: fixed; top: 0; left: 0; z-index: 10000; box-sizing: border-box; width: max-content; max-width: min(360px, calc(100vw - 16px)); padding: 12px 14px; color: #dce4e3; background: rgba(17, 24, 30, .97); border: 1px solid #536568; border-radius: 9px; box-shadow: 0 8px 26px #0007; font: 12px/1.5 system-ui, sans-serif; pointer-events: none; text-align: left; overflow-wrap: anywhere; }
+.oni-cell-tooltip[hidden] { display: none; }
+.oni-cell-tooltip strong { display: block; color: #f4e1b4; font-size: 14px; font-weight: 600; }
+.oni-cell-tooltip .oni-cell-position { margin: 2px 0 8px; color: #a3b8b9; font: 11px/1.5 ui-monospace, monospace; }
+.oni-cell-tooltip dl { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 14px; }
+.oni-cell-tooltip dt { margin: 0; color: #96aaac; }
+.oni-cell-tooltip dd { margin: 0; color: #e4eae8; font-variant-numeric: tabular-nums; }

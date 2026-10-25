@@ -1,0 +1,25 @@
+.oni-cell-outline { position: absolute; top: 0; left: 0; z-index: 12; box-sizing: border-box; pointer-events: none; border-radius: 0; }
+.oni-cell-outline[hidden] { display: none; }
+/* ONI's cell cursor: four open corners and four short edge-centre marks. */
+.oni-cell-outline-hover, .oni-cell-outline-selected {
+  --cell-cursor: rgba(244, 242, 222, .78);
+  --cell-corner: min(12px, 24%);
+  --cell-tick: min(10px, 13%);
+  --cell-stroke: 2px;
+  background:
+    linear-gradient(var(--cell-cursor), var(--cell-cursor)) left top / var(--cell-corner) var(--cell-stroke) no-repeat,
+    linear-gradient(var(--cell-cursor), var(--cell-cursor)) left top / var(--cell-stroke) var(--cell-corner) no-repeat,
+    linear-gradient(var(--cell-cursor), var(--cell-cursor)) right top / var(--cell-corner) var(--cell-stroke) no-repeat,
+    linear-gradient(var(--cell-cursor), var(--cell-cursor)) right top / var(--cell-stroke) var(--cell-corner) no-repeat,
+    linear-gradient(var(--cell-cursor), var(--cell-cursor)) left bottom / var(--cell-corner) var(--cell-stroke) no-repeat,
+    linear-gradient(var(--cell-cursor), var(--cell-cursor)) left bottom / var(--cell-stroke) var(--cell-corner) no-repeat,
+    linear-gradient(var(--cell-cursor), var(--cell-cursor)) right bottom / var(--cell-corner) var(--cell-stroke) no-repeat,
+    linear-gradient(var(--cell-cursor), var(--cell-cursor)) right bottom / var(--cell-stroke) var(--cell-corner) no-repeat,
+    linear-gradient(var(--cell-cursor), var(--cell-cursor)) center top / var(--cell-tick) var(--cell-stroke) no-repeat,
+    linear-gradient(var(--cell-cursor), var(--cell-cursor)) center bottom / var(--cell-tick) var(--cell-stroke) no-repeat,
+    linear-gradient(var(--cell-cursor), var(--cell-cursor)) left center / var(--cell-stroke) var(--cell-tick) no-repeat,
+    linear-gradient(var(--cell-cursor), var(--cell-cursor)) right center / var(--cell-stroke) var(--cell-tick) no-repeat;
+}
+.oni-cell-outline-selected { --cell-cursor: rgba(250, 248, 230, .95); }
+.oni-cell-outline-range { border: 2px dashed #ffd16d; background: #ffd16d0a; }
+
