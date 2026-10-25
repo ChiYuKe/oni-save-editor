@@ -183,10 +183,11 @@ export class OniLiquidWebGLRenderer {
 
   private imageArrayTexture(image: HTMLImageElement): WebGLTexture | undefined {
     const gl = this.gl
-    if (!gl || image.naturalWidth <= 0 || image.naturalHeight < image.naturalWidth * LIQUID_TEXTURE_LAYERS) return undefined
+    const tiled = image.naturalWidth === image.naturalHeight && image.naturalWidth % 4 === 0
+    if (!gl || image.naturalWidth <= 0 || (!tiled && image.naturalHeight < image.naturalWidth * LIQUID_TEXTURE_LAYERS)) return undefined
     const cached = this.arrayTextures.get(image)
     if (cached) return cached
-    const layerSize = image.naturalWidth
+    const layerSize = image.naturalWidth / (tiled ? 4 : 1)
     const canvas = this.arrayCanvas ?? document.createElement('canvas')
     canvas.width = layerSize
     canvas.height = layerSize
@@ -203,7 +204,7 @@ export class OniLiquidWebGLRenderer {
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.REPEAT)
     for (let layer = 0; layer < LIQUID_TEXTURE_LAYERS; layer += 1) {
       context.clearRect(0, 0, layerSize, layerSize)
-      context.drawImage(image, 0, layer * layerSize, layerSize, layerSize, 0, 0, layerSize, layerSize)
+      context.drawImage(image, tiled ? (layer % 4) * layerSize : 0, (tiled ? Math.floor(layer / 4) : layer) * layerSize, layerSize, layerSize, 0, 0, layerSize, layerSize)
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
       gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, layer, layerSize, layerSize, 1, gl.RGBA, gl.UNSIGNED_BYTE, canvas)
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)

@@ -5,14 +5,16 @@ body{background:#182126;color:#dce4dc;font:15px/1.6 system-ui;margin:24px}h1{fon
 </style></head>
 <body><h1>液体数据与合成检查</h1><p>常温 1000kg 水、独立背景输入、图层外透明和覆盖率检查。</p><canvas id="map" width="512" height="512"></canvas><pre id="result">正在运行…</pre>
 <script type="module">
+import { ONI_WEB_ASSETS } from '/src/lib/oniWebAssets.generated.ts'
 import { OniLiquidWebGLRenderer } from '/src/lib/oniLiquidWebgl.ts'
 import { ONI_SUBSTANCE_MATERIALS } from '/src/lib/oniSubstances.generated.ts'
+const assetUrl=path=>import.meta.env.BASE_URL.replace(/\/$/,'')+path
 const canvas=document.querySelector('#map'),context=canvas.getContext('2d'),results=[]
 function check(name,pass,detail){results.push({name,pass:Boolean(pass),detail})}
 function pixel(x,y){return [...context.getImageData(x,y,1,1).data]}
 try{
  const paths=['/assets/render/bubbles.png','/assets/render/normal_metal.png','/assets/render/bgarray_liquids.png','/assets/render/bgarray_liquids_specular.png']
- const images=await Promise.all(paths.map(async path=>{const image=new Image();image.src=path;await image.decode();return image}))
+ const images=await Promise.all(paths.map(async path=>{const image=new Image();image.src=assetUrl(path);await image.decode();return image}))
  const textures=Object.fromEntries(paths.map((path,i)=>[path,images[i]]))
  const water=ONI_SUBSTANCE_MATERIALS.find(m=>m.name==='Water'),vacuum=ONI_SUBSTANCE_MATERIALS.find(m=>m.name==='Vacuum')
  const cellAt=(x,y)=>({elementHash:(x>=4&&x<=11&&y>=1&&y<=6?water:vacuum).hash,temperature:293.15,mass:x>=4&&x<=11&&y>=1&&y<=6?1000:0})
@@ -36,6 +38,16 @@ try{
  const sample=context.getImageData(160,336,192,96).data,mean=[0,0,0]
  for(let i=0;i<sample.length;i+=4)for(let c=0;c<3;c++)mean[c]+=sample[i+c]/(sample.length/4)
  check('常温海水呈蓝绿并保持纹理，不再整体灰白',mean[1]-mean[0]>20&&mean[2]>mean[0]+20&&Math.max(...mean)<220,mean)
+ const originalPixels=context.getImageData(0,0,512,512).data
+ const compactTextures=Object.fromEntries(await Promise.all(paths.map(async path=>{
+  const image=new Image();image.src=assetUrl(ONI_WEB_ASSETS[path]??path);await image.decode();return [path,image]
+ })))
+ context.clearRect(0,0,512,512)
+ const compactRenderer=new OniLiquidWebGLRenderer()
+ const compactRendered=compactRenderer.render({...input,textures:compactTextures,cellAt:saltCells,propertyCacheKey:{}})
+ const compactPixels=context.getImageData(0,0,512,512).data
+ check('无损网页贴图与原始液体数组逐像素一致',compactRendered&&originalPixels.every((v,i)=>v===compactPixels[i]),{pixels:512*512,layout:[compactTextures[paths[2]].naturalWidth,compactTextures[paths[2]].naturalHeight]})
+
 
 }catch(error){check('执行',false,String(error.stack??error))}
 const failed=results.filter(x=>!x.pass).length,result=document.querySelector('#result')
