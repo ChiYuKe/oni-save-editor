@@ -11,7 +11,10 @@
     "compare:oni-render": "python tools/compare_oni_render.py",
     "generate:substances": "node scripts/generate-oni-substance-manifest.mjs",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:sim": "tsx scripts/check-sim-layout.ts",
+    "check:plants": "tsx scripts/check-space-tree.ts",
+    "extract:shine": "tsx scripts/generate-oni-shine-assets.ts"
   },
   "dependencies": {
     "fflate": "^0.8.3",
