@@ -1,3 +1,4 @@
+import { createOniPlanetLabels } from './lib/oniPlanetLabels'
 import { ResourceStatisticsView } from './ResourceStatisticsView'
 import { createOniMapPicker, cycleMapTarget, mapComponentRows, type PickBounds } from './lib/oniMapPicking'
 import { printingPodViewport, mapLoadOrigin, resizeMapViewport } from './lib/oniMapFocus'
@@ -407,7 +408,7 @@ function App() {
       setDirty(false)
       const requestedView = import.meta.env.DEV ? new URLSearchParams(window.location.search).get('view') : null
       setView(requestedView === 'map' ? 'map' : requestedView === 'resources' ? 'resources' : 'overview')
-      setMapViewport(DEFAULT_MAP_VIEWPORT)
+      setMapViewport(import.meta.env.DEV && new URLSearchParams(window.location.search).has('mapOverview') ? { zoomPercent: 0, pan: { x: 0, y: 0 } } : DEFAULT_MAP_VIEWPORT)
       setSelectedGroup('Minion')
       setSelectedIndex(0)
     } catch (cause) {
@@ -1544,6 +1545,14 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
   }, [save])
   const hostRef = useRef<HTMLDivElement>(null)
   const outlinesRef = useRef<ReturnType<typeof createOniCellOutline> | null>(null)
+  const planetLabelsRef = useRef<ReturnType<typeof createOniPlanetLabels> | null>(null)
+  useEffect(() => {
+    if (!hostRef.current) return
+    const labels = createOniPlanetLabels(hostRef.current, save, worldSize(save).height)
+    planetLabelsRef.current = labels
+    refreshOutlinesRef.current()
+    return () => { labels.destroy(); if (planetLabelsRef.current === labels) planetLabelsRef.current = null }
+  }, [save])
   const hoverCellRef = useRef<{ x: number; y: number } | null>(null)
   const targetBoundsRef = useRef(targetBounds)
   targetBoundsRef.current = targetBounds
@@ -1589,6 +1598,7 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
     const scale = fitScale * (MAP_ZOOM_MIN + (MAP_ZOOM_MAX - MAP_ZOOM_MIN) * current.zoomPercent / 100)
     const originX = (viewportSize.width - size.width * baseCellSize * scale) / 2 + current.pan.x
     const originY = (viewportSize.height - size.height * baseCellSize * scale) / 2 + current.pan.y
+    planetLabelsRef.current?.update(originX, originY, baseCellSize * scale)
     const rect = (start: { x: number; y: number } | null, end = start) => start && end
       ? gridSelectionRect({ start, end }, size.height, baseCellSize * scale, originX, originY) : undefined
     const selected = draftSelectionRef.current ?? selectionRef.current
