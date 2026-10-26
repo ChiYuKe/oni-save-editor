@@ -1,0 +1,83 @@
+.resource-statistics { display:grid; gap:20px; }
+.resource-seed { display:flex; flex-wrap:wrap; gap:10px 24px; color:var(--muted); font-size:11px; }
+.resource-seed strong { margin-left:6px; color:var(--ink); font-family:var(--mono); font-weight:500; }
+.resource-seed code { color:var(--ink-soft); overflow-wrap:anywhere; }
+.resource-seed>span { min-width:0; }
+.saved-shell .resource-metrics .metric { min-height:100px; }
+.resource-layout { display:grid; grid-template-columns:216px minmax(0,1fr); gap:20px; align-items:start; }
+.resource-planets { padding:14px 10px; position:sticky; top:16px; max-height:calc(100dvh - 100px); overflow:auto; scrollbar-width:thin; scrollbar-color:#454545 transparent; }
+.resource-planets h2 { margin:2px 8px 14px; }
+.resource-planets button { display:flex; align-items:flex-start; gap:9px; padding:11px 9px; width:100%; color:var(--muted); background:transparent; border:0; border-radius:7px; text-align:left; }
+.resource-planets button:hover { background:#ffffff05; }
+.resource-planets button[aria-pressed=true] { color:#eee; background:#292929; }
+.resource-planets button>svg { flex-shrink:0; margin-top:2px; }
+.resource-planets button>span { display:grid; gap:4px; min-width:0; }
+.resource-planets strong { font-size:12px; overflow-wrap:anywhere; }
+.resource-planets small { color:var(--faint); font-size:10px; overflow-wrap:anywhere; }
+.resource-content { display:grid; gap:16px; min-width:0; }
+.resource-filter { display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:16px; }
+.resource-filter>div { margin-right:auto; }
+.resource-filter>div>span { display:block; color:var(--muted); font-size:11px; margin-top:4px; }
+.resource-filter .search-box { margin:0; flex:1 1 180px; max-width:280px; }
+.resource-filter select { min-width:130px; max-width:100%; height:36px; padding:0 10px; background:#171717; color:var(--ink-soft); border:1px solid var(--line); border-radius:7px; font:11px var(--sans); }
+.resource-note { color:var(--muted); font-size:11px; line-height:1.7; }
+.resource-yields { display:flex; flex-wrap:wrap; gap:8px; }
+.resource-yields>div { display:grid; gap:4px; min-width:120px; padding:12px 14px; background:#1b1b1b; border-radius:8px; box-shadow:var(--ui-card-shadow); }
+.resource-yields span { color:var(--muted); font-size:11px; }
+.resource-yields strong { color:var(--ink); font:12px var(--mono); }
+.resource-yields small { color:var(--faint); font-size:10px; }
+.resource-world { overflow:hidden; min-width:0; }
+.resource-world>header { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:18px; }
+.resource-world>header p { margin-top:6px; font-size:11px; color:var(--muted); }
+.resource-world>header>span { white-space:nowrap; font-size:11px; color:var(--muted); }
+.resource-table-scroll { overflow:auto; scrollbar-width:thin; scrollbar-color:#454545 transparent; }
+.resource-table { width:100%; min-width:860px; border-collapse:collapse; text-align:left; }
+.resource-table th { padding:11px 14px; color:var(--faint); font-size:10px; font-weight:500; background:#161616; }
+.resource-table td { padding:14px; border-top:1px solid #ffffff06; font-size:11px; color:var(--ink-soft); vertical-align:middle; }
+.resource-table td:first-child { width:30%; min-width:210px; }
+.resource-table td:not(:first-child) { white-space:nowrap; }
+.resource-table td>small,.resource-table td>span { display:block; }
+.resource-table small { display:block; color:var(--faint); font-size:10px; margin-top:5px; }
+.resource-table td>strong { font-weight:500; color:var(--ink); }
+.resource-geyser-name { display:flex; align-items:center; gap:7px; padding:0; background:none; border:0; color:var(--ink); text-align:left; font:12px var(--sans); }
+.resource-geyser-name svg { flex-shrink:0; color:var(--muted); }
+.resource-geyser-name strong { font-weight:550; }
+.resource-geyser-name:hover { color:#fff; }
+.resource-status { color:#ccc; font-size:10px; }
+.resource-status-dormant { color:#999; }
+.resource-status-circulator { color:#aaa; }
+.resource-table .is-expanded { background:#ffffff03; }
+.resource-table .resource-detail-row td { white-space:normal; background:#141414; padding:18px; }
+.resource-detail-row dl { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px 24px; margin:0; }
+.resource-detail-row dt { color:var(--faint); font-size:10px; margin-bottom:5px; }
+.resource-detail-row dd { margin:0; color:var(--ink-soft); font-size:11px; overflow-wrap:anywhere; }
+.resource-detail-row p { color:var(--muted); line-height:1.7; font-size:11px; margin-top:16px; }
+.resource-empty { padding:24px 18px; color:var(--muted); font-size:12px; }
+@media(max-width:860px) {
+ .resource-layout { grid-template-columns:minmax(0,1fr); }
+ .resource-planets { position:static; display:flex; flex-wrap:wrap; gap:5px; max-height:220px; }
+ .resource-planets h2 { flex-basis:100%; margin-bottom:6px; }
+ .resource-planets button { width:auto; flex:1 1 140px; padding:9px; }
+ .resource-planets button small:nth-of-type(1) { display:none; }
+ .resource-detail-row dl { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media(max-width:560px) {
+ .resource-filter>div { flex-basis:100%; }
+ .resource-filter .search-box { max-width:none; }
+ .resource-filter select { flex:1 1 140px; }
+ .resource-yields>div { flex:1 1 120px; min-width:0; }
+}
+
+@media(min-width:861px) and (max-width:1020px) {
+ .saved-shell .topbar-pill { grid-template-columns:1fr auto; }
+ .saved-shell .topnav { grid-column:1/-1; grid-row:2; justify-content:center; padding:0 0 6px; }
+}
+@media(max-width:560px) {
+ .saved-shell .topnav button { gap:0; padding-inline:4px; font-size:11px; }
+ .saved-shell .topnav button>svg { display:none; }
+}
+
+.resource-yield-summary { min-width:0; }
+.resource-yield-summary>summary { padding:12px 14px; border-radius:7px; background:#1b1b1b; cursor:pointer; font-size:11px; color:var(--ink-soft); }
+.resource-yield-summary>summary>small { margin-left:10px; color:var(--faint); font-size:10px; }
+.resource-yield-summary[open] .resource-yields { margin-top:10px; }

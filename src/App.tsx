@@ -1,3 +1,4 @@
+import { ResourceStatisticsView } from './ResourceStatisticsView'
 import { createOniMapPicker, cycleMapTarget, mapComponentRows, type PickBounds } from './lib/oniMapPicking'
 import { printingPodViewport, mapLoadOrigin, resizeMapViewport } from './lib/oniMapFocus'
 import { createOniMapOverview } from './lib/oniMapOverview'
@@ -73,7 +74,7 @@ import { PixiWorldScene } from './lib/pixiWorldScene'
 import { createOniChunkRenderer, type OniChunkLayer } from './lib/oniWorldChunkRenderer'
 import { drawMinionKanim, loadMinionKanimAssets, type MinionKanimAssets } from './lib/oniMinionKanim'
 
-type View = 'overview' | 'map' | 'dupes' | 'objects'
+type View = 'overview' | 'map' | 'dupes' | 'objects' | 'resources'
 type MapLayer = 'grid' | 'biome' | 'minions' | 'entities' | 'buildings' | 'geysers' | 'power' | 'plumbing' | 'ventilation' | 'automation' | 'shipment' | 'gas' | 'liquid' | 'ground' | 'backwall'
 type MapOverlay = 'none' | 'temperature' | 'mass' | 'disease' | 'visibility' | 'spawnable' | 'damage'
 type MapLayerVisibility = Record<MapLayer, boolean>
@@ -305,6 +306,7 @@ const navItems: Array<{ id: View; label: string }> = [
   { id: 'map', label: '地图' },
   { id: 'dupes', label: '复制人' },
   { id: 'objects', label: '对象' },
+  { id: 'resources', label: '资源统计' },
 ]
 
 function parseSaveOffThread(bytes: Uint8Array): Promise<ParsedSave> {
@@ -404,7 +406,7 @@ function App() {
       setSourceHandle(handle)
       setDirty(false)
       const requestedView = import.meta.env.DEV ? new URLSearchParams(window.location.search).get('view') : null
-      setView(requestedView === 'map' ? 'map' : 'overview')
+      setView(requestedView === 'map' ? 'map' : requestedView === 'resources' ? 'resources' : 'overview')
       setMapViewport(DEFAULT_MAP_VIEWPORT)
       setSelectedGroup('Minion')
       setSelectedIndex(0)
@@ -585,7 +587,7 @@ function App() {
           {save && (
             <nav className="topnav" aria-label="工作区">
               {navItems.map(({ id, label }) => (
-                <button key={id} className={view === id ? 'active' : ''} type="button" aria-current={view === id ? 'page' : undefined} onClick={() => setView(id)}>{id === 'overview' ? <Gauge size={14} /> : id === 'map' ? <Grid2x2 size={14} /> : id === 'dupes' ? <Users size={14} /> : <Boxes size={14} />}<span>{label}</span></button>
+                <button key={id} className={view === id ? 'active' : ''} type="button" aria-current={view === id ? 'page' : undefined} onClick={() => setView(id)}>{id === 'overview' ? <Gauge size={14} /> : id === 'map' ? <Grid2x2 size={14} /> : id === 'dupes' ? <Users size={14} /> : id === 'resources' ? <Layers3 size={14} /> : <Boxes size={14} />}<span>{label}</span></button>
               ))}
             </nav>
           )}
@@ -649,11 +651,12 @@ function App() {
               <div>
                 <div className="eyebrow">{view === 'overview' ? 'SAVE OVERVIEW' : view.toUpperCase()}</div>
                 <h1>{navItems.find((item) => item.id === view)?.label}</h1>
-                <p className="page-description">{view === 'overview' ? '殖民地状态、快速设置与存档信息' : view === 'dupes' ? '查看复制人状态，调整名称和位置' : '按分组浏览对象，检查实例与组件数据'}</p>
+                <p className="page-description">{view === 'overview' ? '殖民地状态、快速设置与存档信息' : view === 'dupes' ? '查看复制人状态，调整名称和位置' : view === 'resources' ? '按星球查看间歇泉产量、活跃与休眠周期' : '按分组浏览对象，检查实例与组件数据'}</p>
               </div>
               <div className="head-meta"><span className="status-dot" />{dirty ? '待导出' : '已载入'}<ChevronRight size={14} />{fileName}</div>
             </div>}
             {view === 'overview' && <Overview save={save} onNavigate={setView} updateSave={updateSave} />}
+            {view === 'resources' && <ResourceStatisticsView save={save} />}
             {view === 'map' && <MapView save={save} updateSave={updateSave} viewport={mapViewport} onViewportChange={setMapViewport} />}
             {view === 'dupes' && <DupesView save={save} updateSave={updateSave} onOpenObject={(index) => { setSelectedGroup('Minion'); setSelectedIndex(index); setView('objects') }} />}
             {view === 'objects' && <ObjectsView save={save} selectedGroup={selectedGroup} selectedIndex={selectedIndex} onSelect={(tag, index) => { setSelectedGroup(tag); setSelectedIndex(index) }} updateSave={updateSave} />}
