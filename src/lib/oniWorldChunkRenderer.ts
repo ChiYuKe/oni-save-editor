@@ -121,6 +121,7 @@ type MapObjectRenderEntry = {
   order: number
 }
 type PreparedObject = MapObjectRenderEntry & {
+  renderOrder: number
   sceneLayer: number
   spriteMargin: number
   blockTile?: ReturnType<typeof blockTileTextureForTag>
@@ -515,7 +516,7 @@ export async function createOniChunkRenderer(
   const blockTileCells = blockTileCellsByGroup(save)
   const utilityCells = buildUtilityCellMap(save)
   const orderedObjects = mapObjectsInRenderOrder(save)
-  const preparedObjects: PreparedObject[] = orderedObjects.map((entry) => {
+  const preparedObjects: PreparedObject[] = orderedObjects.map((entry, renderOrder) => {
     const blockTile = blockTileTextureForTag(entry.group.tag)
     const utility = utilityTextureForTag(entry.group.tag)
     const utilityFamily = utilityFamilyForTag(entry.group.tag)
@@ -527,7 +528,7 @@ export async function createOniChunkRenderer(
       : buildingTextureForInstance(entry.group.tag, entry.instance, buildingManifest)
     const sceneLayer = mapObjectSceneLayer(entry.group, entry.instance)
     const isGeyser = isGeyserInstance(entry.group.tag, entry.instance, geyser)
-    return { ...entry, sceneLayer, blockTile, utility, utilityFamily, geyser, building, isGeyser, isCreature: sceneLayer === ONI_SCENE_LAYER_ORDER.Creatures,
+    return { ...entry, renderOrder, sceneLayer, blockTile, utility, utilityFamily, geyser, building, isGeyser, isCreature: sceneLayer === ONI_SCENE_LAYER_ORDER.Creatures,
       spriteMargin: Math.max(2 + Math.abs(plant?.offsetX ?? 0) + Math.abs(plant?.offsetY ?? 0), Math.ceil(isGeyser ? geyser?.widthCells ?? 1 : building ? Math.max(building.widthCells, building.heightCells ?? building.widthCells) : 1)) }
   }).filter((item) => item.group.tag === 'Minion' || item.blockTile || item.utility || item.building || item.isGeyser)
   const objectBuckets = new Map<string, PreparedObject[]>()
@@ -780,7 +781,9 @@ export async function createOniChunkRenderer(
             for (const item of objectBuckets.get(objectBucketKey(bx, by)) ?? []) chunkObjects.add(item)
           }
         }
-        for (const item of chunkObjects) {
+        // Bucket traversal is spatial, so its Set insertion order is not painter order.
+        // Restore the saved layer/Z order after merging buckets, before compositing.
+        for (const item of [...chunkObjects].sort((a, b) => a.renderOrder - b.renderOrder)) {
           if ((item.sceneLayer >= TERRAIN_SCENE_LAYER) !== front || !objectLayerVisible(visibleLayers, item)) continue
           const instance = item.instance
           const x = Math.floor(instance.position.x)
