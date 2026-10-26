@@ -9,7 +9,7 @@ import { sceneViewportForCamera } from './lib/oniSceneViewport'
 import { createOniCellOutline } from './lib/oniCellOutline'
 import { gridSelectionRect } from './lib/oniGridSelection'
 import { createOniCellTooltip } from './lib/oniCellTooltip'
-import { OniFluidFrameClock } from './lib/oniFluidFrameClock'
+import { ONI_FLUID_TARGET_FPS, OniFluidFrameClock } from './lib/oniFluidFrameClock'
 import { shineCameraForRect, shineCameraKey, shineViewportForCamera } from './lib/oniShineCamera'
 import { fluidViewportForCamera } from './lib/oniFluidViewport'
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type SetStateAction } from 'react'
@@ -1549,6 +1549,7 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
     return () => { tooltip.destroy(); if (tooltipRef.current === tooltip) tooltipRef.current = null }
   }, [save])
   const hostRef = useRef<HTMLDivElement>(null)
+  const fpsRef = useRef<HTMLOutputElement>(null)
   const outlinesRef = useRef<ReturnType<typeof createOniCellOutline> | null>(null)
   const planetLabelsRef = useRef<ReturnType<typeof createOniPlanetLabels> | null>(null)
   useEffect(() => {
@@ -1701,8 +1702,10 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
           width: viewport.widthCells * baseCellSize, height: viewport.heightCells * baseCellSize, mipmaps: false })
         scene.removeMissing(canvas ? new Set(['fluid-animation']) : new Set(), layer)
       }
-      scene.endBatch(true)
-      fluidClock.recordCost(performance.now() - start)
+      scene.endBatch()
+      const fluidCost = performance.now() - start
+      fluidClock.recordCost(fluidCost)
+      if (metrics) metrics.fluidMs = fluidCost.toFixed(2)
     }
     let tasks: Array<{ distance: number; x: number; row: number; widthCells: number; heightCells: number; key: string; cellSize: number }> = []
     const scheduleNext = () => {
@@ -1711,6 +1714,13 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
     const buildNext = (now: number) => {
       if (generation !== buildRef.current || !renderer) return
       if (document.hidden) { scheduleNext(); return }
+      const stats = scene.renderStats(now)
+      if (fpsRef.current && stats.sampledAt && fpsRef.current.dataset.sample !== String(stats.sampledAt)) {
+        fpsRef.current.dataset.sample = String(stats.sampledAt)
+        fpsRef.current.textContent = stats.fps > 0 ? `${Math.round(stats.fps)} FPS` : '静态画面'
+        fpsRef.current.title = `实际地图绘制帧率 · 目标 ${ONI_FLUID_TARGET_FPS} FPS · 平均绘制提交 ${stats.renderMs.toFixed(2)} ms`
+        if (metrics) { metrics.renderFps = stats.fps.toFixed(1); metrics.renderMs = stats.renderMs.toFixed(2) }
+      }
       const rect = scene.visibleWorldRect()
       const shineCamera = shineCameraForRect(rect, size.height)
       const cameraKey = shineCameraKey(shineCamera)
@@ -1728,7 +1738,7 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
             width: shineView.widthCells * baseCellSize, height: shineView.heightCells * baseCellSize, mipmaps: false })
           scene.removeMissing(canvas ? new Set(['camera-surfaces']) : new Set(), layer)
         }
-        scene.endBatch(true)
+        scene.endBatch()
         lastShineKey = shineKey
         const cost = performance.now() - start
         shineClock.recordCost(cost)
@@ -1915,7 +1925,7 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
       refreshOutlinesRef.current()
       isInteractingRef.current = false
     }}
-  ><canvas ref={canvasRef} className="pixi-map-canvas" />{mapLoading && <div className="map-loading-status" role="status">{mapLoading}</div>}</div>
+  ><canvas ref={canvasRef} className="pixi-map-canvas" /><output ref={fpsRef} className="map-fps" aria-label="地图实际帧率" title="实际地图绘制帧率">— FPS</output>{mapLoading && <div className="map-loading-status" role="status">{mapLoading}</div>}</div>
 }
 
 function DupesView({ save, updateSave, onOpenObject }: { save: ParsedSave; updateSave: (update: (save: ParsedSave) => void) => void; onOpenObject: (index: number) => void }) {

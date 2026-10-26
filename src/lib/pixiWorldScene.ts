@@ -1,3 +1,4 @@
+import { OniRenderStats } from './oniRenderStats'
 import { Application, Container, Sprite, Texture } from 'pixi.js'
 import { ONI_CHUNK_LAYERS } from './oniRenderLayers'
 
@@ -40,6 +41,7 @@ export class PixiWorldScene {
   private frame = 0
   private batchDepth = 0
   private batchDirty = false
+  private readonly stats = new OniRenderStats()
 
   async init(canvas: HTMLCanvasElement): Promise<boolean> {
     if (this.initializing || this.initialized || this.destroyed) return false
@@ -170,7 +172,15 @@ export class PixiWorldScene {
     if (!this.initialized || this.destroyed) return
     if (this.frame) cancelAnimationFrame(this.frame)
     this.frame = 0
+    this.draw()
+  }
+
+  renderStats(now: number) { return this.stats.sample(now) }
+
+  private draw(): void {
+    const start = performance.now()
     this.app.render()
+    this.stats.record(performance.now() - start)
   }
 
   render(): void {
@@ -181,7 +191,7 @@ export class PixiWorldScene {
     if (!this.initialized || this.frame) return
     this.frame = requestAnimationFrame(() => {
       this.frame = 0
-      if (this.initialized) this.app.render()
+      if (this.initialized) this.draw()
     })
   }
 

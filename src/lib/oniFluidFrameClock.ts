@@ -1,6 +1,6 @@
-export const ONI_FLUID_TARGET_FPS = 114
+export const ONI_FLUID_TARGET_FPS = 144
 
-/** Preserve cadence across display refreshes instead of rounding 114 down to 60. */
+/** Preserve cadence across display refreshes instead of rounding a high refresh target down to 60. */
 export class OniFluidFrameClock {
   private deadline = Number.NEGATIVE_INFINITY
   private averageCost = 0
