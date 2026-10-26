@@ -87,3 +87,6 @@
 .resource-planet-icon.is-large { width:48px; height:48px; flex-basis:48px; }
 .resource-world-title { display:flex; align-items:center; gap:12px; min-width:0; }
 .resource-world-title p { margin-top:6px; font-size:11px; color:var(--muted); }
+
+.resource-geyser-icon { width:32px; height:40px; flex:0 0 32px; display:grid; place-items:center; color:var(--muted); }
+.resource-geyser-icon img { display:block; width:100%; height:100%; object-fit:contain; }
