@@ -1,3 +1,4 @@
+import { SelectMenu } from './SelectMenu'
 import { ONI_GEYSER_TYPES } from './lib/oniResourceData.generated'
 import { geyserTextureForTag } from './lib/oniObjectVisuals'
 import { ONI_PLANET_ICONS } from './lib/oniPlanetIcons.generated'
@@ -33,7 +34,7 @@ export function ResourceStatisticsView({save}:{save:ParsedSave}) {
     <div className="resource-layout">
       <aside className="resource-planets surface" aria-label="星球列表"><h2>星球</h2><button type="button" aria-pressed={planetId==='all'} onClick={()=>choosePlanet('all')}><Globe2 size={15}/><span><strong>全部星球</strong><small>{data.geysers.length} 处喷泉</small></span></button>{data.planets.map(planet=><button type="button" key={planet.id} aria-pressed={planetId===String(planet.id)} onClick={()=>choosePlanet(String(planet.id))}><PlanetIcon planet={planet}/><span><strong>{planet.name}</strong><small>{planet.type}</small><small>{data.geysers.filter(g=>g.planetId===planet.id).length} 处 · {planet.start?'初始星球':planet.discovered?'已发现':'未发现'}</small></span></button>)}</aside>
       <div className="resource-content">
-        <section className="resource-filter surface"><div><h2>间歇泉资源</h2><span>{filtered.length} 处匹配</span></div><label className="search-box"><Search size={15}/><input aria-label="搜索喷泉或资源" placeholder="搜索喷泉、资源或星球" value={query} onChange={e=>setQuery(e.target.value)}/></label><select aria-label="筛选喷泉种类" value={typeId} onChange={e=>setTypeId(e.target.value)}><option value="all">全部种类</option>{types.map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></section>
+        <section className="resource-filter surface"><div><h2>间歇泉资源</h2><span>{filtered.length} 处匹配</span></div><label className="search-box"><Search size={15}/><input aria-label="搜索喷泉或资源" placeholder="搜索喷泉、资源或星球" value={query} onChange={e=>setQuery(e.target.value)}/></label><SelectMenu label="筛选喷泉种类" value={typeId} onChange={setTypeId} options={[{value:'all',label:'全部种类'},...types.map(([value,label])=>({value,label}))]} /></section>
         <p className="resource-note">全周期平均已计入休眠；产量为基础理论值，未计地质调谐、超压堵塞与模组加成。1 周期 = 600 秒。循环喷泉不计入新增资源。</p>
         {totals.size>0&&<details className="resource-yield-summary"><summary>资源产量汇总 · {totals.size} 种资源<small>全周期平均</small></summary><section className="resource-yields" aria-label="筛选范围内的平均资源产量">{[...totals].map(([name,rate])=><div key={name}><span>{name}</span><strong>{resourceRate(rate)}</strong><small>全周期平均</small></div>)}</section></details>}
         {visiblePlanets.map(planet=>{
