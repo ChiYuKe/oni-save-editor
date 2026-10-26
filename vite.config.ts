@@ -14,8 +14,9 @@ export default defineConfig(() => {
         name: 'oni-local-visual-fixture',
         configureServer(server) {
           const assetDelay = Number(process.env.ONI_FIXTURE_ASSET_DELAY_MS) || 0
+          const slowAsset = process.env.ONI_FIXTURE_SLOW_ASSET
           if (assetDelay > 0) server.middlewares.use((request, _response, next) => {
-            if (request.url?.startsWith('/assets/')) setTimeout(next, assetDelay)
+            if (request.url?.startsWith('/assets/') && (!slowAsset || request.url.includes(slowAsset))) setTimeout(next, assetDelay)
             else next()
           })
           server.middlewares.use('/__oni_fixture__', async (_request, response) => {

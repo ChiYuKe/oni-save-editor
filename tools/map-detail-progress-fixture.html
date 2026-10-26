@@ -1,0 +1,22 @@
+<!doctype html><meta charset="utf-8"><title>打印舱高清更新检查</title><style>body{background:#151b20;color:#eee;font:14px system-ui}canvas{width:960px;max-width:100%}pre{white-space:pre-wrap}</style><pre id="status">检查中…</pre><canvas width="960" height="672"></canvas><script type="module">
+import {createOniChunkRenderer} from '/src/lib/oniWorldChunkRenderer.ts'
+import {printingPodFocus} from '/src/lib/oniMapFocus.ts'
+import {parseSave} from '/src/lib/save.ts'
+import {ONI_CHUNK_LAYERS} from '/src/lib/oniRenderLayers.ts'
+const status=document.querySelector('#status'),canvas=document.querySelector('canvas'),context=canvas.getContext('2d')
+try{
+ const save=parseSave(new Uint8Array(await(await fetch('/__oni_fixture__')).arrayBuffer())),focus=printingPodFocus(save)
+ const x=Math.floor(focus.x-20),row=Math.floor(focus.row-14)
+ const renderer=await createOniChunkRenderer(save,{biome:true,backwall:true,ground:true,gas:true,liquid:true,entities:true,buildings:true,minions:false,geysers:true,power:true,plumbing:true,ventilation:true,automation:true,shipment:true},'none',24)
+ let done=false,publishedBeforeDone=false,last=-1,firstUpdate=0,start=performance.now()
+ const completion=renderer.prepareViewport(x,row,40,28,true).then(()=>{done=true})
+ function paint(){const chunk=renderer.renderChunk(x,row,40,28,{timeSeconds:0});context.clearRect(0,0,960,672);for(const layer of ONI_CHUNK_LAYERS){const image=chunk.layers[layer];if(image){context.globalCompositeOperation=layer==='light'?'lighter':'source-over';context.drawImage(image,0,0)}}}
+ paint()
+ const timer=setInterval(()=>{
+  if(last!==renderer.revision){last=renderer.revision;if(last>0&&!done){publishedBeforeDone=true;if(!firstUpdate)firstUpdate=performance.now()-start}paint()}
+  status.textContent='高清更新 '+renderer.revision+' 次 · 等待 '+renderer.pendingDetails+' 张 · 首次更新 '+firstUpdate.toFixed(1)+' ms'
+  if(done){clearInterval(timer);status.textContent=(publishedBeforeDone?'PASS':'FAIL')+' 已完成贴图在慢资源结束前刷新，未等待整批下载\n'+status.textContent;document.title=publishedBeforeDone?'PASS 打印舱高清更新检查':'FAIL 打印舱高清更新检查';renderer.destroy()}
+ },60)
+ await completion
+}catch(e){status.textContent='FAIL '+(e.stack??e)}
+</script>

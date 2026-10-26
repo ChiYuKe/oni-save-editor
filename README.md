@@ -127,3 +127,10 @@ SIMSAVE v14/v15 的磁盘格子记录共 16 字节，与 Unity 进程里的 `Sim
 地图打开时先从存档内存绘制可交互概览，不等待网络请求。首屏纹理只使用 `assets/preview/world.webp`（约 695 KiB）和原分辨率的地形蒙版，建筑索引随程序打包。概览图集包含缩小的预览贴图，未替换原始高清资源；放大时按当前视口补齐原始材质和对象贴图，总览不下载高清液体数组，也不预载复制人服装库。
 
 资源变动后运行 `python scripts/generate-oni-preview-atlas.py` 更新预览图集及随程序打包的建筑索引。`scripts/check-map-overview.ts` 检查首屏包大小、索引同步、数组布局和本地概览数据；`ONI_FIXTURE_ASSET_DELAY_MS=12000` 仅在本地开发服务中延迟贴图响应，用 `tools/map-startup-fixture.html` 验证纹理等待期间地图和悬浮信息已可用。
+
+
+### 打印舱视口与高清更新
+
+新载入存档首次进入地图时，以主打印舱为中心显示基地附近；没有主打印舱时尝试副打印舱，两者都不存在则显示全图。调整窗口尺寸会保留地图中心，切换视图不会重置用户的平移和缩放。
+
+高清下载以打印舱和附近建筑优先，最多并发四个请求；每张资源完成后合并刷新，不等待全部贴图下载。地形与对象分块从打印舱所在块向周围更新，复制人服装资源在主要地图材质之后加载。`scripts/check-map-focus.ts` 验证定位、窗口缩放和请求优先级；本地设置 `ONI_FIXTURE_SLOW_ASSET=bgarray_liquids.webp`、`ONI_FIXTURE_ASSET_DELAY_MS=8000` 后打开 `tools/map-detail-progress-fixture.html`，可验证某张液体贴图缓慢时其他高清资源仍及时刷新。
