@@ -1,3 +1,4 @@
+import { createOniMapPicker, cycleMapTarget, mapComponentRows, type PickBounds } from './lib/oniMapPicking'
 import { printingPodViewport, mapLoadOrigin, resizeMapViewport } from './lib/oniMapFocus'
 import { createOniMapOverview } from './lib/oniMapOverview'
 import { sceneViewportForCamera } from './lib/oniSceneViewport'
@@ -890,6 +891,10 @@ function MapView({ save, updateSave, viewport, onViewportChange }: { save: Parse
   const [tool, setTool] = useState<MapTool>('inspect')
   const [brushSize, setBrushSize] = useState(1)
   const [lastCell, setLastCell] = useState<{ x: number; y: number } | null>(null)
+  const [pickedId, setPickedId] = useState<string | undefined>()
+  const pickMap = useMemo(() => createOniMapPicker(save), [save])
+  const pickTargets = useMemo(() => lastCell ? pickMap(lastCell.x, lastCell.y, visibleLayers) : [], [pickMap, lastCell, visibleLayers])
+  const pickedTarget = pickedId ? pickTargets.find(t => t.id === pickedId) ?? pickTargets[0] : undefined
   const [selection, setSelection] = useState<MapSelection | null>(null)
   const [selectedElement, setSelectedElement] = useState(0x0307)
   const undoStackRef = useRef<MapEdit[][]>([])
@@ -990,6 +995,7 @@ function MapView({ save, updateSave, viewport, onViewportChange }: { save: Parse
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isEditableTarget(event.target)) return
+      if (event.key === 'Escape') { setPickedId(undefined); setLastCell(null); setSelection(null); return }
       if (event.key !== '[' && event.key !== ']') return
       event.preventDefault()
       setBrushSize((current) => Math.max(1, Math.min(21, current + (event.key === ']' ? 2 : -2))))
@@ -1064,6 +1070,10 @@ function MapView({ save, updateSave, viewport, onViewportChange }: { save: Parse
   const handleCell = (x: number, y: number) => {
     if (tool === 'inspect' || tool === 'eyedropper') {
       setSelection(null)
+      if (tool === 'inspect') {
+        const targets = pickMap(x, y, visibleLayers)
+        setPickedId(cycleMapTarget(targets, lastCell?.x === x && lastCell?.y === y ? pickedId : undefined)?.id)
+      } else setPickedId(undefined)
       const cell = sim ? getWorldCell(sim, x, y) : undefined
       setLastCell({ x, y })
       if (cell) setSelectedElement(cell.elementHash)
@@ -1118,7 +1128,7 @@ function MapView({ save, updateSave, viewport, onViewportChange }: { save: Parse
   const selectionBounds = selection ? normalizedSelection(selection) : undefined
 
   return (
-    <div className="map-workbench">
+    <div className={`map-workbench ${pickedTarget && !selection ? 'has-target-inspector' : ''}`}>
       <aside className="map-tool-rail">
         <div className="tool-rail-title">TOOLS</div>
         <div className="tool-rail-buttons">
@@ -1162,7 +1172,7 @@ function MapView({ save, updateSave, viewport, onViewportChange }: { save: Parse
               </div>
             </div>
           </section>
-          <PixiMapCanvas save={save} visibleLayers={visibleLayers} overlay={overlay} tool={tool} brushSize={brushSize} viewport={viewport} onViewportChange={onViewportChange} selectedCell={lastCell} selection={selection} previewCells={previewCellsRef.current} previewVersion={previewVersion} onCell={handleCell} onSelectionChange={(next) => { setSelection(next); if (next) setLastCell(null) }} onShape={previewShape} onStrokeStart={beginStroke} onStrokeEnd={endStroke} />
+          <PixiMapCanvas save={save} visibleLayers={visibleLayers} overlay={overlay} tool={tool} brushSize={brushSize} viewport={viewport} onViewportChange={onViewportChange} selectedCell={lastCell} targetBounds={pickedTarget?.bounds} selection={selection} previewCells={previewCellsRef.current} previewVersion={previewVersion} onCell={handleCell} onSelectionChange={(next) => { setSelection(next); if (next) { setLastCell(null); setPickedId(undefined) } }} onShape={previewShape} onStrokeStart={beginStroke} onStrokeEnd={endStroke} />
           <div className="map-legend"><span><i className="legend-visible" />独立图层</span><span><i className="legend-entity" />{overlay === 'none' ? '无分析覆盖' : `${overlayLabel}覆盖`}</span><span><i className="legend-damage" />选中单元</span><span className="legend-help">SIM 网格含四周边界层</span></div>
         </div>
       </section>
@@ -1196,6 +1206,14 @@ function MapView({ save, updateSave, viewport, onViewportChange }: { save: Parse
           </>}
           <div className="map-stat"><span>模拟网格</span><strong>{sim ? `${sim.width} × ${sim.height}` : '—'}</strong></div>
       </aside>
+      {pickedTarget && !selection && <aside className="map-target-panel" aria-label="所选对象详细信息">
+        <header><div><small>{pickedTarget.layer}</small><h2>{pickedTarget.inspection.name}</h2></div><button type="button" aria-label="关闭对象详情" onClick={() => { setPickedId(undefined); setLastCell(null) }}><X size={17} /></button></header>
+        <div className="map-target-cycle"><span>{pickTargets.findIndex(t => t.id === pickedTarget.id) + 1} / {pickTargets.length}</span><span>再次点击同一格切换图层</span><button type="button" disabled={pickTargets.length < 2} aria-label="选择下一图层对象" onClick={() => setPickedId(cycleMapTarget(pickTargets,pickedTarget.id)?.id)}><ChevronRight size={17} /></button></div>
+        <nav aria-label="当前位置的对象">{pickTargets.map(target => <button type="button" key={target.id} aria-pressed={target.id === pickedTarget.id} onClick={() => setPickedId(target.id)}><span>{target.inspection.name}</span><small>{target.layer}</small></button>)}</nav>
+        <div className="map-target-position">{pickedTarget.inspection.position}</div>
+        <dl>{pickedTarget.inspection.rows.map(([name,value]) => <div key={name}><dt>{name}</dt><dd>{value}</dd></div>)}</dl>
+        {pickedTarget.instance && <section className="map-target-components"><h3>存档组件</h3>{pickedTarget.instance.components.map((part,i) => <details key={`${part.typeName}:${i}`}><summary>{part.typeName}</summary><dl>{mapComponentRows(part.value).map(([name,value],j) => <div key={j}><dt>{name}</dt><dd>{value}</dd></div>)}</dl>{(!part.value || part.details?.length || part.raw?.length) ? <p>原始数据 {part.length.toLocaleString()} bytes</p> : null}</details>)}</section>}
+      </aside>}
     </div>
   )
 }
@@ -1512,7 +1530,7 @@ function createElementPatterns(context: CanvasRenderingContext2D, textures: Reco
 
 
 
-function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSize, viewport, onViewportChange, selectedCell, selection, onCell, onSelectionChange, onShape, onStrokeStart, onStrokeEnd }: { save: ParsedSave; visibleLayers: MapLayerVisibility; overlay: MapOverlay; tool: MapTool; brushSize: number; viewport: MapViewport; onViewportChange: Dispatch<SetStateAction<MapViewport>>; selectedCell: { x: number; y: number } | null; selection: MapSelection | null; previewCells: Map<string, MapPreviewCell>; previewVersion: number; onCell: (x: number, y: number) => void; onSelectionChange: (selection: MapSelection | null) => void; onShape: (start: { x: number; y: number }, end: { x: number; y: number }) => void; onStrokeStart: () => void; onStrokeEnd: () => void }) {
+function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSize, viewport, onViewportChange, selectedCell, targetBounds, selection, onCell, onSelectionChange, onShape, onStrokeStart, onStrokeEnd }: { save: ParsedSave; visibleLayers: MapLayerVisibility; overlay: MapOverlay; tool: MapTool; brushSize: number; viewport: MapViewport; onViewportChange: Dispatch<SetStateAction<MapViewport>>; selectedCell: { x: number; y: number } | null; targetBounds?: PickBounds; selection: MapSelection | null; previewCells: Map<string, MapPreviewCell>; previewVersion: number; onCell: (x: number, y: number) => void; onSelectionChange: (selection: MapSelection | null) => void; onShape: (start: { x: number; y: number }, end: { x: number; y: number }) => void; onStrokeStart: () => void; onStrokeEnd: () => void }) {
   const tooltipRef = useRef<ReturnType<typeof createOniCellTooltip> | null>(null)
   useEffect(() => {
     const tooltip = createOniCellTooltip(save)
@@ -1522,6 +1540,8 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
   const hostRef = useRef<HTMLDivElement>(null)
   const outlinesRef = useRef<ReturnType<typeof createOniCellOutline> | null>(null)
   const hoverCellRef = useRef<{ x: number; y: number } | null>(null)
+  const targetBoundsRef = useRef(targetBounds)
+  targetBoundsRef.current = targetBounds
   const selectedCellRef = useRef(selectedCell)
   const selectionRef = useRef(selection)
   const draftSelectionRef = useRef<MapSelection | null>(null)
@@ -1535,7 +1555,7 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
     refreshOutlinesRef.current()
     return () => { outlines.destroy(); if (outlinesRef.current === outlines) outlinesRef.current = null }
   }, [])
-  useEffect(() => { refreshOutlinesRef.current() }, [selectedCell, selection])
+  useEffect(() => { refreshOutlinesRef.current() }, [selectedCell, selection, targetBounds])
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [mapLoading, setMapLoading] = useState<string | null>(null)
   const sceneRef = useRef<PixiWorldScene | null>(null)
@@ -1568,7 +1588,8 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
       ? gridSelectionRect({ start, end }, size.height, baseCellSize * scale, originX, originY) : undefined
     const selected = draftSelectionRef.current ?? selectionRef.current
     outlinesRef.current?.update('hover', rect(hoverCellRef.current))
-    outlinesRef.current?.update('selected', selected ? undefined : rect(selectedCellRef.current))
+    const bounds = targetBoundsRef.current
+    outlinesRef.current?.update('selected', selected ? undefined : bounds ? rect({ x: bounds.minX, y: bounds.minY }, { x: bounds.maxX, y: bounds.maxY }) : rect(selectedCellRef.current))
     outlinesRef.current?.update('range', selected ? rect(selected.start, selected.end) : undefined)
   }
 
