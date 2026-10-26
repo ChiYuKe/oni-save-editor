@@ -1,3 +1,4 @@
+import { objectGroupIcon } from './lib/oniObjectIcon'
 import { createOniPlanetLabels } from './lib/oniPlanetLabels'
 import { ResourceStatisticsView } from './ResourceStatisticsView'
 import { createOniMapPicker, cycleMapTarget, mapComponentRows, type PickBounds } from './lib/oniMapPicking'
@@ -1965,6 +1966,14 @@ function DupeInspector({ instance, updateSave }: { instance: SavedObjectInstance
   return <aside className="dupe-inspector"><SectionHeading icon={<Users size={16} />} title={objectName('Minion', instance, 0)} action="INSPECTOR" /><div className="inspector-grid"><EditableField label="名称" value={member(identity, 'name')?.value} onCommit={(text) => edit('name', text)} /><TransformFields instance={instance} updateSave={updateSave} /></div><div className="dupe-facts"><InfoRow label="体温" value={temperature === undefined ? '—' : `${formatNumber(temperature - 273.15, 1)} °C`} /><InfoRow label="组件" value={`${instance.components.length}`} /><InfoRow label="禁用伤残" value={health === undefined ? '—' : health ? '是' : '否'} /></div></aside>
 }
 
+function ObjectGroupIcon({ tag }: { tag: string }) {
+  const path = objectGroupIcon(tag)
+  const [failedPath, setFailedPath] = useState<string>()
+  return <span className="group-symbol" aria-hidden="true">{path && failedPath !== path
+    ? <img src={assetPath(path)} alt="" loading="lazy" decoding="async" onError={() => setFailedPath(path)} />
+    : tag === 'Minion' ? <Users size={16} /> : <Boxes size={16} />}</span>
+}
+
 function ObjectsView({ save, selectedGroup, selectedIndex, onSelect, updateSave }: { save: ParsedSave; selectedGroup: string; selectedIndex: number; onSelect: (tag: string, index: number) => void; updateSave: (update: (save: ParsedSave) => void) => void }) {
   const [query, setQuery] = useState('')
   const [groupQuery, setGroupQuery] = useState('')
@@ -1975,7 +1984,7 @@ function ObjectsView({ save, selectedGroup, selectedIndex, onSelect, updateSave 
   const activeIndex = active && group ? group.instances.indexOf(active) : selectedIndex
   return (
     <div className="objects-layout">
-      <section className="surface object-groups"><div className="panel-title"><div><span className="eyebrow">SAVE MANAGER</span><h2>对象分组</h2></div><span className="panel-count">{groupList.length}</span></div><label className="search-box"><Search size={15} /><input value={groupQuery} onChange={(event) => setGroupQuery(event.target.value)} placeholder="搜索分组" /></label><div className="object-group-list">{groupList.map((item) => <button key={item.tag} className={`object-group-row ${selectedGroup === item.tag ? 'selected' : ''}`} type="button" onClick={() => onSelect(item.tag, 0)}><span className="group-symbol"><Boxes size={14} /></span><span>{item.tag}</span><strong>{item.count.toLocaleString()}</strong></button>)}</div></section>
+      <section className="surface object-groups"><div className="panel-title"><div><span className="eyebrow">SAVE MANAGER</span><h2>对象分组</h2></div><span className="panel-count">{groupList.length}</span></div><label className="search-box"><Search size={15} /><input value={groupQuery} onChange={(event) => setGroupQuery(event.target.value)} placeholder="搜索分组" /></label><div className="object-group-list">{groupList.map((item) => <button key={item.tag} className={`object-group-row ${selectedGroup === item.tag ? 'selected' : ''}`} type="button" onClick={() => onSelect(item.tag, 0)}><ObjectGroupIcon tag={item.tag} /><span>{item.tag}</span><strong>{item.count.toLocaleString()}</strong></button>)}</div></section>
       <section className="surface object-records"><div className="panel-title"><div><span className="eyebrow">{selectedGroup}</span><h2>实例列表</h2></div><span className="panel-count">{group?.instances.length ?? 0}</span></div><label className="search-box"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索名称或编号" /></label><div className="records-table"><div className="records-head"><span>名称 / ID</span><span>位置</span><span>组件</span></div>{rows.slice(0, 100).map((row) => <button key={row.index} type="button" className={`record-row ${activeIndex === row.index ? 'selected' : ''}`} onClick={() => onSelect(selectedGroup, row.index)}><span><strong>{row.name}</strong><small>#{row.index + 1}</small></span><span>{formatNumber(row.position.x, 1)}, {formatNumber(row.position.y, 1)}</span><span>{row.components}</span></button>)}{rows.length > 100 && <div className="table-note">仅显示前 100 条匹配结果</div>}</div></section>
       <ObjectInspector instance={active} groupTag={selectedGroup} updateSave={updateSave} />
     </div>

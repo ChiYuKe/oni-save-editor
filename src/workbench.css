@@ -211,3 +211,8 @@
 .saved-shell .map-target-panel:hover, .saved-shell .map-target-panel nav:hover { scrollbar-color:#686868 transparent; }
 .oni-cell-tooltip :is(dt,.oni-cell-position) { color:#a0a0a0; }
 .oni-cell-tooltip dd { color:#e5e5e5; }
+
+/* Compact native object thumbnails retain the existing list density. */
+.saved-shell .object-group-row { grid-template-columns:30px minmax(0,1fr) auto; min-height:40px; }
+.saved-shell .group-symbol { width:28px; height:32px; }
+.saved-shell .group-symbol img { display:block; width:100%; height:100%; object-fit:contain; }
