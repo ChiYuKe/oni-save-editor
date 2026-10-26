@@ -5,6 +5,7 @@ import { createOniCellOutline } from './lib/oniCellOutline'
 import { gridSelectionRect } from './lib/oniGridSelection'
 import { createOniCellTooltip } from './lib/oniCellTooltip'
 import { OniFluidFrameClock } from './lib/oniFluidFrameClock'
+import { shineCameraForRect, shineCameraKey, shineViewportForCamera } from './lib/oniShineCamera'
 import { fluidViewportForCamera } from './lib/oniFluidViewport'
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type SetStateAction } from 'react'
 import {
@@ -1640,16 +1641,18 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
     let sceneKey = '', pendingSceneKey = '', pendingSince = 0, sceneComplete = false, detailLoading = false
     let animationFrame = 0
     const fluidClock = new OniFluidFrameClock()
+    const shineClock = new OniFluidFrameClock()
+    let lastShineKey = '', dynamicSurfaces = false
     const animateFluids = overlay === 'none' && (visibleLayers.gas || visibleLayers.liquid)
     const updateFluids = (now: number) => {
       if (generation !== buildRef.current || !renderer) return
       animationFrame = window.requestAnimationFrame(updateFluids)
-      if (document.hidden || isInteractingRef.current || !fluidClock.shouldRender(now)) return
+      if (document.hidden || !fluidClock.shouldRender(now)) return
       const viewport = fluidViewportForCamera(scene.visibleWorldRect(), size.width, size.height, baseCellSize, window.devicePixelRatio || 1)
       if (!viewport) return
       const start = performance.now()
       const chunk = renderer.renderChunk(viewport.x, viewport.row, viewport.widthCells, viewport.heightCells,
-        { fluidsOnly: true, cellSize: viewport.cellSize, timeSeconds: now / 1000 })
+        { fluidsOnly: true, cellSize: viewport.cellSize, timeSeconds: now / 1000, shineCamera: shineCameraForRect(scene.visibleWorldRect(), size.height) })
       scene.beginBatch()
       for (const layer of ['gas', 'liquid'] as const) {
         const canvas = chunk.layers[layer]
@@ -1666,11 +1669,36 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
     }
     const buildNext = (now: number) => {
       if (generation !== buildRef.current || !renderer) return
-      if (document.hidden || isInteractingRef.current) { scheduleNext(); return }
+      if (document.hidden) { scheduleNext(); return }
+      const rect = scene.visibleWorldRect()
+      const shineCamera = shineCameraForRect(rect, size.height)
+      const cameraKey = shineCameraKey(shineCamera)
+      const shineView = overlay === 'none' ? shineViewportForCamera(rect, size.width, size.height, baseCellSize, window.devicePixelRatio || 1) : undefined
+      dynamicSurfaces = Boolean(shineView)
+      const shineKey = `${cameraKey}:${renderer.revision}`
+      if (shineView && shineKey !== lastShineKey && shineClock.shouldRender(now)) {
+        const start = performance.now()
+        const chunk = renderer.renderChunk(shineView.x, shineView.row, shineView.widthCells, shineView.heightCells,
+          { surfacesOnly: true, cellSize: shineView.cellSize, shineCamera })
+        scene.beginBatch()
+        for (const layer of ['background', 'terrain'] as const) {
+          const canvas = chunk.layers[layer]
+          if (canvas) scene.setChunk({ key: 'camera-surfaces', layer, canvas, x: shineView.x * baseCellSize, y: shineView.row * baseCellSize,
+            width: shineView.widthCells * baseCellSize, height: shineView.heightCells * baseCellSize, mipmaps: false })
+          scene.removeMissing(canvas ? new Set(['camera-surfaces']) : new Set(), layer)
+        }
+        scene.endBatch(true)
+        lastShineKey = shineKey
+        const cost = performance.now() - start
+        shineClock.recordCost(cost)
+        if (metrics) { metrics.shineCamera = cameraKey; metrics.shineMs = cost.toFixed(2) }
+      }
+      if (!shineView) lastShineKey = ''
+      if (isInteractingRef.current) { scheduleNext(); return }
       const pending = renderer.pendingDetails > 0
       if (pending !== detailLoading) { detailLoading = pending; setMapLoading(pending ? '正在补齐当前视野的高清画面…' : null) }
       const view = sceneViewportForCamera(scene.visibleWorldRect(), size.width, size.height, baseCellSize, window.devicePixelRatio || 1)
-      const viewKey = view ? `${view.key}:${renderer.revision}` : ''
+      const viewKey = view ? `${view.key}:${renderer.revision}:${dynamicSurfaces ? 'dynamic' : cameraKey}` : ''
       if (view && viewKey !== sceneKey) {
         if (pendingSceneKey !== viewKey) { pendingSceneKey = viewKey; pendingSince = now }
         if (!sceneKey || now - pendingSince >= 120) {
@@ -1686,9 +1714,10 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
       }
       if (cursor < tasks.length) {
         const task = tasks[cursor++]
-        const chunk = renderer.renderChunk(task.x, task.row, task.widthCells, task.heightCells, { skipFluids: animateFluids, cellSize: task.cellSize })
+        const chunk = renderer.renderChunk(task.x, task.row, task.widthCells, task.heightCells, { skipFluids: animateFluids, skipSurfaces: dynamicSurfaces, cellSize: task.cellSize, shineCamera })
         scene.beginBatch()
         for (const [layer, canvas] of Object.entries(chunk.layers) as Array<[OniChunkLayer, HTMLCanvasElement | undefined]>) {
+          if (dynamicSurfaces && (layer === 'background' || layer === 'terrain')) continue
           if (!canvas || (animateFluids && (layer === 'gas' || layer === 'liquid'))) continue
           let renderedKeys = renderedKeysByLayer.get(layer)
           if (!renderedKeys) {
@@ -1707,6 +1736,7 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
         if (metrics && !metrics.firstSceneMs) metrics.firstSceneMs = (performance.now() - startedAt).toFixed(1)
         const allLayers: readonly OniChunkLayer[] = ONI_CHUNK_LAYERS
         for (const layer of allLayers) {
+          if (dynamicSurfaces && (layer === 'background' || layer === 'terrain')) continue
           if (animateFluids && (layer === 'gas' || layer === 'liquid')) continue
           scene.removeMissing(renderedKeysByLayer.get(layer) ?? new Set<string>(), layer)
         }

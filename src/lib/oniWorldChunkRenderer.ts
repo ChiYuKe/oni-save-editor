@@ -1,3 +1,5 @@
+import { shineCameraKey } from './oniShineCamera'
+import type { OniTerrainRenderInput } from './oniRenderer'
 import { OniDetailQueue } from './oniDetailQueue'
 import { mapLoadOrigin } from './oniMapFocus'
 import { ONI_BUILDING_SPRITES } from './oniBuildingSprites.generated'
@@ -64,6 +66,10 @@ export type OniRenderedChunk = {
 }
 
 export interface OniChunkRenderOptions {
+  shineCamera?: OniTerrainRenderInput['shineCamera']
+  /** Repaint only camera-dependent terrain/background; preserve object and light textures. */
+  surfacesOnly?: boolean
+  skipSurfaces?: boolean
   timeSeconds?: number
   /** Repaint fluids only, retaining one viewport's scenery and canvas surfaces. */
   fluidsOnly?: boolean
@@ -73,6 +79,10 @@ export interface OniChunkRenderOptions {
 
 type FluidViewportCache = {
   key: string
+  cameraKey?: string
+  backgroundRevision?: number
+  shinyBackwall?: boolean
+  terrain?: HTMLCanvasElement
   background?: HTMLCanvasElement
   backwall?: HTMLCanvasElement
   sceneMask?: HTMLCanvasElement
@@ -761,6 +771,7 @@ export async function createOniChunkRenderer(
   const lightVisibility = new WeakMap<OniLightInstance, Set<number>>()
   const snapshotTime = performance.now() / 1000
   const nativeCellSize = baseCellSize
+  let shineViewport: FluidViewportCache | undefined
   let fluidViewport: FluidViewportCache | undefined
   const requested = new Map<string, Promise<void>>()
   const detailQueue = new OniDetailQueue(4)
@@ -849,11 +860,14 @@ export async function createOniChunkRenderer(
     prepareViewport,
     renderChunk(x, row, widthCells, heightCells, options) {
       const baseCellSize = options?.cellSize ?? nativeCellSize
+      const surfacesOnly = options?.surfacesOnly === true
       const fluidsOnly = options?.fluidsOnly === true
+      const cameraKey = options?.shineCamera ? shineCameraKey(options.shineCamera) : ''
       const viewportKey = `${x}:${row}:${widthCells}:${heightCells}:${baseCellSize}`
       const reusedViewport = fluidsOnly && fluidViewport?.key === viewportKey ? fluidViewport : undefined
       if (fluidsOnly && !reusedViewport) fluidViewport = { key: viewportKey, layers: {} }
-      const frameCache = fluidsOnly ? fluidViewport : undefined
+      if (surfacesOnly && shineViewport?.key !== viewportKey) shineViewport = { key: viewportKey, layers: {} }
+      const frameCache = fluidsOnly ? fluidViewport : surfacesOnly ? shineViewport : undefined
       if (destroyed) throw new Error('ONI 分块渲染器已经销毁。')
       const gutter = CHUNK_GUTTER_CELLS
       const gutterPixels = gutter * baseCellSize
@@ -877,19 +891,42 @@ export async function createOniChunkRenderer(
       }
       const result: OniRenderedChunk = { x: x * baseCellSize, y: row * baseCellSize, width: pixelWidth, height: pixelHeight, layers: {} }
 
-      let backwallSurface = reusedViewport?.backwall
-      let backgroundSurface = reusedViewport?.background
-      if (!reusedViewport && (visibleLayers.biome || visibleLayers.backwall)) {
-        const canvas = surface()
-      const context = canvas.getContext('2d')!
-      context.imageSmoothingEnabled = false
+      const cropped = (source: HTMLCanvasElement, layer: OniChunkLayer) => {
+        if (!frameCache) return crop(source, gutterPixels, pixelWidth, pixelHeight)
+        const target = frameCache.layers[layer] ?? document.createElement('canvas')
+        if (target.width !== pixelWidth || target.height !== pixelHeight) { target.width = pixelWidth; target.height = pixelHeight }
+        const context = target.getContext('2d')!
+        context.clearRect(0, 0, pixelWidth, pixelHeight)
+        context.drawImage(source, gutterPixels, gutterPixels, pixelWidth, pixelHeight, 0, 0, pixelWidth, pixelHeight)
+        frameCache.layers[layer] = target
+        return target
+      }
+      let backwallSurface = frameCache?.backwall
+      let backgroundSurface = frameCache?.background
+      if (frameCache && frameCache.shinyBackwall === undefined) {
+        frameCache.shinyBackwall = false
+        if (visibleLayers.backwall) for (let r = range.minRow; r <= range.maxRow && !frameCache.shinyBackwall; r++) {
+          for (let xx = range.minX; xx <= range.maxX; xx++) {
+            const cell = backwallCellAt(xx, size.height - 1 - r)
+            if (cell && ONI_SHINE_MATERIALS.has(cell.elementHash & 0xffff)) { frameCache.shinyBackwall = true; break }
+          }
+        }
+      }
+      const repaintBackground = !backgroundSurface || frameCache?.backgroundRevision !== assetRevision
+        || (frameCache?.shinyBackwall && frameCache.cameraKey !== cameraKey)
+      if (!options?.skipSurfaces && repaintBackground && (visibleLayers.biome || visibleLayers.backwall)) {
+        const canvas = backgroundSurface ?? surface()
+        canvas.getContext('2d')!.clearRect(0, 0, surfaceWidth, surfaceHeight)
+        const context = canvas.getContext('2d')!
+        context.imageSmoothingEnabled = false
         if (visibleLayers.biome) oniWorldRenderer.renderBiome({ context, worldZones, width: size.width, height: size.height, cellSize: baseCellSize, originX, originY, range, backgrounds: biomeBackgrounds })
         if (visibleLayers.backwall) {
-          backwallSurface = surface()
+          backwallSurface ??= surface()
+          backwallSurface.getContext('2d')!.clearRect(0, 0, surfaceWidth, surfaceHeight)
           const backwallContext = backwallSurface.getContext('2d')!
           const propertySource = {
             context, width: size.width, height: size.height, cellSize: baseCellSize,
-            originX, originY, range, worldZones, textures, maskSets, cellAt,
+            originX, originY, range, worldZones, textures, maskSets, cellAt, shineCamera: options?.shineCamera,
             propertyCacheKey, isTerrainMaskedAt, damageAt, hasBackwallAt, zoneColors: ONI_WORLD_ZONE_COLORS,
           }
           oniWorldRenderer.renderTerrain({
@@ -899,8 +936,10 @@ export async function createOniChunkRenderer(
           context.drawImage(backwallSurface, 0, 0)
         }
         backgroundSurface = canvas
-        if (!fluidsOnly) result.layers.background = crop(canvas, gutterPixels, pixelWidth, pixelHeight)
+        if (frameCache) frameCache.backgroundRevision = assetRevision
       }
+
+      if (!fluidsOnly && backgroundSurface) result.layers.background = cropped(backgroundSurface, 'background')
 
       const drawObjects = (front: boolean, retainGutter = false): HTMLCanvasElement | undefined => {
         const canvas = surface()
@@ -956,146 +995,153 @@ export async function createOniChunkRenderer(
         return painted ? (retainGutter ? canvas : crop(canvas, gutterPixels, pixelWidth, pixelHeight)) : undefined
       }
 
-      const objectsBack = reusedViewport ? reusedViewport.objects : drawObjects(false, true)
-      if (frameCache) { frameCache.backwall = backwallSurface; frameCache.background = backgroundSurface; frameCache.objects = objectsBack }
-      if (objectsBack && !fluidsOnly) result.layers.entitiesBack = crop(objectsBack, gutterPixels, pixelWidth, pixelHeight)
+      if (frameCache) { frameCache.backwall = backwallSurface; frameCache.background = backgroundSurface; frameCache.cameraKey = cameraKey }
+      if (!surfacesOnly) {
+        const objectsBack = reusedViewport ? reusedViewport.objects : drawObjects(false, true)
+        if (frameCache) { frameCache.backwall = backwallSurface; frameCache.background = backgroundSurface; frameCache.objects = objectsBack }
+        if (objectsBack && !fluidsOnly) result.layers.entitiesBack = crop(objectsBack, gutterPixels, pixelWidth, pixelHeight)
 
-      const hasGasCells = reusedViewport?.hasGas ?? (!options?.skipFluids && visibleLayers.gas && hasCellsInRange(range, size.height, cellAt, 'gas'))
-      const hasLiquidCells = reusedViewport?.hasLiquid ?? (!options?.skipFluids && visibleLayers.liquid && hasCellsInRange(range, size.height, cellAt, 'liquid'))
-      if (frameCache) { frameCache.hasGas = hasGasCells; frameCache.hasLiquid = hasLiquidCells }
-      const gasSurface = hasGasCells ? frameCache?.gas ?? surface() : undefined
-      if (frameCache) frameCache.gas = gasSurface
-      const gasContext = gasSurface?.getContext('2d')
-      if (gasContext) { gasContext.clearRect(0, 0, surfaceWidth, surfaceHeight); gasContext.imageSmoothingEnabled = false }
-      const liquidSurface = hasLiquidCells ? frameCache?.liquid ?? surface() : undefined
-      if (frameCache) frameCache.liquid = liquidSurface
-      const liquidContext = liquidSurface?.getContext('2d')
-      if (liquidContext) { liquidContext.clearRect(0, 0, surfaceWidth, surfaceHeight); liquidContext.imageSmoothingEnabled = false }
-      const fluidInput = {
-        width: size.width,
-        height: size.height,
-        cellSize: baseCellSize,
-        originX,
-        originY,
-        range,
-        worldZones,
-        textures,
-        maskSets,
-        cellAt,
-        propertyCacheKey,
-        isTerrainMaskedAt,
-        damageAt,
-        hasBackwallAt,
-        zoneColors: ONI_WORLD_ZONE_COLORS,
-        clipToRange: true,
-        timeSeconds: options?.timeSeconds ?? snapshotTime,
-      }
-      const gasRendered = overlay === 'none' && gasContext && hasGasCells
-        ? oniWorldRenderer.renderGas({ ...fluidInput, context: gasContext }) : false
-      const preLiquid = hasLiquidCells ? frameCache?.scene ?? surface() : undefined
-      if (frameCache) frameCache.scene = preLiquid
-      const preLiquidContext = preLiquid?.getContext('2d')
-      if (preLiquidContext) {
-        preLiquidContext.clearRect(0, 0, surfaceWidth, surfaceHeight)
-        if (backgroundSurface) preLiquidContext.drawImage(backgroundSurface, 0, 0)
-        if (gasSurface) preLiquidContext.drawImage(gasSurface, 0, 0)
-        if (objectsBack) preLiquidContext.drawImage(objectsBack, 0, 0)
-      }
-      let sceneMask = reusedViewport?.sceneMask
-      if (!sceneMask && hasLiquidCells && backwallSurface) {
-        sceneMask = surface()
-        const maskContext = sceneMask.getContext('2d')!
-        // Substance ALPHA/OPAQUE writes MRT1=(0,.5,0,coverage); biome writes G=0.
-        maskContext.drawImage(backwallSurface, 0, 0)
-        maskContext.globalCompositeOperation = 'source-in'
-        maskContext.fillStyle = 'rgb(0,128,0)'
-        maskContext.fillRect(0, 0, surfaceWidth, surfaceHeight)
-        maskContext.globalCompositeOperation = 'source-over'
-        if (frameCache) frameCache.sceneMask = sceneMask
-      }
-      const liquidRendered = overlay === 'none'  && liquidContext && hasLiquidCells
-        ? oniWorldRenderer.renderLiquid({ ...fluidInput, context: liquidContext, sceneSource: preLiquid, sceneMaskSource: sceneMask }) : false
-      if (overlay === 'none' && (!gasRendered || !liquidRendered)) for (let canvasY = range.minRow; canvasY <= range.maxRow; canvasY++) {
-        const y = size.height - 1 - canvasY
-        for (let worldX = range.minX; worldX <= range.maxX; worldX++) {
-          const cell = cellAt(worldX, y)
-          if (!cell) continue
-          const element = elementForHash(cell.elementHash)
-          const px = originX + worldX * baseCellSize
-          const py = originY + canvasY * baseCellSize
-          if (!gasRendered && gasContext && element.state === 'gas' && element.fluidMaterial) drawGasFallback(gasContext, element.fluidMaterial, cell, px, py, baseCellSize)
-          if (!liquidRendered && liquidContext && element.state === 'liquid' && element.fluidMaterial) {
-            const above = cellAt(worldX, y + 1)
-            const state = above ? elementForHash(above.elementHash).state : undefined
-            drawLiquidFallback(liquidContext, element.fluidMaterial, cell, px, py, baseCellSize, state === 'liquid' || state === 'solid')
+        const hasGasCells = reusedViewport?.hasGas ?? (!options?.skipFluids && visibleLayers.gas && hasCellsInRange(range, size.height, cellAt, 'gas'))
+        const hasLiquidCells = reusedViewport?.hasLiquid ?? (!options?.skipFluids && visibleLayers.liquid && hasCellsInRange(range, size.height, cellAt, 'liquid'))
+        if (frameCache) { frameCache.hasGas = hasGasCells; frameCache.hasLiquid = hasLiquidCells }
+        const gasSurface = hasGasCells ? frameCache?.gas ?? surface() : undefined
+        if (frameCache) frameCache.gas = gasSurface
+        const gasContext = gasSurface?.getContext('2d')
+        if (gasContext) { gasContext.clearRect(0, 0, surfaceWidth, surfaceHeight); gasContext.imageSmoothingEnabled = false }
+        const liquidSurface = hasLiquidCells ? frameCache?.liquid ?? surface() : undefined
+        if (frameCache) frameCache.liquid = liquidSurface
+        const liquidContext = liquidSurface?.getContext('2d')
+        if (liquidContext) { liquidContext.clearRect(0, 0, surfaceWidth, surfaceHeight); liquidContext.imageSmoothingEnabled = false }
+        const fluidInput = {
+          width: size.width,
+          height: size.height,
+          cellSize: baseCellSize,
+          originX,
+          originY,
+          range,
+          worldZones,
+          textures,
+          maskSets,
+          cellAt,
+          propertyCacheKey,
+          isTerrainMaskedAt,
+          damageAt,
+          hasBackwallAt,
+          zoneColors: ONI_WORLD_ZONE_COLORS,
+          clipToRange: true,
+          timeSeconds: options?.timeSeconds ?? snapshotTime,
+        }
+        const gasRendered = overlay === 'none' && gasContext && hasGasCells
+          ? oniWorldRenderer.renderGas({ ...fluidInput, context: gasContext }) : false
+        const preLiquid = hasLiquidCells ? frameCache?.scene ?? surface() : undefined
+        if (frameCache) frameCache.scene = preLiquid
+        const preLiquidContext = preLiquid?.getContext('2d')
+        if (preLiquidContext) {
+          preLiquidContext.clearRect(0, 0, surfaceWidth, surfaceHeight)
+          if (backgroundSurface) preLiquidContext.drawImage(backgroundSurface, 0, 0)
+          if (gasSurface) preLiquidContext.drawImage(gasSurface, 0, 0)
+          if (objectsBack) preLiquidContext.drawImage(objectsBack, 0, 0)
+        }
+        let sceneMask = reusedViewport?.sceneMask
+        if (!sceneMask && hasLiquidCells && backwallSurface) {
+          sceneMask = surface()
+          const maskContext = sceneMask.getContext('2d')!
+          // Substance ALPHA/OPAQUE writes MRT1=(0,.5,0,coverage); biome writes G=0.
+          maskContext.drawImage(backwallSurface, 0, 0)
+          maskContext.globalCompositeOperation = 'source-in'
+          maskContext.fillStyle = 'rgb(0,128,0)'
+          maskContext.fillRect(0, 0, surfaceWidth, surfaceHeight)
+          maskContext.globalCompositeOperation = 'source-over'
+          if (frameCache) frameCache.sceneMask = sceneMask
+        }
+        const liquidRendered = overlay === 'none'  && liquidContext && hasLiquidCells
+          ? oniWorldRenderer.renderLiquid({ ...fluidInput, context: liquidContext, sceneSource: preLiquid, sceneMaskSource: sceneMask }) : false
+        if (overlay === 'none' && (!gasRendered || !liquidRendered)) for (let canvasY = range.minRow; canvasY <= range.maxRow; canvasY++) {
+          const y = size.height - 1 - canvasY
+          for (let worldX = range.minX; worldX <= range.maxX; worldX++) {
+            const cell = cellAt(worldX, y)
+            if (!cell) continue
+            const element = elementForHash(cell.elementHash)
+            const px = originX + worldX * baseCellSize
+            const py = originY + canvasY * baseCellSize
+            if (!gasRendered && gasContext && element.state === 'gas' && element.fluidMaterial) drawGasFallback(gasContext, element.fluidMaterial, cell, px, py, baseCellSize)
+            if (!liquidRendered && liquidContext && element.state === 'liquid' && element.fluidMaterial) {
+              const above = cellAt(worldX, y + 1)
+              const state = above ? elementForHash(above.elementHash).state : undefined
+              drawLiquidFallback(liquidContext, element.fluidMaterial, cell, px, py, baseCellSize, state === 'liquid' || state === 'solid')
+            }
           }
         }
-      }
-      if (frameCache) {
-        // Reuse the same two canvases so Pixi updates existing GPU textures.
-        // A continuous viewport has no internal chunk edges to trim on the CPU.
-        for (const [layer, source] of [['gas', gasSurface], ['liquid', liquidSurface]] as const) {
-          if (!source) continue
-          let target = frameCache.layers[layer]
-          if (!target) {
-            target = document.createElement('canvas')
-            target.width = pixelWidth; target.height = pixelHeight
-            frameCache.layers[layer] = target
+        if (frameCache) {
+          // Reuse the same two canvases so Pixi updates existing GPU textures.
+          // A continuous viewport has no internal chunk edges to trim on the CPU.
+          for (const [layer, source] of [['gas', gasSurface], ['liquid', liquidSurface]] as const) {
+            if (!source) continue
+            let target = frameCache.layers[layer]
+            if (!target) {
+              target = document.createElement('canvas')
+              target.width = pixelWidth; target.height = pixelHeight
+              frameCache.layers[layer] = target
+            }
+            const context = target.getContext('2d')!
+            context.clearRect(0, 0, pixelWidth, pixelHeight)
+            context.drawImage(source, gutterPixels, gutterPixels, pixelWidth, pixelHeight, 0, 0, pixelWidth, pixelHeight)
+            result.layers[layer] = target
           }
-          const context = target.getContext('2d')!
-          context.clearRect(0, 0, pixelWidth, pixelHeight)
-          context.drawImage(source, gutterPixels, gutterPixels, pixelWidth, pixelHeight, 0, 0, pixelWidth, pixelHeight)
-          result.layers[layer] = target
+        } else {
+          if (gasSurface) result.layers.gas = trimFluidNoise(cropVisible(gasSurface, gutterPixels, pixelWidth, pixelHeight))
+          if (liquidSurface) result.layers.liquid = trimFluidNoise(cropVisible(liquidSurface, gutterPixels, pixelWidth, pixelHeight))
         }
-      } else {
-        if (gasSurface) result.layers.gas = trimFluidNoise(cropVisible(gasSurface, gutterPixels, pixelWidth, pixelHeight))
-        if (liquidSurface) result.layers.liquid = trimFluidNoise(cropVisible(liquidSurface, gutterPixels, pixelWidth, pixelHeight))
+        if (fluidsOnly) return result
       }
-      if (fluidsOnly) return result
 
-      const terrain = surface()
-      const terrainContext = terrain.getContext('2d')!
-      terrainContext.imageSmoothingEnabled = false
-      terrainContext.imageSmoothingEnabled = false
-      if (visibleLayers.ground) oniWorldRenderer.renderTerrain({ context: terrainContext, width: size.width, height: size.height, cellSize: baseCellSize, originX, originY, range, worldZones, textures, maskSets, cellAt, propertyCacheKey, isTerrainMaskedAt, damageAt, hasBackwallAt, zoneColors: ONI_WORLD_ZONE_COLORS })
-      const patterns = new Map<string, CanvasPattern | null>()
-      for (const [path, image] of Object.entries(textures)) {
-        const pattern = terrainContext.createPattern(image, 'repeat')
-        if (pattern) {
-          const element = ELEMENTS.find((candidate) => candidate.texture === path)
-          const scale = baseCellSize * (element?.worldUvScale ?? DEFAULT_ELEMENT_WORLD_UV_SCALE) / image.naturalWidth
-          pattern.setTransform(new DOMMatrix([scale, 0, 0, scale, originX, originY + size.height * baseCellSize - baseCellSize * (element?.worldUvScale ?? DEFAULT_ELEMENT_WORLD_UV_SCALE)]))
-        }
-        patterns.set(path, pattern)
-      }
-      for (let canvasY = range.minRow; canvasY <= range.maxRow; canvasY++) {
-        const y = size.height - 1 - canvasY
-        for (let worldX = range.minX; worldX <= range.maxX; worldX++) {
-          const cell = cellAt(worldX, y)
-          if (!cell) continue
-          const element = elementForHash(cell.elementHash)
-          const px = originX + worldX * baseCellSize
-          const py = originY + canvasY * baseCellSize
-          if (element.state === 'special') {
-            terrainContext.fillStyle = patterns.get(element.texture ?? '') ?? element.color
-            terrainContext.fillRect(px, py, baseCellSize, baseCellSize)
+      if (!options?.skipSurfaces) {
+        const terrain = frameCache?.terrain ?? surface()
+        if (frameCache) frameCache.terrain = terrain
+        terrain.getContext('2d')!.clearRect(0, 0, surfaceWidth, surfaceHeight)
+        const terrainContext = terrain.getContext('2d')!
+        terrainContext.imageSmoothingEnabled = false
+        if (visibleLayers.ground) oniWorldRenderer.renderTerrain({ context: terrainContext, width: size.width, height: size.height, cellSize: baseCellSize, originX, originY, range, worldZones, textures, maskSets, cellAt, propertyCacheKey, isTerrainMaskedAt, damageAt, hasBackwallAt, zoneColors: ONI_WORLD_ZONE_COLORS, shineCamera: options?.shineCamera })
+        const patterns = new Map<string, CanvasPattern | null>()
+        for (const [path, image] of Object.entries(textures)) {
+          const pattern = terrainContext.createPattern(image, 'repeat')
+          if (pattern) {
+            const element = ELEMENTS.find((candidate) => candidate.texture === path)
+            const scale = baseCellSize * (element?.worldUvScale ?? DEFAULT_ELEMENT_WORLD_UV_SCALE) / image.naturalWidth
+            pattern.setTransform(new DOMMatrix([scale, 0, 0, scale, originX, originY + size.height * baseCellSize - baseCellSize * (element?.worldUvScale ?? DEFAULT_ELEMENT_WORLD_UV_SCALE)]))
           }
-          if (overlay === 'temperature') {
-            terrainContext.fillStyle = temperatureColor(cell.temperature); terrainContext.globalAlpha = .72; terrainContext.fillRect(px, py, baseCellSize, baseCellSize); terrainContext.globalAlpha = 1
-          } else if (overlay === 'mass') {
-            const intensity = Math.min(1, Math.log10(1 + Math.max(0, cell.mass)) / 2.2); terrainContext.fillStyle = `rgba(117, 171, 191, ${.12 + intensity * .88})`; terrainContext.fillRect(px, py, baseCellSize, baseCellSize)
-          } else if (overlay === 'visibility') {
-            const value = visibleGrid?.[y * size.width + worldX] ?? 0; terrainContext.fillStyle = value > 0 ? `rgba(127, 169, 212, ${.2 + value / 255 * .72})` : 'rgba(16, 23, 25, .84)'; terrainContext.fillRect(px, py, baseCellSize, baseCellSize)
-          } else if (overlay === 'spawnable') {
-            const value = spawnableGrid?.[y * size.width + worldX] ?? 0; terrainContext.fillStyle = value > 0 ? `rgba(112, 157, 123, ${.2 + value / 255 * .72})` : 'rgba(16, 23, 25, .84)'; terrainContext.fillRect(px, py, baseCellSize, baseCellSize)
-          } else if (overlay === 'damage') {
-            const value = Math.max(0, Math.min(1, damageAt(worldX, y))); terrainContext.fillStyle = value > 0 ? `rgba(198, 123, 113, ${.2 + value * .72})` : 'rgba(16, 23, 25, .84)'; terrainContext.fillRect(px, py, baseCellSize, baseCellSize)
-          } else if (overlay === 'disease') {
-            const index = (y + 1) * sim.width + worldX + 1; const offset = sim.diseaseOffset + index * SIM_DISEASE_SIZE; let level = 0; for (let byte = 0; byte < SIM_DISEASE_SIZE; byte++) level += sim.bytes[offset + byte]; const intensity = Math.min(.9, .12 + level / 2040); terrainContext.fillStyle = level > 0 ? `rgba(194, 102, 111, ${intensity})` : 'rgba(16, 23, 25, .84)'; terrainContext.fillRect(px, py, baseCellSize, baseCellSize)
+          patterns.set(path, pattern)
+        }
+        for (let canvasY = range.minRow; canvasY <= range.maxRow; canvasY++) {
+          const y = size.height - 1 - canvasY
+          for (let worldX = range.minX; worldX <= range.maxX; worldX++) {
+            const cell = cellAt(worldX, y)
+            if (!cell) continue
+            const element = elementForHash(cell.elementHash)
+            const px = originX + worldX * baseCellSize
+            const py = originY + canvasY * baseCellSize
+            if (element.state === 'special') {
+              terrainContext.fillStyle = patterns.get(element.texture ?? '') ?? element.color
+              terrainContext.fillRect(px, py, baseCellSize, baseCellSize)
+            }
+            if (overlay === 'temperature') {
+              terrainContext.fillStyle = temperatureColor(cell.temperature); terrainContext.globalAlpha = .72; terrainContext.fillRect(px, py, baseCellSize, baseCellSize); terrainContext.globalAlpha = 1
+            } else if (overlay === 'mass') {
+              const intensity = Math.min(1, Math.log10(1 + Math.max(0, cell.mass)) / 2.2); terrainContext.fillStyle = `rgba(117, 171, 191, ${.12 + intensity * .88})`; terrainContext.fillRect(px, py, baseCellSize, baseCellSize)
+            } else if (overlay === 'visibility') {
+              const value = visibleGrid?.[y * size.width + worldX] ?? 0; terrainContext.fillStyle = value > 0 ? `rgba(127, 169, 212, ${.2 + value / 255 * .72})` : 'rgba(16, 23, 25, .84)'; terrainContext.fillRect(px, py, baseCellSize, baseCellSize)
+            } else if (overlay === 'spawnable') {
+              const value = spawnableGrid?.[y * size.width + worldX] ?? 0; terrainContext.fillStyle = value > 0 ? `rgba(112, 157, 123, ${.2 + value / 255 * .72})` : 'rgba(16, 23, 25, .84)'; terrainContext.fillRect(px, py, baseCellSize, baseCellSize)
+            } else if (overlay === 'damage') {
+              const value = Math.max(0, Math.min(1, damageAt(worldX, y))); terrainContext.fillStyle = value > 0 ? `rgba(198, 123, 113, ${.2 + value * .72})` : 'rgba(16, 23, 25, .84)'; terrainContext.fillRect(px, py, baseCellSize, baseCellSize)
+            } else if (overlay === 'disease') {
+              const index = (y + 1) * sim.width + worldX + 1; const offset = sim.diseaseOffset + index * SIM_DISEASE_SIZE; let level = 0; for (let byte = 0; byte < SIM_DISEASE_SIZE; byte++) level += sim.bytes[offset + byte]; const intensity = Math.min(.9, .12 + level / 2040); terrainContext.fillStyle = level > 0 ? `rgba(194, 102, 111, ${intensity})` : 'rgba(16, 23, 25, .84)'; terrainContext.fillRect(px, py, baseCellSize, baseCellSize)
+            }
           }
         }
+        result.layers.terrain = cropped(terrain, 'terrain')
       }
-      result.layers.terrain = crop(terrain, gutterPixels, pixelWidth, pixelHeight)
+      if (surfacesOnly) return result
       const objectsFront = drawObjects(true)
       if (objectsFront) result.layers.entitiesFront = objectsFront
       if (overlay === 'none' && visibleLayers.lighting !== false) {
@@ -1116,6 +1162,6 @@ export async function createOniChunkRenderer(
       }
       return result
     },
-    destroy() { destroyed = true; if (revisionTimer) clearTimeout(revisionTimer); fluidViewport = undefined; cellCache.clear(); backwallCells.clear() },
+    destroy() { destroyed = true; if (revisionTimer) clearTimeout(revisionTimer); fluidViewport = undefined; shineViewport = undefined; cellCache.clear(); backwallCells.clear() },
   }
 }
