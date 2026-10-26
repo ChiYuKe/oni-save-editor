@@ -1,3 +1,4 @@
+import { printingPodViewport, mapLoadOrigin, resizeMapViewport } from './lib/oniMapFocus'
 import { createOniMapOverview } from './lib/oniMapOverview'
 import { sceneViewportForCamera } from './lib/oniSceneViewport'
 import { createOniCellOutline } from './lib/oniCellOutline'
@@ -78,11 +79,9 @@ type MapPreviewCell = { x: number; y: number; elementHash: number }
 type MapSelection = { start: { x: number; y: number }; end: { x: number; y: number } }
 type MapTool = 'inspect' | 'move' | 'paint' | 'erase' | 'eyedropper' | 'fill' | 'rectangle' | 'line'
 type MapCellUpdate = { x: number; y: number; patch: Partial<SimCell> }
-type MapViewport = { zoomPercent: number; pan: { x: number; y: number } }
-// Start at the source grid's full extent. A save can place its active asteroid
-// far away from the global grid centre, so a magnified centred view may contain
-// only unexplored fog even though the colony data rendered correctly.
-const DEFAULT_MAP_VIEWPORT: MapViewport = { zoomPercent: 0, pan: { x: 0, y: 0 } }
+type MapViewport = { zoomPercent: number; pan: { x: number; y: number }; focusPrintingPod?: boolean }
+// New saves focus the printing pod once; later camera changes remain user controlled.
+const DEFAULT_MAP_VIEWPORT: MapViewport = { zoomPercent: 0, pan: { x: 0, y: 0 }, focusPrintingPod: true }
 const MAP_ZOOM_MIN = 1
 const MAP_ZOOM_MAX = 16
 const DEFAULT_ELEMENT_WORLD_UV_SCALE = 8
@@ -1541,6 +1540,7 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
   const sceneRef = useRef<PixiWorldScene | null>(null)
   const pointerRef = useRef<{ mode: 'pan' | 'select' | 'brush' | 'shape' | 'point'; id: number; startX: number; startY: number; panX: number; panY: number; startCell: { x: number; y: number } | null; lastCell: { x: number; y: number } | null; moved: boolean } | null>(null)
   const cameraRef = useRef(viewport)
+  const cameraGeometryRef = useRef<{ width: number; height: number; fit: number } | null>(null)
   const wheelCommitRef = useRef<number | null>(null)
   const isInteractingRef = useRef(false)
   const buildRef = useRef(0)
@@ -1612,8 +1612,15 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
 
   useEffect(() => {
     sceneRef.current?.resize(viewportSize.width, viewportSize.height)
-    applyCamera(viewport)
-  }, [applyCamera, viewport, viewportSize.height, viewportSize.width])
+    if (viewportSize.width <= 0 || viewportSize.height <= 0) return
+    const previous = cameraGeometryRef.current
+    const resized = previous && (previous.width !== viewportSize.width || previous.height !== viewportSize.height)
+    const next = viewport.focusPrintingPod ? printingPodViewport(save, viewportSize.width, viewportSize.height)
+      : resized ? resizeMapViewport(viewport, previous.fit, fitScale) : viewport
+    cameraGeometryRef.current = { width: viewportSize.width, height: viewportSize.height, fit: fitScale }
+    applyCamera(next)
+    if (next !== viewport) onViewportChange(next)
+  }, [applyCamera, viewport, viewportSize.height, viewportSize.width, save, onViewportChange, fitScale])
 
   useEffect(() => {
     const scene = sceneRef.current
@@ -1630,7 +1637,7 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
     let renderer: Awaited<ReturnType<typeof createOniChunkRenderer>> | null = null
     let cursor = 0
     let scheduledFrame = 0
-    let sceneKey = '', pendingSceneKey = '', pendingSince = 0, sceneComplete = false
+    let sceneKey = '', pendingSceneKey = '', pendingSince = 0, sceneComplete = false, detailLoading = false
     let animationFrame = 0
     const fluidClock = new OniFluidFrameClock()
     const animateFluids = overlay === 'none' && (visibleLayers.gas || visibleLayers.liquid)
@@ -1660,6 +1667,8 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
     const buildNext = (now: number) => {
       if (generation !== buildRef.current || !renderer) return
       if (document.hidden || isInteractingRef.current) { scheduleNext(); return }
+      const pending = renderer.pendingDetails > 0
+      if (pending !== detailLoading) { detailLoading = pending; setMapLoading(pending ? '正在补齐当前视野的高清画面…' : null) }
       const view = sceneViewportForCamera(scene.visibleWorldRect(), size.width, size.height, baseCellSize, window.devicePixelRatio || 1)
       const viewKey = view ? `${view.key}:${renderer.revision}` : ''
       if (view && viewKey !== sceneKey) {
@@ -1667,9 +1676,10 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
         if (!sceneKey || now - pendingSince >= 120) {
           sceneKey = viewKey; sceneComplete = false; cursor = 0; tasks = []; renderedKeysByLayer.clear()
           void renderer.prepareViewport(view.x, view.row, view.right - view.x, view.bottom - view.row, view.cellSize >= 8).catch(cause => console.error('地图细节加载失败。', cause))
+          const origin = mapLoadOrigin(save, view.x, view.row, view.right - view.x, view.bottom - view.row)
           for (let row = view.row; row < view.bottom; row += view.tile) for (let x = view.x; x < view.right; x += view.tile) {
             tasks.push({ x, row, widthCells: Math.min(view.tile, size.width - x), heightCells: Math.min(view.tile, size.height - row),
-              key: `${x}:${row}`, cellSize: view.cellSize, distance: Math.hypot(x - (view.x + view.right) / 2, row - (view.row + view.bottom) / 2) })
+              key: `${x}:${row}`, cellSize: view.cellSize, distance: origin.x >= x && origin.x < x + view.tile && origin.row >= row && origin.row < row + view.tile ? -1 : Math.hypot(x + view.tile / 2 - origin.x, row + view.tile / 2 - origin.row) })
           }
           tasks.sort((a, b) => a.distance - b.distance)
         }
@@ -1693,7 +1703,7 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
       }
       if (!sceneComplete && cursor === tasks.length) {
         sceneComplete = true
-        setMapLoading(null)
+        if (!renderer.pendingDetails) setMapLoading(null)
         if (metrics && !metrics.firstSceneMs) metrics.firstSceneMs = (performance.now() - startedAt).toFixed(1)
         const allLayers: readonly OniChunkLayer[] = ONI_CHUNK_LAYERS
         for (const layer of allLayers) {

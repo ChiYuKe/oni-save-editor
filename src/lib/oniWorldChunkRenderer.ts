@@ -1,3 +1,5 @@
+import { OniDetailQueue } from './oniDetailQueue'
+import { mapLoadOrigin } from './oniMapFocus'
 import { ONI_BUILDING_SPRITES } from './oniBuildingSprites.generated'
 import { ONI_ZONE_TEXTURE_ARRAY_INDICES } from './oniShaders'
 import { loadOniPreviewImages } from './oniPreviewAssets'
@@ -88,6 +90,7 @@ export interface OniWorldChunkRenderer {
   readonly height: number
   readonly cellSize: number
   readonly revision: number
+  readonly pendingDetails: number
   readonly ready: Promise<void>
   prepareViewport(x: number, row: number, widthCells: number, heightCells: number, detail: boolean): Promise<void>
   renderChunk(x: number, row: number, widthCells: number, heightCells: number, options?: OniChunkRenderOptions): OniRenderedChunk
@@ -759,10 +762,24 @@ export async function createOniChunkRenderer(
   const snapshotTime = performance.now() / 1000
   const nativeCellSize = baseCellSize
   let fluidViewport: FluidViewportCache | undefined
-  const requested = new Set<string>()
+  const requested = new Map<string, Promise<void>>()
+  const detailQueue = new OniDetailQueue(4)
+  let pendingDetails = 0
+  let revisionTimer: ReturnType<typeof setTimeout> | undefined
+  const pendingBiomes: Record<number, HTMLImageElement> = {}
+  const flushDetails = () => {
+    if (revisionTimer) clearTimeout(revisionTimer)
+    revisionTimer = undefined
+    if (destroyed) return
+    if (Object.keys(pendingBiomes).length) { biomeBackgrounds = { ...biomeBackgrounds, ...pendingBiomes }; for (const key of Object.keys(pendingBiomes)) delete pendingBiomes[Number(key)] }
+    assetRevision++; fluidViewport = undefined
+  }
+  const invalidateDetails = () => { if (!revisionTimer && !destroyed) revisionTimer = setTimeout(flushDetails, 100) }
   const prepareViewport = async (x: number, row: number, widthCells: number, heightCells: number, detail: boolean) => {
     if (destroyed) return
-    const paths = new Set<string>(), objectPaths = new Set<string>(), biomes = new Set<number>()
+    const paths = new Map<string, number>(), objectPaths = new Map<string, number>(), biomes = new Map<number, number>()
+    const focus = mapLoadOrigin(save, x, row, widthCells, heightCells)
+    const prioritize = <K,>(map: Map<K, number>, key: K, priority: number) => map.set(key, Math.min(map.get(key) ?? Infinity, priority))
     const minX = Math.max(0, x - 2), maxX = Math.min(size.width, x + widthCells + 2)
     const minRow = Math.max(0, row - 2), maxRow = Math.min(size.height, row + heightCells + 2)
     if (detail) {
@@ -771,13 +788,13 @@ export async function createOniChunkRenderer(
         for (const hash of [cellAt(cx, cy)?.elementHash, readSimBackwall(sim, view, cx + 1, cy + 1)?.elementHash]) {
           if (hash === undefined) continue
           const material = ONI_SUBSTANCE_BY_HASH.get(hash), shine = ONI_SHINE_MATERIALS.get(hash)
-          for (const path of [elementForHash(hash).texture, material?.textureUrl, shine?.maskUrl, shine?.normalUrl]) if (path) paths.add(path)
+          for (const path of [elementForHash(hash).texture, material?.textureUrl, shine?.maskUrl, shine?.normalUrl]) if (path) prioritize(paths, path, 16 + Math.hypot(cx - focus.x, r - focus.row))
         }
         const zone = worldZones[cy * size.width + cx] ?? 7
         // The background sampler can blend any neighbouring zone at a boundary.
-        if (zone !== 7 && ONI_ZONE_TEXTURE_ARRAY_INDICES[zone] !== undefined) biomes.add(ONI_ZONE_TEXTURE_ARRAY_INDICES[zone])
+        if (zone !== 7 && ONI_ZONE_TEXTURE_ARRAY_INDICES[zone] !== undefined) prioritize(biomes, ONI_ZONE_TEXTURE_ARRAY_INDICES[zone], 40 + Math.hypot(cx - focus.x, r - focus.row))
       }
-      for (const path of texturePaths) if (path.startsWith('/assets/render/') && !path.includes('/shine/')) paths.add(path)
+      for (const path of texturePaths) if (path.startsWith('/assets/render/') && !path.includes('/shine/')) prioritize(paths, path, 60)
     }
     const nearby = new Set<PreparedObject>()
     for (let by = Math.floor(minRow / 64); by <= Math.floor(maxRow / 64); by++) for (let bx = Math.floor(minX / 64); bx <= Math.floor(maxX / 64); bx++) {
@@ -787,33 +804,37 @@ export async function createOniChunkRenderer(
       const px = item.instance.position.x, pr = size.height - 1 - item.instance.position.y
       if (!objectLayerVisible(visibleLayers, item) || px + item.spriteMargin < minX || px - item.spriteMargin > maxX || pr + item.spriteMargin < minRow || pr - item.spriteMargin > maxRow) continue
       for (const path of [item.blockTile?.path, item.utility?.path, item.building?.path, item.isGeyser && !item.building ? item.geyser?.path : undefined]) {
-        if (path && (detail || !objectTextures[path])) objectPaths.add(path)
+        if (path && (detail || !objectTextures[path])) prioritize(objectPaths, path, /^(Headquarters|ExobaseHeadquarters)$/.test(item.group.tag) ? -1000 : Math.hypot(px - focus.x, pr - focus.row) + (item.blockTile || item.utility ? 8 : 0))
       }
     }
-    if (detail && !minionsRequested && (visibleLayers.minions ?? true) && [...nearby].some(item => item.group.tag === 'Minion')) {
-      minionsRequested = true
-      void loadMinionKanimAssets(minionWearables).then(assets => { if (!destroyed) { minionAssets = assets; assetRevision++; fluidViewport = undefined } }).catch(() => { minionsRequested = false })
-    }
-    const jobs: Promise<unknown>[] = []
-    let changed = false
-    const request = (path: string, target: Record<string, HTMLImageElement>) => {
-      if (requested.has(path)) return
-      requested.add(path)
-      jobs.push(loadImage(path).then(image => {
+    const needsMinions = detail && !minionsRequested && (visibleLayers.minions ?? true) && [...nearby].some(item => item.group.tag === 'Minion')
+    if (needsMinions) minionsRequested = true
+    const jobs: Promise<void>[] = []
+    const request = (path: string, target: Record<string, HTMLImageElement> | null, priority: number, biome?: number) => {
+      const existing = requested.get(path)
+      if (existing) { jobs.push(existing); return }
+      pendingDetails++
+      const job = detailQueue.enqueue(async () => {
+        if (destroyed) return
+        const image = await loadImage(path)
         if (destroyed) return
         if (!image) { requested.delete(path); return }
-        target[path] = image; changed = true
-      }))
+        if (target) target[path] = image
+        if (biome !== undefined) pendingBiomes[biome] = image
+        // Publish each completed asset; a distant or stalled file must not
+        // keep the printing pod and nearby objects on their small previews.
+        invalidateDetails()
+      }, priority).finally(() => { pendingDetails-- })
+      requested.set(path, job); jobs.push(job)
     }
-    for (const path of paths) request(path, textures)
-    for (const path of objectPaths) request(path, objectTextures)
-    const backgroundImages: Record<string, HTMLImageElement> = {}
-    for (const index of biomes) request(biomeBackgroundAsset(index), backgroundImages)
+    for (const [path, priority] of objectPaths) request(path, objectTextures, priority)
+    for (const [path, priority] of paths) request(path, textures, priority)
+    for (const [index, priority] of biomes) request(biomeBackgroundAsset(index), null, priority, index)
     await Promise.all(jobs)
-    if (changed && !destroyed) {
-      biomeBackgrounds = { ...biomeBackgrounds }
-      for (let index = 0; index < 19; index++) if (backgroundImages[biomeBackgroundAsset(index)]) biomeBackgrounds[index] = backgroundImages[biomeBackgroundAsset(index)]
-      assetRevision++; fluidViewport = undefined
+    if (revisionTimer) flushDetails()
+    // Wearable packages must not compete with the printing pod's first textures.
+    if (needsMinions && !destroyed) {
+      void loadMinionKanimAssets(minionWearables).then(assets => { if (!destroyed) { minionAssets = assets; assetRevision++; fluidViewport = undefined } }).catch(() => { minionsRequested = false })
     }
   }
   const ready = Promise.resolve()
@@ -823,6 +844,7 @@ export async function createOniChunkRenderer(
     height: size.height,
     cellSize: baseCellSize,
     get revision() { return assetRevision },
+    get pendingDetails() { return pendingDetails },
     ready,
     prepareViewport,
     renderChunk(x, row, widthCells, heightCells, options) {
@@ -1094,6 +1116,6 @@ export async function createOniChunkRenderer(
       }
       return result
     },
-    destroy() { destroyed = true; fluidViewport = undefined; cellCache.clear(); backwallCells.clear() },
+    destroy() { destroyed = true; if (revisionTimer) clearTimeout(revisionTimer); fluidViewport = undefined; cellCache.clear(); backwallCells.clear() },
   }
 }
