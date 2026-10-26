@@ -1,0 +1,80 @@
+/* Shared light palette. Map textures, lighting and simulation colors are untouched. */
+.theme-toggle { display:inline-flex; flex:0 0 30px; align-items:center; justify-content:center; width:30px; height:30px; padding:0; border:0; border-radius:7px; background:transparent; color:#aaa; }
+.theme-toggle:hover { color:#eee; background:#ffffff0b; }
+.theme-toggle:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
+.landing-header-actions .theme-toggle { width:40px; height:40px; flex-basis:40px; background:#ffffff0b; border-radius:10px; }
+:root[data-theme=light] {
+  color-scheme:light;
+  --ui-bg:#f5f5f3; --ui-panel:#ffffff; --ui-raised:#ededeb; --ui-border:#e4e4e1;
+  --ui-text:#252525; --ui-muted:#666666;
+  --ui-card-shadow:0 5px 20px #00000007,0 1px 4px #00000005;
+  --paper:var(--ui-bg); --ink:var(--ui-text); --ink-soft:#484848; --muted:var(--ui-muted); --faint:#777;
+  --line:var(--ui-border); --line-strong:#c9c9c5; --white:#fff; --soft:var(--ui-raised);
+}
+[data-theme=light] :is(.saved-shell,.template-shell) {
+  color-scheme:light; --ink-soft:#484848; --faint:#777; --line-strong:#c9c9c5;
+  --accent-soft:#e23e4310; --warm:#f6eee6; --danger:#ab443b;
+}
+[data-theme=light] :is(.saved-shell,.template-shell) .topbar { background:#fff; }
+[data-theme=light] :is(.saved-shell,.template-shell) .brand-name { color:var(--ui-text); }
+[data-theme=light] :is(.saved-shell,.template-shell) .brand-mark { background:#ededeb; color:#252525; }
+[data-theme=light] .brand-caption { color:#777; }
+[data-theme=light] .theme-toggle { color:#555; }
+[data-theme=light] .theme-toggle:hover { color:#222; background:#00000008; }
+[data-theme=light] .saved-shell .topnav button { color:#656565; }
+[data-theme=light] .saved-shell .topnav button:hover { color:#222; background:#f0f0ee; }
+[data-theme=light] .saved-shell .topnav button.active { color:#222; background:#eaeae7; }
+[data-theme=light] .saved-shell .topbar-pill .button-quiet:hover { color:#222; background:#f0f0ee; border-color:transparent; }
+[data-theme=light] .saved-shell .file-chip { background:#f2f2ef; color:#555; }
+[data-theme=light] .saved-shell :is(.metric-icon,.dupe-avatar,.bar-track) { background:#f0f0ed; color:#666; }
+[data-theme=light] .saved-shell :is(.search-box,.transform-grid label,.yaml-source-picker select) { background:#f8f8f6; }
+[data-theme=light] .saved-shell :is(.object-group-row,.record-row,.dupe-row).selected { color:#8c3038; }
+[data-theme=light] .saved-shell .component-tabs button.selected { color:#97353e; border-color:#dfb3b8; }
+[data-theme=light] .saved-shell .section-icon { color:#b94852; }
+[data-theme=light] .saved-shell .raw-notice { color:#89633a; border-color:#dbcbb9; }
+[data-theme=light] .saved-shell .error-banner { color:#9b3934; background:#fcf0ed; border-color:#ecd1ca; }
+[data-theme=light] .saved-shell :is(.workspace,.object-group-list,.records-table,.component-tabs,.object-inspector,.map-target-panel,.map-target-panel nav,.dupe-list),
+[data-theme=light] .resource-planets { scrollbar-color:#c2c2bd transparent; }
+[data-theme=light] .resource-planets button[aria-pressed=true] { color:#222; background:#ededeb; }
+[data-theme=light] .resource-planets button:hover { background:#00000004; }
+[data-theme=light] .resource-filter select { color:#444; background:#f8f8f6; }
+[data-theme=light] .resource-yields>div { background:#fff; }
+[data-theme=light] .resource-table th { background:#f8f8f6; }
+[data-theme=light] .resource-table td { border-top-color:#00000007; }
+[data-theme=light] .resource-geyser-name:hover { color:#a6303a; }
+[data-theme=light] .resource-status { color:#555; }
+[data-theme=light] :is(.resource-status-dormant,.resource-status-circulator) { color:#727272; }
+[data-theme=light] .resource-table .is-expanded { background:#00000002; }
+[data-theme=light] .resource-table .resource-detail-row td { background:#f9f9f7; }
+[data-theme=light] .saved-shell .map-workbench { --map-panel:rgba(255,255,253,.96); }
+[data-theme=light] .saved-shell .map-layer-floating :is(.map-layer-toggle,.map-layer-stack-inner),
+[data-theme=light] .saved-shell .map-target-panel { color:var(--ink); background:rgba(255,255,253,.97); }
+[data-theme=light] .saved-shell .map-target-panel h2 { color:#252525; }
+[data-theme=light] .saved-shell .map-target-panel :is(header small,.map-target-position,dt),
+[data-theme=light] .saved-shell .map-target-panel nav small { color:#666; }
+[data-theme=light] .saved-shell .map-target-panel nav button { border-color:#00000008; }
+[data-theme=light] .saved-shell .map-target-panel nav button[aria-pressed=true] { color:#963942; }
+[data-theme=light] .saved-shell .tool-rail-buttons button.selected { color:#b43743; border-color:#e4b9bf; }
+[data-theme=light] .oni-cell-tooltip { background:rgba(255,255,253,.97); color:#333; }
+[data-theme=light] .oni-cell-tooltip :is(strong,dd) { color:#252525; }
+[data-theme=light] .oni-cell-tooltip :is(dt,.oni-cell-position) { color:#666; }
+[data-theme=light] .landing-shell, [data-theme=light] .landing-shell .empty-state { background:var(--ui-bg); }
+[data-theme=light] .landing-shell .empty-state::before { background:radial-gradient(circle at 50% 47%,#f5f5f300,#f5f5f3e6 85%); }
+[data-theme=light] :is(.landing-header,.landing-footer) { border-color:var(--ui-border); }
+[data-theme=light] :is(.landing-brand strong,.landing-copy h1,.landing-upload h2,.landing-features strong) { color:#252525; }
+[data-theme=light] :is(.landing-copy>p,.landing-eyebrow,.landing-local,.landing-footer,.landing-features small,.landing-upload p,.landing-upload .upload-kicker,.landing-upload .upload-privacy) { color:#707070; }
+[data-theme=light] :is(.landing-language,.landing-github,.landing-header-actions .theme-toggle) { color:#555; background:#00000005; }
+[data-theme=light] :is(.landing-language,.landing-github):hover { color:#222; background:#00000009; }
+[data-theme=light] .landing-features article { background:#fff; }
+[data-theme=light] .landing-features article:hover { background:#fafafa; box-shadow:var(--ui-card-shadow); }
+[data-theme=light] .landing-upload { background:#fff; }
+[data-theme=light] .is-dragging .landing-upload { background:#faf9f7; box-shadow:var(--ui-card-shadow); }
+[data-theme=light] .landing-upload .upload-decoration { border-color:#00000008; }
+[data-theme=light] .landing-upload .upload-decoration::before, [data-theme=light] .landing-upload .upload-decoration::after { border-color:#00000006; }
+[data-theme=light] .landing-upload .upload-decoration span { background:#fff; border-color:#ccc; }
+[data-theme=light] .landing-upload .upload-formats span { background:#f0f0ed; color:#777; }
+
+[data-theme=light] :is(.saved-shell,.template-shell) .topbar-pill .button-quiet { color:#555; }
+[data-theme=light] :is(.saved-shell,.template-shell) .topbar-pill .button-replace { color:#ad3b45; }
+[data-theme=light] .resource-yield-summary>summary { background:#fff; }
+[data-theme=light] .landing-shell .hero-art { opacity:.14; }

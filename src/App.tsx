@@ -1,3 +1,4 @@
+import { ThemeToggle } from './ThemeToggle'
 import { objectGroupIcon } from './lib/oniObjectIcon'
 import { createOniPlanetLabels } from './lib/oniPlanetLabels'
 import { ResourceStatisticsView } from './ResourceStatisticsView'
@@ -45,6 +46,7 @@ import {
 } from 'lucide-react'
 import './App.css'
 import './workbench.css'
+import './theme.css'
 import { ONI_CHUNK_LAYERS } from './lib/oniRenderLayers'
 import { buildSave, type ParsedSave } from './lib/save'
 import { ELEMENTS, defaultElementValues, elementForHash, elementOptions, formatHash } from './lib/elements'
@@ -594,6 +596,7 @@ function App() {
             </nav>
           )}
           <div className="topbar-actions">
+            <ThemeToggle />
             {save ? (
               <>
                 <div className="file-chip" title={fileName}>
@@ -682,6 +685,7 @@ function EmptyState({ loading, isDragging, onPick, onDrop, onDragChange }: { loa
             <span><strong>{english ? 'ONI Save Editor' : '缺氧存档编辑器'}</strong><small>{english ? 'COLONY DATA WORKSPACE' : 'ONI SAVE EDITOR'}</small></span>
           </div>
           <div className="landing-header-actions">
+            <ThemeToggle />
             <div className="landing-local"><span className="status-dot" />LOCAL WORKSPACE</div>
             <button className="landing-language" type="button" onClick={() => setLandingLanguage(english ? 'zh' : 'en')} aria-label={english ? '切换到中文' : 'Switch to English'} title={english ? '切换到中文' : 'Switch to English'}>
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.2 2.45 3.35 5.45 3.35 9S14.2 18.55 12 21c-2.2-2.45-3.35-5.45-3.35-9S9.8 5.45 12 3Z" /></svg>
