@@ -645,6 +645,15 @@ input { min-width: 0; }
 
 /* Selection details float over the map without changing its camera or viewport. */
 .map-target-panel { position:absolute; z-index:21; top:12px; right:12px; bottom:12px; width:min(320px,calc(100% - 92px)); overflow:auto; padding:16px; color:#dce4df; background:rgba(17,24,28,.96); border:1px solid #52646a; border-radius:10px; box-shadow:0 8px 28px #0005; scrollbar-width:thin; }
+/* Keep native scrolling while matching the dark inspector, including nested lists. */
+.map-target-panel, .map-target-panel nav { color-scheme:dark; scrollbar-width:thin; scrollbar-color:#40535b transparent; overscroll-behavior:contain; }
+.map-target-panel:hover, .map-target-panel nav:hover { scrollbar-color:#647b84 transparent; }
+.map-target-panel::-webkit-scrollbar, .map-target-panel nav::-webkit-scrollbar { width:5px; height:5px; }
+.map-target-panel::-webkit-scrollbar-track, .map-target-panel nav::-webkit-scrollbar-track { background:transparent; margin-block:10px; }
+.map-target-panel::-webkit-scrollbar-thumb, .map-target-panel nav::-webkit-scrollbar-thumb { background:#40535b; border-radius:999px; }
+.map-target-panel::-webkit-scrollbar-thumb:hover, .map-target-panel nav::-webkit-scrollbar-thumb:hover { background:#647b84; }
+.map-target-panel::-webkit-scrollbar-button, .map-target-panel nav::-webkit-scrollbar-button { display:none; width:0; height:0; }
+.map-target-panel::-webkit-scrollbar-corner, .map-target-panel nav::-webkit-scrollbar-corner { background:transparent; }
 .map-target-panel header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
 .map-target-panel h2 { margin:4px 0 12px; color:#f4dfaa; font-size:16px; overflow-wrap:anywhere; }
 .map-target-panel header small,.map-target-position { color:#a8bbbe; font-size:11px; }
