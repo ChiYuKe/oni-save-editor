@@ -4,6 +4,7 @@ import {createHash} from 'node:crypto'
 import {parseSave,buildSave} from '../src/lib/save'
 import {component,member,scalarNumber,scalarText} from '../src/lib/editor'
 import {resourceStatistics,resampleGeyserRoll,geyserSeason} from '../src/lib/oniResourceStatistics'
+import {ONI_PLANET_ICONS} from '../src/lib/oniPlanetIcons.generated'
 import {ONI_GEYSER_TYPES} from '../src/lib/oniResourceData.generated'
 import type {SavedObjectInstance,ObjectValue,Value} from '../src/lib/model'
 const save=parseSave(new Uint8Array(readFileSync(process.argv[2])))
@@ -11,6 +12,12 @@ const digest=()=>createHash('sha256').update(buildSave(save)).digest('hex'),befo
 const data=resourceStatistics(save)
 assert.ok(data.planets.length>0);assert.ok(data.geysers.length>0)
 for(const p of data.planets){assert.ok(p.name);assert.ok(!p.name.includes('STRINGS.'));assert.ok(!p.type.includes('STRINGS.'))}
+for(const p of data.planets)if(p.iconAnimation){
+ const path=ONI_PLANET_ICONS[p.iconAnimation]
+ assert.ok(path,`native icon is available: ${p.iconAnimation}`)
+ const bytes=readFileSync(new URL('../public'+path,import.meta.url))
+ assert.equal(bytes.subarray(8,12).toString(),'WEBP')
+}
 let known=0
 for(const g of data.geysers){
  const p=data.planets.find(p=>p.id===g.planetId)!

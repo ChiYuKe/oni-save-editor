@@ -5,7 +5,7 @@ import type { ParsedSave } from './save'
 import type { ObjectValue, SavedObjectInstance } from './model'
 
 export const SECONDS_PER_CYCLE = 600
-export interface ResourcePlanet { id:number; name:string; type:string; source:string; x:number; y:number; width:number; height:number; discovered:boolean; start:boolean }
+export interface ResourcePlanet { id:number; name:string; type:string; source:string; iconAnimation?:string; x:number; y:number; width:number; height:number; discovered:boolean; start:boolean }
 export interface GeyserStatistics {
   id:string; tag:string; index:number; name:string; typeId:string; typeName:string; planetId:number; x:number; y:number
   kind:'geyser'|'circulator'|'unknown'; studied:boolean; output:string; temperature?:number; maxPressure?:number
@@ -49,7 +49,7 @@ export function readResourcePlanets(save:ParsedSave):ResourcePlanet[] {
     const source=text(world,'worldName'),typeKey=text(world,'worldType')
     const type=localized(typeKey)||source.split('/').pop()||'未知类型'
     const name=clean(text(asteroid,'m_name'))||localized(text(world,'overrideName'))||type
-    result.push({id,name,type,source,x:offset.x,y:offset.y,width:size.x,height:size.y,discovered:flag(world,'isDiscovered'),start:flag(world,'isStartWorld')})
+    result.push({id,name,type,source,iconAnimation:text(asteroid,'m_asteroidAnim')||'asteroid_sandstone_start_kanim',x:offset.x,y:offset.y,width:size.x,height:size.y,discovered:flag(world,'isDiscovered'),start:flag(world,'isStartWorld')})
   }
   if(!result.length){const size=worldSize(save);result.push({id:0,name:String(save.gameInfoJson.baseName??'主星'),type:'未记录星球类型',source:'',x:0,y:0,width:size.width,height:size.height,discovered:true,start:true})}
   return result.sort((a,b)=>Number(b.start)-Number(a.start)||a.id-b.id)
