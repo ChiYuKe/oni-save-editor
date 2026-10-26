@@ -140,6 +140,11 @@
       const expectedMix = [Math.round(255 * coverage), 0, Math.round(255 * (1 - coverage)), 255]
       check('群落边界混合四角纹理而非硬切', near(mixed, expectedMix, 2), { actual: mixed, expected: expectedMix })
       check('背景保持 Unity 原始不透明度', near(pixel(bgContext, 32, 64), [255,0,0,255], 1), pixel(bgContext, 32, 64))
+      const larger = document.createElement('canvas'); larger.width = larger.height = 64
+      larger.getContext('2d').fillStyle = 'blue'; larger.getContext('2d').fillRect(0,0,64,64)
+      const largeBlue = new Image(); largeBlue.src = larger.toDataURL(); await largeBlue.decode()
+      bg.render({ ...bgInput, backgrounds: {0:bgInput.backgrounds[0],1:largeBlue} })
+      check('预览与高清群落背景混合时不丢失纹理层',near(pixel(bgContext,64,64),expectedMix,2),pixel(bgContext,64,64))
       const spaceContext = document.createElement('canvas').getContext('2d')
       spaceContext.canvas.width = spaceContext.canvas.height = 128
       bg.render({ ...bgInput, context: spaceContext, worldZones: new Uint8Array(16).fill(7) })

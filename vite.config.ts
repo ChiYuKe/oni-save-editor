@@ -13,6 +13,11 @@ export default defineConfig(() => {
       {
         name: 'oni-local-visual-fixture',
         configureServer(server) {
+          const assetDelay = Number(process.env.ONI_FIXTURE_ASSET_DELAY_MS) || 0
+          if (assetDelay > 0) server.middlewares.use((request, _response, next) => {
+            if (request.url?.startsWith('/assets/')) setTimeout(next, assetDelay)
+            else next()
+          })
           server.middlewares.use('/__oni_fixture__', async (_request, response) => {
             if (!visualFixture) {
               response.statusCode = 404

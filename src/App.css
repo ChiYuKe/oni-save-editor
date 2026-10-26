@@ -640,3 +640,5 @@ input { min-width: 0; }
 @media (max-height: 760px) and (min-width: 861px) {
   .hero-content { transform: scale(.86); }
 }
+
+.map-loading-status { position: absolute; z-index: 4; left: 88px; bottom: 16px; max-width: calc(100% - 110px); padding: 7px 11px; color: #e1e8eb; background: rgba(17, 25, 32, .9); border: 1px solid #3c4d58; border-radius: 7px; font-size: 11px; pointer-events: none; }

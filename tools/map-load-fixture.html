@@ -17,7 +17,7 @@ try{
   const currentSave=pass===3?parseSave(bytes):save
   const resourceCount=performance.getEntriesByType('resource').length
   start=performance.now();const renderer=await createOniChunkRenderer(currentSave,visibility,'none',48)
-  const terrainReady=performance.now()-start;const initialRevision=renderer.revision;await renderer.ready
+  const terrainReady=performance.now()-start;const initialRevision=renderer.revision;await renderer.prepareViewport(65,149,40,30,true)
   if(renderer.revision<=initialRevision)throw Error('细节加载后地图未失效刷新')
   const preparation=performance.now()-start;start=performance.now()
   const chunk=renderer.renderChunk(65,149,40,30,{timeSeconds:0})

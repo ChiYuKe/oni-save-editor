@@ -3,15 +3,16 @@ const images = new Map<string, { promise: Promise<HTMLImageElement | null>; byte
 const maxBytes = 256 * 1024 * 1024
 const maxImages = 256
 let retainedBytes = 0
-export function loadRenderImage(url: string): Promise<HTMLImageElement | null> {
+export function loadRenderImage(url: string, timeoutMs = 90000): Promise<HTMLImageElement | null> {
   const cached = images.get(url)
   if (cached) { images.delete(url); images.set(url, cached); return cached.promise }
   const entry = { promise: Promise.resolve<HTMLImageElement | null>(null), bytes: 0 }
   entry.promise = new Promise<HTMLImageElement | null>(resolve => {
     const image = new Image()
     image.decoding = 'async'
-    image.onload = () => resolve(image)
-    image.onerror = () => resolve(null)
+    const timer = setTimeout(() => { image.onload = image.onerror = null; image.src = ''; resolve(null) }, timeoutMs)
+    image.onload = () => { clearTimeout(timer); resolve(image) }
+    image.onerror = () => { clearTimeout(timer); resolve(null) }
     image.src = url
   }).then(image => {
     if (!image) { images.delete(url); return null }

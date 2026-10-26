@@ -60,6 +60,7 @@ export class OniBiomeWebGLRenderer {
   private buffer?: WebGLBuffer
   private zoneTexture?: WebGLTexture
   private images?: WebGLTexture
+  private resizeCanvas?: HTMLCanvasElement
   private zonesKey?: Uint8Array
   private backgroundsKey?: OniBiomeRenderInput['backgrounds']
   private gridWidth = 0
@@ -94,7 +95,7 @@ export class OniBiomeWebGLRenderer {
   }
 
   render(input: OniBiomeRenderInput): boolean {
-    const first = Object.values(input.backgrounds).find(image => image.naturalWidth > 0)
+    const first = Object.values(input.backgrounds).filter(image => image.naturalWidth > 0).reduce<HTMLImageElement | undefined>((best, image) => !best || image.naturalWidth > best.naturalWidth ? image : best, undefined)
     if (!first || !this.initialize()) return false
     const gl = this.gl!, canvas = this.canvas!, program = this.program!
     const width = input.width + 2, height = input.height + 2
@@ -122,8 +123,15 @@ export class OniBiomeWebGLRenderer {
       gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.RGBA8, first.naturalWidth, first.naturalHeight, count, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
       for (let slice = 0; slice < count; slice++) {
         const image = input.backgrounds[slice]
-        if (image?.naturalWidth === first.naturalWidth && image.naturalHeight === first.naturalHeight) {
-          gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, slice, first.naturalWidth, first.naturalHeight, 1, gl.RGBA, gl.UNSIGNED_BYTE, image)
+        if (image?.naturalWidth && image.naturalHeight) {
+          let source: HTMLImageElement | HTMLCanvasElement = image
+          if (image.naturalWidth !== first.naturalWidth || image.naturalHeight !== first.naturalHeight) {
+            const resized = this.resizeCanvas ??= document.createElement('canvas')
+            resized.width = first.naturalWidth; resized.height = first.naturalHeight
+            resized.getContext('2d')!.drawImage(image, 0, 0, resized.width, resized.height)
+            source = resized
+          }
+          gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, slice, first.naturalWidth, first.naturalHeight, 1, gl.RGBA, gl.UNSIGNED_BYTE, source)
         }
       }
       gl.generateMipmap(gl.TEXTURE_2D_ARRAY)

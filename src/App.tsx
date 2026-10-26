@@ -1,3 +1,4 @@
+import { createOniMapOverview } from './lib/oniMapOverview'
 import { sceneViewportForCamera } from './lib/oniSceneViewport'
 import { createOniCellOutline } from './lib/oniCellOutline'
 import { gridSelectionRect } from './lib/oniGridSelection'
@@ -1536,6 +1537,7 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
   }, [])
   useEffect(() => { refreshOutlinesRef.current() }, [selectedCell, selection])
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [mapLoading, setMapLoading] = useState<string | null>(null)
   const sceneRef = useRef<PixiWorldScene | null>(null)
   const pointerRef = useRef<{ mode: 'pan' | 'select' | 'brush' | 'shape' | 'point'; id: number; startX: number; startY: number; panX: number; panY: number; startCell: { x: number; y: number } | null; lastCell: { x: number; y: number } | null; moved: boolean } | null>(null)
   const cameraRef = useRef(viewport)
@@ -1617,6 +1619,13 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
     const scene = sceneRef.current
     if (!sceneReady || !scene || !save.simData || !size.width || !size.height) return
     const generation = ++buildRef.current
+    const startedAt = performance.now()
+    const metrics = hostRef.current?.dataset
+    if (metrics) { delete metrics.overviewMs; delete metrics.textureReadyMs; delete metrics.firstSceneMs }
+    setMapLoading('地图概览已显示，正在加载纹理…')
+    scene.setChunk({ key: 'loading-overview', layer: 'background', order: -1, canvas: createOniMapOverview(save),
+      x: 0, y: 0, width: size.width * baseCellSize, height: size.height * baseCellSize })
+    requestAnimationFrame(() => { if (metrics && generation === buildRef.current) metrics.overviewMs = (performance.now() - startedAt).toFixed(1) })
     const renderedKeysByLayer = new Map<OniChunkLayer, Set<string>>()
     let renderer: Awaited<ReturnType<typeof createOniChunkRenderer>> | null = null
     let cursor = 0
@@ -1657,6 +1666,7 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
         if (pendingSceneKey !== viewKey) { pendingSceneKey = viewKey; pendingSince = now }
         if (!sceneKey || now - pendingSince >= 120) {
           sceneKey = viewKey; sceneComplete = false; cursor = 0; tasks = []; renderedKeysByLayer.clear()
+          void renderer.prepareViewport(view.x, view.row, view.right - view.x, view.bottom - view.row, view.cellSize >= 8).catch(cause => console.error('地图细节加载失败。', cause))
           for (let row = view.row; row < view.bottom; row += view.tile) for (let x = view.x; x < view.right; x += view.tile) {
             tasks.push({ x, row, widthCells: Math.min(view.tile, size.width - x), heightCells: Math.min(view.tile, size.height - row),
               key: `${x}:${row}`, cellSize: view.cellSize, distance: Math.hypot(x - (view.x + view.right) / 2, row - (view.row + view.bottom) / 2) })
@@ -1683,6 +1693,8 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
       }
       if (!sceneComplete && cursor === tasks.length) {
         sceneComplete = true
+        setMapLoading(null)
+        if (metrics && !metrics.firstSceneMs) metrics.firstSceneMs = (performance.now() - startedAt).toFixed(1)
         const allLayers: readonly OniChunkLayer[] = ONI_CHUNK_LAYERS
         for (const layer of allLayers) {
           if (animateFluids && (layer === 'gas' || layer === 'liquid')) continue
@@ -1694,10 +1706,12 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
     void createOniChunkRenderer(save, visibleLayers, overlay, baseCellSize, () => generation !== buildRef.current).then((prepared) => {
       if (generation !== buildRef.current) { prepared.destroy(); return }
       renderer = prepared
+      if (metrics) metrics.textureReadyMs = (performance.now() - startedAt).toFixed(1)
+      setMapLoading('正在补齐地图画面…')
       if (animateFluids) animationFrame = window.requestAnimationFrame(updateFluids)
       scheduleNext()
     }).catch((cause) => {
-      if (generation === buildRef.current && !(cause instanceof DOMException && cause.name === 'AbortError')) console.error('ONI 地图分块准备失败。', cause)
+      if (generation === buildRef.current && !(cause instanceof DOMException && cause.name === 'AbortError')) { setMapLoading('地图概览已显示，纹理加载失败，请稍后重新进入地图。'); console.error('ONI 地图分块准备失败。', cause) }
     })
     return () => {
       buildRef.current += 1
@@ -1820,7 +1834,7 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
       refreshOutlinesRef.current()
       isInteractingRef.current = false
     }}
-  ><canvas ref={canvasRef} className="pixi-map-canvas" /></div>
+  ><canvas ref={canvasRef} className="pixi-map-canvas" />{mapLoading && <div className="map-loading-status" role="status">{mapLoading}</div>}</div>
 }
 
 function DupesView({ save, updateSave, onOpenObject }: { save: ParsedSave; updateSave: (update: (save: ParsedSave) => void) => void; onOpenObject: (index: number) => void }) {

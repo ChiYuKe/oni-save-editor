@@ -1,0 +1,21 @@
+<!doctype html><meta charset="utf-8"><title>地图慢资源首屏检查</title><style>body{margin:0;background:#182126;color:#dce4dc;font:14px system-ui}pre{white-space:pre-wrap;padding:12px;margin:0}iframe{width:100%;height:80vh;border:0}</style><pre id="result">等待地图概览…</pre><iframe></iframe><script type="module">
+const frame=document.querySelector('iframe'),result=document.querySelector('#result')
+frame.src=import.meta.env.BASE_URL+'?fixture=1&view=map'
+let first=false,previewBeforeTextures=false,hoverBeforeTextures=false
+const timer=setInterval(()=>{
+ const doc=frame.contentDocument,host=doc?.querySelector('.pixi-map-viewport')
+ if(!host?.dataset.overviewMs)return
+ const m=host.dataset
+ if(!first){first=true;previewBeforeTextures=!m.textureReadyMs
+  const bounds=host.getBoundingClientRect()
+  host.dispatchEvent(new frame.contentWindow.PointerEvent('pointermove',{bubbles:true,pointerType:'mouse',clientX:bounds.left+bounds.width/2,clientY:bounds.top+bounds.height/2}))
+  const tooltip=doc.querySelector('.oni-cell-tooltip')
+  hoverBeforeTextures=Boolean(tooltip&&!tooltip.hidden&&tooltip.textContent.includes('元素 ID'))
+ }
+ const resources=frame.contentWindow.performance.getEntriesByType('resource')
+ const largeArray=resources.some(r=>r.name.includes('/assets/optimized/render/bgarray_liquids.webp')||r.name.includes('/assets/render/bgarray_liquids.png'))
+ const checks=[['概览在纹理到达之前已出现',previewBeforeTextures],['本地概览绘制小于 1 秒',Number(m.overviewMs)<1000],['纹理未到时悬浮信息可用',hoverBeforeTextures],['总览不下载高清液体数组',!largeArray]]
+ result.textContent=checks.map(([text,pass])=>(pass?'PASS ':'FAIL ')+text).join('\n')+'\n概览 '+m.overviewMs+' ms · 纹理 '+(m.textureReadyMs??'等待中')+' ms · 首轮完整画面 '+(m.firstSceneMs??'等待中')+' ms'
+ if(m.firstSceneMs){clearInterval(timer);document.title=checks.every(([,pass])=>pass)?'PASS 地图慢资源首屏检查':'FAIL 地图慢资源首屏检查'}
+},80)
+</script>

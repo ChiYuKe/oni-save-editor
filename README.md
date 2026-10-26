@@ -120,3 +120,10 @@ SIMSAVE v14/v15 的磁盘格子记录共 16 字节，与 Unity 进程里的 `Sim
 `python scripts/generate-oni-web-assets.py` 使用 Pillow 生成无损 WebP 版本，并逐像素校验；原始 PNG 保留，WebP 加载失败时回退。16 层液体数组重排为 4×4 图集以满足 WebP 尺寸限制，上传 GPU 时恢复原始分层，未降低分辨率。无需在 GitHub Actions 上安装 Pillow，部署直接使用提交的生成资源。
 
 `tools/map-load-fixture.html` 检查同页重复加载与重新解析存档时的准备时间、画面一致性、缓存复用和细节完成后的刷新；该本地检查页需要 `ONI_VISUAL_FIXTURE`。
+
+
+### 慢网络首屏
+
+地图打开时先从存档内存绘制可交互概览，不等待网络请求。首屏纹理只使用 `assets/preview/world.webp`（约 695 KiB）和原分辨率的地形蒙版，建筑索引随程序打包。概览图集包含缩小的预览贴图，未替换原始高清资源；放大时按当前视口补齐原始材质和对象贴图，总览不下载高清液体数组，也不预载复制人服装库。
+
+资源变动后运行 `python scripts/generate-oni-preview-atlas.py` 更新预览图集及随程序打包的建筑索引。`scripts/check-map-overview.ts` 检查首屏包大小、索引同步、数组布局和本地概览数据；`ONI_FIXTURE_ASSET_DELAY_MS=12000` 仅在本地开发服务中延迟贴图响应，用 `tools/map-startup-fixture.html` 验证纹理等待期间地图和悬浮信息已可用。
