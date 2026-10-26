@@ -1,0 +1,27 @@
+<!doctype html><meta charset="utf-8"><title>UI 布局检查</title><style>body{margin:12px;background:#111a22;color:#dce7ee;font:12px system-ui}pre{white-space:pre-wrap;max-height:120px;overflow:auto}iframe{display:block;border:1px solid #405766;height:820px}button{padding:6px 12px;margin:0 8px 12px 0;background:#20313d;color:#dce7ee;border:1px solid #405766;border-radius:6px}</style><button id="desktop">桌面 1280</button><button id="mobile">手机 390</button><pre id="result">检查中…</pre><iframe width="1280"></iframe><script type="module">
+const frame=document.querySelector('iframe'),result=document.querySelector('#result'),checks=[]
+frame.src=import.meta.env.BASE_URL+'?fixture=1&view=overview'
+document.querySelector('#desktop').onclick=()=>{frame.width=1280}
+document.querySelector('#mobile').onclick=()=>{frame.width=390}
+const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms))
+const ready=async predicate=>{for(let i=0;i<400;i++){if(predicate())return;await wait(50)}throw Error('页面未就绪')}
+try{
+ await ready(()=>frame.contentDocument?.querySelector('.saved-shell'))
+ for(const width of [1280,900,390,320]){
+  frame.width=width;await wait(160)
+  for(const [view,label] of [['overview','总览'],['dupes','复制人'],['objects','对象'],['map','地图']]){
+   const doc=frame.contentDocument,buttons=[...doc.querySelectorAll('.topnav button')]
+   buttons.find(b=>b.textContent===label).click()
+   await ready(()=>doc.querySelector(`.view-${view}`));await wait(100)
+   const root=doc.documentElement,bar=doc.querySelector('.topbar').getBoundingClientRect()
+   checks.push([`${width}px ${label}：页面无横向溢出`,root.scrollWidth<=width+1,{actual:root.scrollWidth,width}])
+   checks.push([`${width}px ${label}：导航完整且紧凑`,bar.height<=100&&buttons.every(b=>{const r=b.getBoundingClientRect();return r.left>=0&&r.right<=width+1&&r.width>0}),{height:bar.height}])
+   const panels=view==='objects'?[...doc.querySelectorAll('.object-groups,.object-records,.object-inspector')]:view==='dupes'?[...doc.querySelectorAll('.dupe-list,.dupe-inspector')]:[]
+   checks.push([`${width}px ${label}：面板位于页面范围`,panels.every(p=>{const r=p.getBoundingClientRect();return r.left>=0&&r.right<=width+1&&r.width>100})])
+   if(view==='map'){const r=doc.querySelector('.pixi-map-viewport').getBoundingClientRect();checks.push([`${width}px 地图：保留剩余视口`,Math.abs(r.width-width)<=1&&r.height>600,{width:r.width,height:r.height}])}
+  }
+ }
+ frame.width=390;frame.contentDocument.querySelectorAll('.topnav button')[2].click()
+ const fails=checks.filter(c=>!c[1]);result.textContent=(fails.length?'FAIL':'PASS')+' '+(checks.length-fails.length)+'/'+checks.length+'\n'+checks.map(([name,pass,detail])=>(pass?'✓ ':'✗ ')+name+' '+JSON.stringify(detail??'')).join('\n');document.title=fails.length?'FAIL UI 布局检查':'PASS UI 布局检查'
+}catch(e){result.textContent='FAIL '+(e.stack??e);document.title='FAIL UI 布局检查'}
+</script>
