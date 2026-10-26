@@ -78,3 +78,13 @@
 [data-theme=light] :is(.saved-shell,.template-shell) .topbar-pill .button-replace { color:#ad3b45; }
 [data-theme=light] .resource-yield-summary>summary { background:#fff; }
 [data-theme=light] .landing-shell .hero-art { opacity:.14; }
+
+@media(max-width:700px) { .landing-local { display:none; } }
+@media(max-width:520px) {
+  .landing-header { padding-inline:16px; gap:8px; }
+  .landing-brand { gap:8px; }
+  .landing-header-actions { gap:4px; }
+  .landing-header-actions .theme-toggle { width:32px; height:36px; flex-basis:32px; }
+  .landing-header-actions .landing-language { min-width:44px; padding-inline:7px; }
+  .landing-header-actions .landing-github { width:32px; height:36px; }
+}

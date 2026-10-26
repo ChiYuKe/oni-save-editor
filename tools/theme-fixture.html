@@ -24,6 +24,12 @@ try{
  check(doc().documentElement.dataset.theme==='light','刷新后保留白天模式')
  frame.src='/?themeFixtureHome=1';await ready(()=>doc()?.querySelector('.landing-frame'))
  check(doc().documentElement.dataset.theme==='light','首页继承主题')
+ for(const width of [320,390,700]){
+  frame.style.width=width+'px';await wait(60)
+  const buttons=[...doc().querySelectorAll('.landing-header-actions button,.landing-header-actions a')]
+  check(doc().documentElement.scrollWidth<=width&&buttons.every(b=>{const r=b.getBoundingClientRect();return r.left>=0&&r.right<=width}),width+'px 首页切换按钮完整且无溢出')
+ }
+
  doc().querySelector('.landing-header-actions .theme-toggle').click();await wait(40)
  check(doc().documentElement.dataset.theme==='dark','首页切回深色')
  doc().querySelector('.landing-header-actions .theme-toggle').click()
