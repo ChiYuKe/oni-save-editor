@@ -1,0 +1,33 @@
+<!doctype html><meta charset="utf-8"><title>星球标签检查</title><style>body{background:#111;color:#eee;font:14px system-ui}#host{position:relative;width:1200px;height:700px;background:#17171d}pre{white-space:pre-wrap}</style><pre id="result">检查中…</pre><div id="host"></div><script type="module">
+import {parseSave} from '../src/lib/save'
+import {readResourcePlanets} from '../src/lib/oniResourceStatistics'
+import {worldSize} from '../src/lib/editor'
+import {createOniPlanetLabels} from '../src/lib/oniPlanetLabels'
+try {
+ const save=parseSave(new Uint8Array(await (await fetch('/__oni_fixture__')).arrayBuffer()))
+ const host=document.querySelector('#host'),planets=readResourcePlanets(save),height=worldSize(save).height
+ const overlay=createOniPlanetLabels(host,save,height),layer=host.querySelector('.oni-planet-labels')
+ const check=(pass,message)=>{if(!pass)throw Error(message)}
+ overlay.update(20,100,1.5)
+ const labels=[...host.querySelectorAll('.oni-planet-label')]
+ check(labels.length===planets.length,'每个星球都有名称')
+ for(let i=0;i<planets.length;i++){
+  const p=planets[i],label=labels[i]
+  check(label.textContent===p.name,'使用实际存档星球名称')
+  check(label.style.transform.includes(`${20+(p.x+p.width/2)*1.5}px, ${100+(height-p.y-p.height)*1.5+10}px`),'标签对齐区域顶端中央，Y 轴正确翻转')
+ }
+ const before=labels[0].getBoundingClientRect()
+ overlay.update(55,124,1.5)
+ const after=labels[0].getBoundingClientRect()
+ check(Math.abs(after.x-before.x-35)<.1&&Math.abs(after.y-before.y-24)<.1,'拖动时同步跟随')
+ const font=getComputedStyle(labels[0]).fontSize
+ overlay.update(0,0,3)
+ check(getComputedStyle(labels[0]).fontSize===font,'缩放时文字保持清晰且大小固定')
+ overlay.update(0,0,7);check(layer.hidden,'局部放大时隐藏标签')
+ overlay.update(0,0,1.5);check(!layer.hidden,'返回全图恢复标签')
+ check(getComputedStyle(layer).pointerEvents==='none','标签不阻挡地图操作')
+ overlay.destroy();check(!host.querySelector('.oni-planet-labels'),'切换地图清理标签')
+ document.querySelector('#result').textContent=`PASS · ${planets.length} 个星球：名称、坐标、拖动、缩放、显隐、点击穿透和清理均通过`
+ document.title='PASS 星球标签检查'
+} catch(e){document.querySelector('#result').textContent='FAIL '+e.stack;document.title='FAIL 星球标签检查'}
+</script>
