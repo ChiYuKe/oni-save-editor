@@ -41,6 +41,7 @@ import {
   X,
 } from 'lucide-react'
 import './App.css'
+import './workbench.css'
 import { ONI_CHUNK_LAYERS } from './lib/oniRenderLayers'
 import { buildSave, type ParsedSave } from './lib/save'
 import { ELEMENTS, defaultElementValues, elementForHash, elementOptions, formatHash } from './lib/elements'
@@ -584,7 +585,7 @@ function App() {
           {save && (
             <nav className="topnav" aria-label="工作区">
               {navItems.map(({ id, label }) => (
-                <button key={id} className={view === id ? 'active' : ''} type="button" onClick={() => setView(id)}>{label}</button>
+                <button key={id} className={view === id ? 'active' : ''} type="button" aria-current={view === id ? 'page' : undefined} onClick={() => setView(id)}>{id === 'overview' ? <Gauge size={14} /> : id === 'map' ? <Grid2x2 size={14} /> : id === 'dupes' ? <Users size={14} /> : <Boxes size={14} />}<span>{label}</span></button>
               ))}
             </nav>
           )}
@@ -648,6 +649,7 @@ function App() {
               <div>
                 <div className="eyebrow">{view === 'overview' ? 'SAVE OVERVIEW' : view.toUpperCase()}</div>
                 <h1>{navItems.find((item) => item.id === view)?.label}</h1>
+                <p className="page-description">{view === 'overview' ? '殖民地状态、快速设置与存档信息' : view === 'dupes' ? '查看复制人状态，调整名称和位置' : '按分组浏览对象，检查实例与组件数据'}</p>
               </div>
               <div className="head-meta"><span className="status-dot" />{dirty ? '待导出' : '已载入'}<ChevronRight size={14} />{fileName}</div>
             </div>}
