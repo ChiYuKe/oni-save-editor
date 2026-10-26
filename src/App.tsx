@@ -994,8 +994,8 @@ function MapView({ save, updateSave, viewport, onViewportChange }: { save: Parse
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (isEditableTarget(event.target)) return
       if (event.key === 'Escape') { setPickedId(undefined); setLastCell(null); setSelection(null); return }
+      if (isEditableTarget(event.target)) return
       if (event.key !== '[' && event.key !== ']') return
       event.preventDefault()
       setBrushSize((current) => Math.max(1, Math.min(21, current + (event.key === ']' ? 2 : -2))))
