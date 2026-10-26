@@ -42,8 +42,14 @@ function utilitySceneLayer(family: UtilityFamily): number {
   }
 }
 
-export function mapObjectSceneLayer(group: SavedObjectGroup): number {
-  if (group.tag === 'Minion') return ONI_SCENE_LAYER_ORDER.Creatures
+/** Definitions cover base-game variants; CreatureBrain also identifies modded fauna. */
+export function isCreatureInstance(tag: string, instance?: SavedObjectInstance): boolean {
+  return tag === 'Minion' || oniBuildingDefinitionForSaveTag(tag)?.sceneLayer === 'Creatures'
+    || Boolean(instance?.components.some(part => /(?:^|[.+])CreatureBrain$/i.test(part.typeName)))
+}
+
+export function mapObjectSceneLayer(group: SavedObjectGroup, instance?: SavedObjectInstance): number {
+  if (isCreatureInstance(group.tag, instance)) return ONI_SCENE_LAYER_ORDER.Creatures
   if (blockTileTextureForTag(group.tag)) return ONI_SCENE_LAYER_ORDER.TileMain
   const family = utilityFamilyForTag(group.tag)
   if (family) return utilitySceneLayer(family)

@@ -1,3 +1,5 @@
+import { geyserTextureForTag, buildingTextureForInstance, isGeyserInstance, type SpriteDefinition } from './oniObjectVisuals'
+import { ONI_BUILDING_SPRITES } from './oniBuildingSprites.generated'
 import { component, member, objectName, scalarNumber, scalarText, worldSize } from './editor'
 import { elementForHash } from './elements'
 import { getWorldCell, readSimBackwall } from './sim'
@@ -5,7 +7,7 @@ import { inspectOniCell, type OniCellInspection } from './oniCellInspection'
 import { ONI_SUBSTANCE_BY_HASH } from './oniSubstances.generated'
 import { ONI_ELEMENT_IDS } from './oniElementIds.generated'
 import type { OniChunkLayerVisibility } from './oniWorldChunkRenderer'
-import { buildingPlacementCells, mapObjectSceneLayer, oniBuildingDefinitionForSaveTag } from './oniObjectPlacement'
+import { buildingPlacementCells, mapObjectSceneLayer, oniBuildingDefinitionForSaveTag, isCreatureInstance } from './oniObjectPlacement'
 import { utilityFamilyForTag } from './utilityTiles'
 import type { ParsedSave } from './save'
 import type { SavedObjectGroup, SavedObjectInstance, Value } from './model'
@@ -18,6 +20,18 @@ const key = (x: number, y: number) => `${x}:${y}`
 const temperature = (v: number) => `${(v - 273.15).toFixed(2)} °C · ${v.toFixed(2)} K`
 const pointBounds = (x: number, y: number): PickBounds => ({ minX:x, minY:y, maxX:x, maxY:y })
 
+/** Sprite anchors are canvas-down; convert to upward world coordinates before indexing. */
+export function spriteSelectionCells(instance: SavedObjectInstance, sprite: SpriteDefinition, anchorY = 0) {
+  const width=sprite.widthCells, height=sprite.heightCells ?? width
+  const cx=instance.position.x+(sprite.anchorOffsetXCells??0)
+  const cy=instance.position.y+anchorY+(sprite.verticalOffsetCells??0)-(sprite.anchorOffsetYCells??0)
+  const cells: Array<{x:number;y:number}>=[]
+  if (![cx,cy,width,height].every(Number.isFinite) || width<=0 || height<=0) return cells
+  for(let y=Math.floor(cy-height/2);y<Math.ceil(cy+height/2);y++)
+    for(let x=Math.floor(cx-width/2);x<Math.ceil(cx+width/2);x++)cells.push({x,y})
+  return cells
+}
+
 /** Index occupied cells once; clicking never scans the full save or loads artwork. */
 export function createOniMapPicker(save: ParsedSave) {
   const objects = new Map<string, IndexedObject[]>()
@@ -28,27 +42,35 @@ export function createOniMapPicker(save: ParsedSave) {
     if (!Number.isFinite(x) || !Number.isFinite(y)) continue
     const definition = oniBuildingDefinitionForSaveTag(group.tag)
     const family = utilityFamilyForTag(group.tag)
-    const creature = group.tag === 'Minion' || definition?.sceneLayer === 'Creatures'
-    const isGeyser = /geyser/i.test(group.tag)
+    const creature = isCreatureInstance(group.tag, instance)
+    const geyser = geyserTextureForTag(group.tag)
+    const isGeyser = isGeyserInstance(group.tag, instance, geyser)
     // Global save managers are data containers, not map objects.
     if (!definition && !family && !creature && !isGeyser && !component(instance,'PrimaryElement')) continue
     const cells = buildingPlacementCells(instance, definition)
     if (!cells.length) cells.push({x,y})
     if (group.tag === 'Minion') cells.push({x,y:y+1})
+    // Animals and geysers are not restricted to their building-definition cell.
+    // Match the renderer's selected artwork, offsets and native aspect ratio.
+    if ((creature && group.tag !== 'Minion') || isGeyser) {
+      const building = buildingTextureForInstance(group.tag, instance, ONI_BUILDING_SPRITES)
+      const sprite = building ?? geyser
+      if (sprite) cells.push(...spriteSelectionCells(instance, sprite, !building && isGeyser ? .5 : 0))
+    }
     const bounds = {minX:Math.min(...cells.map(c=>c.x)), minY:Math.min(...cells.map(c=>c.y)), maxX:Math.max(...cells.map(c=>c.x)), maxY:Math.max(...cells.map(c=>c.y))}
     const visibility = group.tag === 'Minion' ? 'minions' : creature ? 'entities' : isGeyser ? 'geysers'
       : family === 'electrical' ? 'power' : family === 'liquid' ? 'plumbing' : family === 'gas' ? 'ventilation'
       : family === 'logic' ? 'automation' : family === 'solid' ? 'shipment' : 'buildings'
     const layer = family === 'electrical' ? '电线' : family === 'liquid' ? '液体管道' : family === 'gas' ? '气体管道'
       : family === 'logic' ? '自动化' : family === 'solid' ? '运输轨道' : creature ? '生物 / 复制人' : isGeyser ? '间歇泉' : definition?.sceneLayer === 'InteriorWall' ? '建筑背墙' : '建筑 / 对象'
-    const entry: IndexedObject = {id,group,instance,bounds,cells:new Set(cells.map(c=>key(c.x,c.y))),visibility,layer,order:mapObjectSceneLayer(group)}
+    const entry: IndexedObject = {id,group,instance,bounds,cells:new Set(cells.map(c=>key(c.x,c.y))),visibility,layer,order:mapObjectSceneLayer(group, instance)}
     for (const cell of entry.cells) {const bucket=objects.get(cell)??[];bucket.push(entry);objects.set(cell,bucket)}
   }
   return (x: number, y: number, visible: OniChunkLayerVisibility): OniMapTarget[] => {
     const size=worldSize(save)
     if (!Number.isInteger(x)||!Number.isInteger(y)||x<0||y<0||x>=size.width||y>=size.height) return []
     const targets: OniMapTarget[] = (objects.get(key(x,y))??[]).filter(o=>visible[o.visibility]!==false).map(o=>{
-      const rows: Array<[string,string]> = [['对象 ID',o.group.tag],['图层',o.layer],['位置',`${o.instance.position.x.toFixed(2)}, ${o.instance.position.y.toFixed(2)}`],['占地',`${o.bounds.maxX-o.bounds.minX+1} × ${o.bounds.maxY-o.bounds.minY+1}`]]
+      const rows: Array<[string,string]> = [['对象 ID',o.group.tag],['图层',o.layer],['位置',`${o.instance.position.x.toFixed(2)}, ${o.instance.position.y.toFixed(2)}`],[o.visibility === 'entities' || o.visibility === 'geysers' || o.visibility === 'minions' ? '选择范围' : '占地',`${o.bounds.maxX-o.bounds.minX+1} × ${o.bounds.maxY-o.bounds.minY+1}`]]
       const prefab=scalarNumber(member(component(o.instance,'KPrefabID')?.value,'InstanceID')?.value)
       if(prefab!==undefined)rows.push(['实例 ID',String(prefab)])
       const primary=component(o.instance,'PrimaryElement')?.value
