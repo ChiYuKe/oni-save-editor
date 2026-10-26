@@ -1,0 +1,26 @@
+<!doctype html><meta charset="utf-8"><title>地图绘制合并检查</title><style>body{background:#171717;color:#eee;font:14px system-ui}canvas{width:640px;height:360px}</style><pre id="status">检查中…</pre><canvas></canvas><script type="module">
+import {PixiWorldScene} from '../src/lib/pixiWorldScene'
+const scene=new PixiWorldScene(),status=document.querySelector('#status')
+try {
+ if(!await scene.init(document.querySelector('canvas')))throw Error('WebGL 初始化失败')
+ scene.resize(640,360)
+ const tile=document.createElement('canvas');tile.width=64;tile.height=64
+ const ctx=tile.getContext('2d');let start=0,count=0
+ function tick(now){
+  if(!start){start=now;scene.renderStats(now)}
+  count++;ctx.fillStyle=`hsl(${count%360} 40% 30%)`;ctx.fillRect(0,0,64,64)
+  for(const layers of [['background','terrain'],['gas','liquid']]){
+   scene.beginBatch()
+   for(const layer of layers)scene.setChunk({key:layer,layer,canvas:tile,x:0,y:0,width:640,height:360,mipmaps:false})
+   scene.endBatch()
+  }
+  scene.setCamera(Math.sin(count/10),0,1)
+  if(now-start<1500){requestAnimationFrame(tick);return}
+  const stats=scene.renderStats(now),display=count*1000/(now-start)
+  if(stats.fps>display*1.1+2||stats.fps<display*.7)throw Error('绘制没有按浏览器刷新合并 '+JSON.stringify({stats,display}))
+  status.textContent=`PASS · 地形、液体与相机更新合并为每刷新一次绘制 · 实际地图 ${stats.fps.toFixed(1)} FPS · 浏览器回调 ${display.toFixed(1)} Hz`
+  document.title='PASS 地图绘制合并检查';scene.destroy()
+ }
+ requestAnimationFrame(tick)
+} catch(e){status.textContent='FAIL '+e.stack;document.title='FAIL 地图绘制合并检查';scene.destroy()}
+</script>
