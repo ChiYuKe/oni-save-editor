@@ -1,0 +1,32 @@
+<!doctype html><meta charset="utf-8"><title>主题检查</title><style>body{background:#eee;color:#222;font:13px system-ui}iframe{width:1280px;height:720px;border:0}pre{white-space:pre-wrap}</style><pre id="result">检查中…</pre><iframe></iframe><script type="module">
+const frame=document.querySelector('iframe'),result=document.querySelector('#result'),checks=[]
+const wait=ms=>new Promise(r=>setTimeout(r,ms))
+async function ready(test){for(let n=0;n<400;n++){if(test())return;await wait(50)}throw Error('页面未就绪')}
+function check(pass,name){checks.push([pass,name]);if(!pass)throw Error(name)}
+function doc(){return frame.contentDocument}
+function toggleTo(theme){if(doc().documentElement.dataset.theme!==theme)doc().querySelector('.topbar-actions .theme-toggle').click()}
+try{
+ frame.src='/?fixture=1&view=overview';await ready(()=>doc()?.querySelector('.saved-shell'))
+ for(const theme of ['dark','light']){
+  toggleTo(theme);await wait(40)
+  check(doc().documentElement.dataset.theme===theme,theme+'：主题切换')
+  for(const name of ['总览','复制人','对象','资源统计','地图']){
+   [...doc().querySelectorAll('.topnav button')].find(b=>b.textContent===name).click();await wait(80)
+   check(doc().documentElement.dataset.theme===theme,theme+'：'+name+'保持主题')
+   const surface=doc().querySelector('.objects-layout')??doc().querySelector('.surface,.map-tool-rail')
+   const color=frame.contentWindow.getComputedStyle(surface).backgroundColor.match(/[\d.]+/g).slice(0,3).map(Number)
+   check(theme==='light'?color.every(c=>c>230):color.every(c=>c<70),theme+'：'+name+'面板颜色')
+  }
+ }
+ const open=doc().querySelector('.topbar-actions .button-quiet')
+ check(frame.contentWindow.getComputedStyle(open).color==='rgb(85, 85, 85)','白天模式打开按钮清晰可读')
+ await new Promise(resolve=>{frame.addEventListener('load',resolve,{once:true});frame.contentWindow.location.reload()});await ready(()=>doc()?.querySelector('.saved-shell'))
+ check(doc().documentElement.dataset.theme==='light','刷新后保留白天模式')
+ frame.src='/?themeFixtureHome=1';await ready(()=>doc()?.querySelector('.landing-frame'))
+ check(doc().documentElement.dataset.theme==='light','首页继承主题')
+ doc().querySelector('.landing-header-actions .theme-toggle').click();await wait(40)
+ check(doc().documentElement.dataset.theme==='dark','首页切回深色')
+ doc().querySelector('.landing-header-actions .theme-toggle').click()
+ result.textContent='PASS '+checks.length+'/'+checks.length+'\n'+checks.map(c=>'✓ '+c[1]).join('\n');document.title='PASS 主题检查'
+}catch(e){result.textContent='FAIL '+e.stack;document.title='FAIL 主题检查'}
+</script>
