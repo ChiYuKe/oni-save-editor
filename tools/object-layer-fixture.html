@@ -1,0 +1,23 @@
+<!doctype html><meta charset="utf-8"><title>跨分区遮挡检查</title><style>body{background:#171717;color:#eee;font:14px system-ui}canvas{display:block;max-width:100%;height:auto}pre{white-space:pre-wrap}</style><pre id="result">检查中…</pre><canvas id="map"></canvas><script type="module">
+import {parseSave} from '../src/lib/save'
+import {createOniChunkRenderer} from '../src/lib/oniWorldChunkRenderer'
+import {ONI_CHUNK_LAYERS} from '../src/lib/oniRenderLayers'
+const result=document.querySelector('#result'),canvas=document.querySelector('canvas')
+try{
+ const save=parseSave(new Uint8Array(await(await fetch('/__oni_fixture__')).arrayBuffer()))
+ const renderer=await createOniChunkRenderer(save,{biome:true,backwall:true,ground:true,gas:true,liquid:true,entities:true,buildings:true,geysers:true,minions:false,lighting:true},'none',32)
+ await renderer.prepareViewport(55,237,28,20,true)
+ const options={cellSize:32,timeSeconds:0}
+ const full=renderer.renderChunk(55,237,28,20,options)
+ canvas.width=28*32;canvas.height=20*32;const ctx=canvas.getContext('2d')
+ for(const layer of ONI_CHUNK_LAYERS){if(full.layers[layer]){ctx.globalCompositeOperation=layer==='light'?'lighter':'source-over';ctx.drawImage(full.layers[layer],0,0)}}
+ // Compare the same visible machine pixels when selecting one or two spatial buckets.
+ const narrow=renderer.renderChunk(65,239,15,15,options)
+ const a=full.layers.entitiesBack.getContext('2d').getImageData((66-55)*32,(241-237)*32,10*32,9*32).data
+ const b=narrow.layers.entitiesBack.getContext('2d').getImageData((66-65)*32,(241-239)*32,10*32,9*32).data
+ let changed=0;for(let i=0;i<a.length;i+=4)if(a[i]!==b[i]||a[i+1]!==b[i+1]||a[i+2]!==b[i+2]||a[i+3]!==b[i+3])changed++
+ result.textContent=(changed?'FAIL':'PASS')+' · 同一建筑跨分区前后遮挡一致 · 差异像素 '+changed
+ document.title=changed?'FAIL 跨分区遮挡检查':'PASS 跨分区遮挡检查'
+ renderer.destroy()
+}catch(e){result.textContent='FAIL '+e.stack;document.title='FAIL 跨分区遮挡检查'}
+</script>
