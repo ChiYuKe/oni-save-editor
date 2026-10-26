@@ -1,0 +1,43 @@
+<!doctype html><meta charset="utf-8"><title>相机高光验证</title><style>body{background:#182126;color:#eee;font:14px system-ui}canvas{width:512px;image-rendering:auto}pre{white-space:pre-wrap}</style><pre id="result">检查中…</pre><canvas id="before"></canvas><canvas id="after"></canvas><script type="module">
+import {createOniChunkRenderer} from '/src/lib/oniWorldChunkRenderer.ts'
+import {parseSave} from '/src/lib/save.ts'
+import {readSimCell} from '/src/lib/sim.ts'
+import {worldSize} from '/src/lib/editor.ts'
+import {ONI_SHINE_MATERIALS} from '/src/lib/oniShineMaterials.generated.ts'
+import {shineCameraForRect} from '/src/lib/oniShineCamera.ts'
+const checks=[],check=(name,pass,detail)=>checks.push({name,pass:!!pass,detail})
+const bytes=c=>new Uint8ClampedArray(c.getContext('2d').getImageData(0,0,c.width,c.height).data)
+try{
+const save=parseSave(new Uint8Array(await(await fetch('/__oni_fixture__')).arrayBuffer())),size=worldSize(save),view=new DataView(save.simData.bytes.buffer,save.simData.bytes.byteOffset,save.simData.bytes.byteLength)
+let found
+for(let y=0;y<size.height&&!found;y++)for(let x=0;x<size.width;x++){const c=readSimCell(save.simData,view,x,y);if(c&&ONI_SHINE_MATERIALS.has(c.elementHash&65535)){found={x,y};break}}
+if(!found)throw Error('存档没有金属')
+const x=Math.max(0,Math.min(size.width-16,found.x-8)),row=Math.max(0,Math.min(size.height-16,size.height-1-found.y-8))
+const renderer=await createOniChunkRenderer(save,{biome:true,backwall:true,ground:true,gas:true,liquid:true,entities:true,buildings:true,lighting:true},'none',32)
+await renderer.prepareViewport(x,row,16,16,true)
+const rect={x:x*32,y:row*32,width:512,height:512,scale:1},camera=shineCameraForRect(rect,size.height)
+const render=camera=>renderer.renderChunk(x,row,16,16,{cellSize:32,surfacesOnly:true,shineCamera:camera})
+const initial=render(camera),terrain=initial.layers.terrain,baseline=bytes(terrain)
+const copy=(id,canvas)=>{const out=document.querySelector(id);out.width=canvas.width;out.height=canvas.height;out.getContext('2d').drawImage(canvas,0,0)}
+copy('#before',terrain)
+const ordinary=renderer.renderChunk(x,row,16,16,{cellSize:32,skipFluids:true,shineCamera:camera})
+check('实时地形与普通高清分块像素一致',bytes(ordinary.layers.terrain).every((v,i)=>Math.abs(v-baseline[i])<=1))
+const baseBackground=bytes(initial.layers.background)
+check('实时背景与普通高清分块像素一致',bytes(ordinary.layers.background).every((v,i)=>Math.abs(v-baseBackground[i])<=1))
+const objectsOnly=renderer.renderChunk(x,row,16,16,{cellSize:32,skipFluids:true,skipSurfaces:true,shineCamera:camera})
+check('普通分块避免重复绘制动态地形',!objectsOnly.layers.terrain&&!objectsOnly.layers.background)
+
+const moved=render({...camera,x:camera.x+20,y:camera.y+10}),pan=bytes(moved.layers.terrain)
+check('平移实时改变金属反光',pan.some((v,i)=>i%4!==3&&Math.abs(v-baseline[i])>2))
+check('复用地形与背景画布',moved.layers.terrain===terrain&&moved.layers.background===initial.layers.background)
+check('相机刷新不重绘建筑/灯光/气液图层',Object.keys(moved.layers).every(k=>k==='terrain'||k==='background'))
+check('反光保持地形轮廓',baseline.every((v,i)=>i%4!==3||Math.abs(v-pan[i])<=1))
+const zoomed=render({...camera,orthoSize:camera.orthoSize/2}),zoom=bytes(zoomed.layers.terrain)
+check('缩放实时改变金属反光',zoom.some((v,i)=>i%4!==3&&Math.abs(v-baseline[i])>2))
+copy('#after',zoomed.layers.terrain)
+const costs=[];for(let i=0;i<30;i++){const start=performance.now();render({...camera,x:camera.x+i/10});costs.push(performance.now()-start)}
+costs.sort((a,b)=>a-b);check('记录连续刷新耗时',true,{median:costs[15],p95:costs[28],cells:256})
+renderer.destroy()
+}catch(e){check('执行',false,String(e.stack??e))}
+document.querySelector('#result').textContent=(checks.every(c=>c.pass)?'PASS':'FAIL')+' '+checks.filter(c=>c.pass).length+'/'+checks.length+'\n'+checks.map(c=>(c.pass?'✓ ':'✗ ')+c.name+' '+JSON.stringify(c.detail??'')).join('\n');document.title=checks.every(c=>c.pass)?'PASS 相机高光验证':'FAIL 相机高光验证'
+</script>
