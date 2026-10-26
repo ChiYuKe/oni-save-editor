@@ -37,6 +37,11 @@ records=[]
 for match in re.finditer(r'new GeyserConfigurator.GeyserType\(([^)]+)\)',source):
  args=[s.strip() for s in match.group(1).split(',')];id=ast.literal_eval(args[0]);element=args[1].split('.')[-1]
  record={'id':id,'hash':hash_id(id),'name':strings.get('STRINGS.CREATURES.SPECIES.GEYSER.'+id.upper()+'.NAME',id),'element':element,'elementHash':hash_id(element)&65535,'temperature':number(args[3]),'minRatePerCycle':number(args[4]),'maxRatePerCycle':number(args[5]),'maxPressure':number(args[6])}
+ # The prefab animation is the source of the existing native UI image.
+ start=source.rfind('new GeyserPrefabParams(',0,match.start())
+ animation=re.match(r'new GeyserPrefabParams\("([^"\n]+)"',source[start:]).group(1)
+ record['iconPath']='/assets/geysers/'+animation.removesuffix('_kanim')+'_0_ui_False.png'
+ assert (target.parents[2]/'public'/record['iconPath'].lstrip('/')).is_file(), record['iconPath']
  record.update({f:number(args[i+9]) if len(args)>i+9 else defaults[i] for i,f in enumerate(fields)})
  records.append(record)
 assert len(records)>=25, 'Expected native geyser definitions'

@@ -7,6 +7,10 @@ import {resourceStatistics,resampleGeyserRoll,geyserSeason} from '../src/lib/oni
 import {ONI_PLANET_ICONS} from '../src/lib/oniPlanetIcons.generated'
 import {ONI_GEYSER_TYPES} from '../src/lib/oniResourceData.generated'
 import type {SavedObjectInstance,ObjectValue,Value} from '../src/lib/model'
+for(const type of ONI_GEYSER_TYPES){
+ const bytes=readFileSync(new URL('../public'+type.iconPath,import.meta.url))
+ assert.equal(bytes.subarray(1,4).toString(),'PNG',`native geyser icon exists: ${type.id}`)
+}
 const save=parseSave(new Uint8Array(readFileSync(process.argv[2])))
 const digest=()=>createHash('sha256').update(buildSave(save)).digest('hex'),before=digest()
 const data=resourceStatistics(save)
