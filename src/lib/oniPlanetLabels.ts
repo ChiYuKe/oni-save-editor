@@ -17,8 +17,13 @@ export function createOniPlanetLabels(host: HTMLElement, save: ParsedSave, world
     return { planet, label }
   })
   host.append(layer)
+  let previousCamera = ''
   return {
     update(originX: number, originY: number, cellSize: number) {
+      const hostWidth = host.clientWidth, hostHeight = host.clientHeight
+      const camera = `${originX}:${originY}:${cellSize}:${hostWidth}:${hostHeight}`
+      if (camera === previousCamera) return
+      previousCamera = camera
       // Only show region labels at overview distances, leaving close-up editing unobstructed.
       layer.hidden = cellSize > 6 || cellSize <= 0
       if (layer.hidden) return
@@ -26,7 +31,7 @@ export function createOniPlanetLabels(host: HTMLElement, save: ParsedSave, world
         const width = planet.width * cellSize
         const x = originX + (planet.x + planet.width / 2) * cellSize
         const y = originY + (worldHeight - planet.y - planet.height) * cellSize + 10
-        label.hidden = x + width / 2 < 0 || x - width / 2 > host.clientWidth || y + 32 < 0 || y > host.clientHeight
+        label.hidden = x + width / 2 < 0 || x - width / 2 > hostWidth || y + 32 < 0 || y > hostHeight
         label.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, 0)`
         label.style.maxWidth = `${Math.max(28, width - 10)}px`
       }

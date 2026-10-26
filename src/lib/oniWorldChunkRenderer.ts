@@ -882,7 +882,7 @@ export async function createOniChunkRenderer(
         }
         const liquidRendered = overlay === 'none'  && liquidContext && hasLiquidCells
           ? oniWorldRenderer.renderLiquid({ ...fluidInput, context: liquidContext, sceneSource: preLiquid, sceneMaskSource: sceneMask }) : false
-        if (overlay === 'none' && (!gasRendered || !liquidRendered)) for (let canvasY = range.minRow; canvasY <= range.maxRow; canvasY++) {
+        if (overlay === 'none' && ((gasContext && !gasRendered) || (liquidContext && !liquidRendered))) for (let canvasY = range.minRow; canvasY <= range.maxRow; canvasY++) {
           const y = size.height - 1 - canvasY
           for (let worldX = range.minX; worldX <= range.maxX; worldX++) {
             const cell = cellAt(worldX, y)
