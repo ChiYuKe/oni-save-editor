@@ -36,7 +36,7 @@ export function SeedCalculator({onBack,onGenerated}:{onBack:()=>void;onGenerated
         if(state.status==='complete'){
           const response=await fetch(endpoint+'/jobs/'+job.id+'/save',{signal:AbortSignal.timeout(120000)})
           if(!response.ok)throw new Error('无法读取引擎生成结果')
-          await onGenerated(new File([await response.arrayBuffer()],`种子-${numeric?coordinate:coordinate.split('-')[1]}.sav`,{type:'application/octet-stream'}))
+          await onGenerated(new File([await response.arrayBuffer()],`种子-${numeric?coordinate:(state.coordinate?.match(/-(\d+)-/)?.[1]??'演算结果')}.sav`,{type:'application/octet-stream'}))
           break
         }
       }
