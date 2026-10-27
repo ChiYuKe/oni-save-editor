@@ -1,0 +1,46 @@
+<!doctype html><meta charset="utf-8"><title>资源定位与加载阶段检查</title><style>body{background:#171717;color:#eee;font:13px system-ui}pre{white-space:pre-wrap}iframe{width:1280px;height:820px;border:0}</style><pre id="result">检查中…</pre><iframe></iframe><script type="module">
+const frame=document.querySelector('iframe'),result=document.querySelector('#result'),checks=[],stages=new Set()
+const wait=ms=>new Promise(r=>setTimeout(r,ms)),doc=()=>frame.contentDocument
+async function ready(test){for(let i=0;i<600;i++){if(test())return;await wait(50)}throw Error('页面未就绪')}
+function check(pass,name){checks.push([pass,name]);if(!pass)throw Error(name)}
+frame.addEventListener('load',()=>{const d=doc();new MutationObserver(()=>d.querySelectorAll('.map-load-progress').forEach(e=>stages.add(e.dataset.stage))).observe(d.documentElement,{subtree:true,childList:true,attributes:true})})
+try{
+ frame.src='/?fixture=1&view=resources'
+ await ready(()=>doc()?.querySelector('.resource-statistics'))
+ const planet=doc().querySelectorAll('.resource-planets button')[2];planet.click();await wait(80)
+ const planetName=doc().querySelector('.resource-planets [aria-pressed=true]').textContent
+ const input=doc().querySelector('.resource-filter input')
+ const setter=Object.getOwnPropertyDescriptor(frame.contentWindow.HTMLInputElement.prototype,'value').set
+ setter.call(input,'Geyser');input.dispatchEvent(new frame.contentWindow.Event('input',{bubbles:true}));await wait(80)
+ const first=doc().querySelector('.resource-geyser-name strong').textContent.split(' ')[0]
+ doc().querySelector('[role=combobox]').click();await wait(30)
+ const option=[...doc().querySelectorAll('[role=option]')].find(e=>e.textContent===first)
+ check(!!option,'可按当前喷泉种类筛选');option.click();await wait(80)
+ const typeLabel=doc().querySelector('[role=combobox]').textContent
+ doc().querySelector('.resource-geyser-expand').click();await wait(80)
+ const expectedTag=[...doc().querySelectorAll('.resource-detail-row dl>div')].find(e=>e.querySelector('dt').textContent==='预制体 ID').querySelector('dd').textContent
+ doc().querySelector('.workspace').scrollTop=300;await wait(50)
+ const oldScroll=doc().querySelector('.workspace').scrollTop
+ doc().querySelector('.resource-geyser-name').click()
+ await ready(()=>doc().querySelector('.map-target-panel'))
+ check(doc().querySelector('.map-target-panel').textContent.includes(expectedTag),'定位后选中相同喷泉实例')
+ await ready(()=>{const r=doc().querySelector('.oni-cell-outline-selected')?.getBoundingClientRect();return r&&r.width>0&&r.left>=0&&r.right<frame.clientWidth-320})
+ const bounds=doc().querySelector('.oni-cell-outline-selected').getBoundingClientRect()
+ check(bounds.left>=0&&bounds.right<frame.clientWidth-320,'选中框位于地图可见区域，不被详情面板遮挡')
+ check(!!doc().querySelector('.map-resource-back'),'提供返回资源统计入口')
+ await wait(150)
+ await ready(()=>stages.has('details')||!doc().querySelector('.map-load-progress'))
+ const detailsOrCached=stages.has('details')||!doc().querySelector('.map-load-progress')
+ doc().querySelector('.map-resource-back').click();await ready(()=>doc().querySelector('.resource-statistics'))
+ await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame)
+ check(doc().querySelector('.resource-filter input').value==='Geyser','返回后保留搜索词')
+ check(doc().querySelector('[role=combobox]').textContent===typeLabel,'返回后保留种类筛选')
+ check(doc().querySelector('.resource-planets [aria-pressed=true]').textContent===planetName,'返回后保留星球筛选')
+ check(!!doc().querySelector('.resource-detail-row'),'返回后保留展开的数据')
+ check(Math.abs(doc().querySelector('.workspace').scrollTop-oldScroll)<=1,'返回后恢复列表滚动位置 '+oldScroll)
+ check(stages.has('reading'),'读取存档阶段真实显示')
+ check(stages.has('display'),'显示地图阶段真实显示')
+ check(detailsOrCached,'高清细节阶段可见，或命中缓存后直接完成')
+ result.textContent='PASS '+checks.length+'/'+checks.length+'\n'+checks.map(c=>'✓ '+c[1]).join('\n');document.title='PASS 资源定位与加载阶段检查'
+}catch(e){result.textContent='FAIL '+e.stack+'\n'+JSON.stringify([...stages]);document.title='FAIL 资源定位与加载阶段检查'}
+</script>
