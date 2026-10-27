@@ -1,3 +1,4 @@
+import { duplicantRows } from './lib/oniDuplicants'
 import { MapLoadProgress, type MapLoadStage, type MapLoadCount } from './MapLoadProgress'
 import type { GeyserStatistics } from './lib/oniResourceStatistics'
 import { ThemeToggle } from './ThemeToggle'
@@ -20,6 +21,7 @@ import {
   Archive,
   ArrowLeft,
   Boxes,
+  Bot,
   ChevronRight,
   Download,
   Eraser,
@@ -689,7 +691,7 @@ function App() {
             {view === 'overview' && <Overview save={save} onNavigate={setView} updateSave={updateSave} />}
             {view === 'resources' && <ResourceStatisticsView save={save} initialState={resourceTrip?.state} onLocate={locateResource} />}
             {view === 'map' && <MapView save={save} updateSave={updateSave} viewport={mapViewport} onViewportChange={setMapViewport} resourceTarget={resourceTrip?.geyser} onReturnToResources={resourceTrip?returnToResources:undefined} />}
-            {view === 'dupes' && <DupesView save={save} updateSave={updateSave} onOpenObject={(index) => { setSelectedGroup('Minion'); setSelectedIndex(index); setView('objects') }} />}
+            {view === 'dupes' && <DupesView save={save} updateSave={updateSave} onOpenObject={(tag,index) => { setSelectedGroup(tag); setSelectedIndex(index); setView('objects') }} />}
             {view === 'objects' && <ObjectsView save={save} selectedGroup={selectedGroup} selectedIndex={selectedIndex} onSelect={(tag, index) => { setSelectedGroup(tag); setSelectedIndex(index) }} updateSave={updateSave} />}
           </main>
         </div>
@@ -868,7 +870,8 @@ function Overview({ save, onNavigate, updateSave }: { save: ParsedSave; onNaviga
   const size = worldSize(save)
   const groups = save.manager?.groups ?? []
   const objectCount = groups.reduce((sum, group) => sum + group.instances.length, 0)
-  const minions = groupByTag(save, 'Minion')?.instances.length ?? 0
+  const minions = duplicantRows(save)
+  const bionicCount = minions.filter(row=>row.model==='bionic').length
   const cycle = scalarNumber(gameValue(save, 'GameClock', 'cycle'))
   const sandbox = gameValue(save, 'SaveGame', 'sandboxEnabled')
   const activeMods = member(save.saveFileRoot, 'active_mods')?.value
@@ -878,7 +881,7 @@ function Overview({ save, onNavigate, updateSave }: { save: ParsedSave; onNaviga
     <div className="view-stack">
       <div className="metric-grid">
         <Metric icon={<Gauge size={18} />} label="当前周期" value={formatNumber(cycle, 0)} note="GameClock" accent="teal" />
-        <Metric icon={<Users size={18} />} label="复制人" value={String(minions)} note="Minion group" accent="blue" />
+        <Metric icon={<Users size={18} />} label="复制人" value={String(minions.length)} note={`普通 ${minions.length-bionicCount} · 仿生 ${bionicCount}`} accent="blue" />
         <Metric icon={<Grid2x2 size={18} />} label="世界尺寸" value={`${size.width} × ${size.height}`} note="simulation grid" accent="amber" />
         <Metric icon={<Boxes size={18} />} label="对象实例" value={objectCount.toLocaleString()} note={`${groups.length} 个分组`} accent="red" />
       </div>
@@ -1971,13 +1974,13 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
   ><canvas ref={canvasRef} className="pixi-map-canvas" /><output ref={fpsRef} className="map-fps" aria-label="地图实际帧率" title="实际地图绘制帧率">— FPS</output>{mapLoading && <MapLoadProgress stage={mapStage} detail={mapLoading} counts={mapCounts}/>}</div>
 }
 
-function DupesView({ save, updateSave, onOpenObject }: { save: ParsedSave; updateSave: (update: (save: ParsedSave) => void) => void; onOpenObject: (index: number) => void }) {
-  const group = groupByTag(save, 'Minion')
-  const rows = groupRows(group)
-  const [selected, setSelected] = useState(0)
+function DupesView({ save, updateSave, onOpenObject }: { save: ParsedSave; updateSave: (update: (save: ParsedSave) => void) => void; onOpenObject: (tag:string,index: number) => void }) {
+  const rows = useMemo(()=>duplicantRows(save),[save])
+  const [selected, setSelected] = useState<string>()
   const [minionKanimAssets, setMinionKanimAssets] = useState<MinionKanimAssets | null>(null)
   const minionWearableNames = useMemo(() => saveMinionWearableAnimNames(save), [save])
-  const active = rows[selected]
+  const active = rows.find(row=>row.key===selected)??rows[0]
+  const bionicCount=rows.filter(row=>row.model==='bionic').length
   useEffect(() => {
     let active = true
     void loadMinionKanimAssets(minionWearableNames).then((assets) => { if (active) setMinionKanimAssets(assets) }).catch(() => {})
@@ -1985,13 +1988,13 @@ function DupesView({ save, updateSave, onOpenObject }: { save: ParsedSave; updat
   }, [minionWearableNames])
   return (
     <div className="view-stack">
-      <div className="view-intro"><div><p>已解析的殖民者实例</p><strong>{rows.length} 名复制人</strong></div><button className="button button-quiet" type="button" onClick={() => onOpenObject(selected)}><Boxes size={15} />打开对象详情</button></div>
+      <div className="view-intro"><div><p>普通 {rows.length-bionicCount} · 仿生 {bionicCount}</p><strong>{rows.length} 名复制人</strong></div><button className="button button-quiet" type="button" disabled={!active} onClick={() => { if(active)onOpenObject(active.tag,active.index) }}><Boxes size={15} />打开对象详情</button></div>
       <section className="surface dupes-layout">
         <div className="dupe-list">
           <div className="list-head"><span>复制人</span><span>位置</span></div>
-          {rows.map((row) => <button key={row.index} className={`dupe-row ${active?.index === row.index ? 'selected' : ''}`} type="button" onClick={() => setSelected(row.index)}><MinionAvatar instance={row.instance} assets={minionKanimAssets} fallback={row.name.slice(0, 1)} /><span className="dupe-name"><strong>{row.name}</strong><small>Minion #{row.index + 1}</small></span><span className="dupe-pos">{formatNumber(row.position.x, 1)}, {formatNumber(row.position.y, 1)}</span><ChevronRight size={15} /></button>)}
+          {rows.map((row) => <button key={row.key} className={`dupe-row ${active?.key === row.key ? 'selected' : ''}`} type="button" onClick={() => setSelected(row.key)}>{row.model==='bionic'?<span className="dupe-avatar" aria-label="仿生复制人"><Bot size={24}/></span>:<MinionAvatar instance={row.instance} assets={minionKanimAssets} fallback={row.name.slice(0, 1)} />}<span className="dupe-name"><strong>{row.name}</strong><small>{row.model==='bionic'?'仿生复制人':'普通复制人'} · {row.tag} #{row.index + 1}</small></span><span className="dupe-pos">{formatNumber(row.position.x, 1)}, {formatNumber(row.position.y, 1)}</span><ChevronRight size={15} /></button>)}
         </div>
-        {active && <DupeInspector instance={active.instance} updateSave={updateSave} />}
+        {active && <DupeInspector instance={active.instance} tag={active.tag} updateSave={updateSave} />}
       </section>
     </div>
   )
@@ -2015,12 +2018,12 @@ function MinionAvatar({ instance, assets, fallback }: { instance: SavedObjectIns
   </span>
 }
 
-function DupeInspector({ instance, updateSave }: { instance: SavedObjectInstance; updateSave: (update: (save: ParsedSave) => void) => void }) {
+function DupeInspector({ instance, tag, updateSave }: { instance: SavedObjectInstance; tag:string; updateSave: (update: (save: ParsedSave) => void) => void }) {
   const identity = component(instance, 'MinionIdentity')?.value
   const health = scalarNumber(member(component(instance, 'Health')?.value, 'canBeIncapacitated')?.value)
   const temperature = scalarNumber(member(component(instance, 'PrimaryElement')?.value, '_Temperature')?.value)
   const edit = (memberName: string, text: string) => updateSave(() => { const value = member(component(instance, 'MinionIdentity')?.value, memberName)?.value; if (value) setValueFromText(value, text) })
-  return <aside className="dupe-inspector"><SectionHeading icon={<Users size={16} />} title={objectName('Minion', instance, 0)} action="INSPECTOR" /><div className="inspector-grid"><EditableField label="名称" value={member(identity, 'name')?.value} onCommit={(text) => edit('name', text)} /><TransformFields instance={instance} updateSave={updateSave} /></div><div className="dupe-facts"><InfoRow label="体温" value={temperature === undefined ? '—' : `${formatNumber(temperature - 273.15, 1)} °C`} /><InfoRow label="组件" value={`${instance.components.length}`} /><InfoRow label="禁用伤残" value={health === undefined ? '—' : health ? '是' : '否'} /></div></aside>
+  return <aside className="dupe-inspector"><SectionHeading icon={<Users size={16} />} title={objectName(tag, instance, 0)} action="INSPECTOR" /><div className="inspector-grid"><EditableField label="名称" value={member(identity, 'name')?.value} onCommit={(text) => edit('name', text)} /><TransformFields instance={instance} updateSave={updateSave} /></div><div className="dupe-facts"><InfoRow label="类型" value={tag==='BionicMinion'?'仿生复制人':'普通复制人'}/><InfoRow label="体温" value={temperature === undefined ? '—' : `${formatNumber(temperature - 273.15, 1)} °C`} /><InfoRow label="组件" value={`${instance.components.length}`} /><InfoRow label="禁用伤残" value={health === undefined ? '—' : health ? '是' : '否'} /></div></aside>
 }
 
 function ObjectGroupIcon({ tag }: { tag: string }) {
@@ -2028,7 +2031,7 @@ function ObjectGroupIcon({ tag }: { tag: string }) {
   const [failedPath, setFailedPath] = useState<string>()
   return <span className="group-symbol" aria-hidden="true">{path && failedPath !== path
     ? <img src={assetPath(path)} alt="" loading="lazy" decoding="async" onError={() => setFailedPath(path)} />
-    : tag === 'Minion' ? <Users size={16} /> : <Boxes size={16} />}</span>
+    : tag === 'Minion' ? <Users size={16} /> : tag==='BionicMinion'?<Bot size={16}/>:<Boxes size={16} />}</span>
 }
 
 function ObjectsView({ save, selectedGroup, selectedIndex, onSelect, updateSave }: { save: ParsedSave; selectedGroup: string; selectedIndex: number; onSelect: (tag: string, index: number) => void; updateSave: (update: (save: ParsedSave) => void) => void }) {
