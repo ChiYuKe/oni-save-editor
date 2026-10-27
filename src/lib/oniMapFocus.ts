@@ -24,3 +24,15 @@ export function resizeMapViewport(camera: { zoomPercent: number; pan: { x: numbe
   const ratio = oldFit > 0 ? newFit / oldFit : 1
   return { ...camera, pan: { x: camera.pan.x * ratio, y: camera.pan.y * ratio } }
 }
+
+/** Focus a saved object in global grid coordinates, leaving room for its inspector. */
+export function objectMapViewport(save: ParsedSave, width: number, height: number, point: {x:number;y:number}) {
+  const size=worldSize(save)
+  if(width<=0||height<=0||!Number.isFinite(point.x)||!Number.isFinite(point.y))return {zoomPercent:0,pan:{x:0,y:0}}
+  const reserved=Math.min(width*.7,width>600?352:272)
+  const usable=Math.max(1,width-reserved)
+  const fit=Math.min(1,width/(size.width*32),height/(size.height*32))
+  const pixels=Math.max(12,Math.min(32,usable/30,height/24))
+  const zoom=Math.max(1,Math.min(16,pixels/(32*fit))),scale=fit*zoom
+  return {zoomPercent:(zoom-1)/15*100,pan:{x:(size.width/2-point.x)*32*scale-reserved/2,y:(size.height/2-(size.height-point.y-.5))*32*scale}}
+}

@@ -1,9 +1,11 @@
+import { MapLoadProgress, type MapLoadStage, type MapLoadCount } from './MapLoadProgress'
+import type { GeyserStatistics } from './lib/oniResourceStatistics'
 import { ThemeToggle } from './ThemeToggle'
 import { objectGroupIcon } from './lib/oniObjectIcon'
 import { createOniPlanetLabels } from './lib/oniPlanetLabels'
-import { ResourceStatisticsView } from './ResourceStatisticsView'
+import { ResourceStatisticsView, type ResourceViewState } from './ResourceStatisticsView'
 import { createOniMapPicker, cycleMapTarget, mapComponentRows, type PickBounds } from './lib/oniMapPicking'
-import { printingPodViewport, mapLoadOrigin, resizeMapViewport } from './lib/oniMapFocus'
+import { printingPodViewport, objectMapViewport, mapLoadOrigin, resizeMapViewport } from './lib/oniMapFocus'
 import { createOniMapOverview } from './lib/oniMapOverview'
 import { sceneViewportForCamera } from './lib/oniSceneViewport'
 import { createOniCellOutline } from './lib/oniCellOutline'
@@ -16,6 +18,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import {
   AlertTriangle,
   Archive,
+  ArrowLeft,
   Boxes,
   ChevronRight,
   Download,
@@ -87,7 +90,7 @@ type MapPreviewCell = { x: number; y: number; elementHash: number }
 type MapSelection = { start: { x: number; y: number }; end: { x: number; y: number } }
 type MapTool = 'inspect' | 'move' | 'paint' | 'erase' | 'eyedropper' | 'fill' | 'rectangle' | 'line'
 type MapCellUpdate = { x: number; y: number; patch: Partial<SimCell> }
-type MapViewport = { zoomPercent: number; pan: { x: number; y: number }; focusPrintingPod?: boolean }
+type MapViewport = { zoomPercent: number; pan: { x: number; y: number }; focusPrintingPod?: boolean; focusPoint?: {x:number;y:number} }
 // New saves focus the printing pod once; later camera changes remain user controlled.
 const DEFAULT_MAP_VIEWPORT: MapViewport = { zoomPercent: 0, pan: { x: 0, y: 0 }, focusPrintingPod: true }
 const MAP_ZOOM_MIN = 1
@@ -337,6 +340,9 @@ function App() {
   const [selectedYamlPath, setSelectedYamlPath] = useState('')
   const [fileName, setFileName] = useState('')
   const [view, setView] = useState<View>('overview')
+  const [readingSave,setReadingSave]=useState(false)
+  const [resourceTrip,setResourceTrip]=useState<{geyser:GeyserStatistics;state:ResourceViewState;scroll:number;planetsScroll:number;tablesScroll:number[]}|null>(null)
+
   const [mapViewport, setMapViewport] = useState<MapViewport>(DEFAULT_MAP_VIEWPORT)
   const [dirty, setDirty] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -399,10 +405,12 @@ function App() {
       return
     }
     setLoading(true)
+    setReadingSave(true)
     setError('')
     try {
       const parsed = await parseSaveOffThread(new Uint8Array(await file.arrayBuffer()))
       setSave(parsed)
+      setResourceTrip(null)
       setYamlTemplate(null)
       setYamlDocuments([])
       setSelectedYamlPath('')
@@ -422,6 +430,7 @@ function App() {
       setSelectedYamlPath('')
     } finally {
       setLoading(false)
+      setReadingSave(false)
     }
   }, [])
 
@@ -561,6 +570,22 @@ function App() {
     })
   }
 
+  const locateResource = (geyser:GeyserStatistics,state:ResourceViewState) => {
+    setResourceTrip({geyser,state,scroll:document.querySelector('.workspace')?.scrollTop??0,
+      planetsScroll:document.querySelector('.resource-planets')?.scrollTop??0,
+      tablesScroll:[...document.querySelectorAll('.resource-table-scroll')].map(table=>table.scrollLeft)})
+    setMapViewport({zoomPercent:0,pan:{x:0,y:0},focusPoint:{x:geyser.x,y:geyser.y}})
+    setView('map')
+  }
+  const returnToResources = () => {
+    setView('resources')
+    requestAnimationFrame(()=>{
+      const workspace=document.querySelector('.workspace'),planets=document.querySelector('.resource-planets')
+      if(workspace)workspace.scrollTop=resourceTrip?.scroll??0
+      if(planets)planets.scrollTop=resourceTrip?.planetsScroll??0
+      document.querySelectorAll('.resource-table-scroll').forEach((table,index)=>{table.scrollLeft=resourceTrip?.tablesScroll[index]??0})
+    })
+  }
   const hasDocument = Boolean(save || yamlTemplate)
 
   return (
@@ -591,7 +616,7 @@ function App() {
           {save && (
             <nav className="topnav" aria-label="工作区">
               {navItems.map(({ id, label }) => (
-                <button key={id} className={view === id ? 'active' : ''} type="button" aria-current={view === id ? 'page' : undefined} onClick={() => setView(id)}>{id === 'overview' ? <Gauge size={14} /> : id === 'map' ? <Grid2x2 size={14} /> : id === 'dupes' ? <Users size={14} /> : id === 'resources' ? <Layers3 size={14} /> : <Boxes size={14} />}<span>{label}</span></button>
+                <button key={id} className={view === id ? 'active' : ''} type="button" aria-current={view === id ? 'page' : undefined} onClick={() => id==='resources'&&resourceTrip?returnToResources():setView(id)}>{id === 'overview' ? <Gauge size={14} /> : id === 'map' ? <Grid2x2 size={14} /> : id === 'dupes' ? <Users size={14} /> : id === 'resources' ? <Layers3 size={14} /> : <Boxes size={14} />}<span>{label}</span></button>
               ))}
             </nav>
           )}
@@ -628,6 +653,7 @@ function App() {
         </div>
       </header>
 
+      {readingSave && <MapLoadProgress stage="reading"/>}
       {error && (
         <div className="error-banner">
           <AlertTriangle size={17} />
@@ -661,8 +687,8 @@ function App() {
               <div className="head-meta"><span className="status-dot" />{dirty ? '待导出' : '已载入'}<ChevronRight size={14} />{fileName}</div>
             </div>}
             {view === 'overview' && <Overview save={save} onNavigate={setView} updateSave={updateSave} />}
-            {view === 'resources' && <ResourceStatisticsView save={save} />}
-            {view === 'map' && <MapView save={save} updateSave={updateSave} viewport={mapViewport} onViewportChange={setMapViewport} />}
+            {view === 'resources' && <ResourceStatisticsView save={save} initialState={resourceTrip?.state} onLocate={locateResource} />}
+            {view === 'map' && <MapView save={save} updateSave={updateSave} viewport={mapViewport} onViewportChange={setMapViewport} resourceTarget={resourceTrip?.geyser} onReturnToResources={resourceTrip?returnToResources:undefined} />}
             {view === 'dupes' && <DupesView save={save} updateSave={updateSave} onOpenObject={(index) => { setSelectedGroup('Minion'); setSelectedIndex(index); setView('objects') }} />}
             {view === 'objects' && <ObjectsView save={save} selectedGroup={selectedGroup} selectedIndex={selectedIndex} onSelect={(tag, index) => { setSelectedGroup(tag); setSelectedIndex(index) }} updateSave={updateSave} />}
           </main>
@@ -895,15 +921,15 @@ function Overview({ save, onNavigate, updateSave }: { save: ParsedSave; onNaviga
   )
 }
 
-function MapView({ save, updateSave, viewport, onViewportChange }: { save: ParsedSave; updateSave: (update: (save: ParsedSave) => void) => void; viewport: MapViewport; onViewportChange: Dispatch<SetStateAction<MapViewport>> }) {
+function MapView({ save, updateSave, viewport, onViewportChange, resourceTarget, onReturnToResources }: { save: ParsedSave; updateSave: (update: (save: ParsedSave) => void) => void; resourceTarget?:GeyserStatistics; onReturnToResources?:()=>void; viewport: MapViewport; onViewportChange: Dispatch<SetStateAction<MapViewport>> }) {
   const [visibleLayers, setVisibleLayers] = useState<MapLayerVisibility>(DEFAULT_MAP_LAYER_VISIBILITY)
   const [layersExpanded, setLayersExpanded] = useState(false)
   const [overlay, setOverlay] = useState<MapOverlay>('none')
   const [tool, setTool] = useState<MapTool>('inspect')
   const [brushSize, setBrushSize] = useState(1)
-  const [lastCell, setLastCell] = useState<{ x: number; y: number } | null>(null)
-  const [pickedId, setPickedId] = useState<string | undefined>()
   const pickMap = useMemo(() => createOniMapPicker(save), [save])
+  const [lastCell, setLastCell] = useState<{ x: number; y: number } | null>(()=>resourceTarget?{x:Math.floor(resourceTarget.x),y:Math.floor(resourceTarget.y)}:null)
+  const [pickedId, setPickedId] = useState<string | undefined>(()=>resourceTarget?pickMap(Math.floor(resourceTarget.x),Math.floor(resourceTarget.y),DEFAULT_MAP_LAYER_VISIBILITY).find(target=>target.group?.tag===resourceTarget.tag&&target.instance===groupByTag(save,resourceTarget.tag)?.instances[resourceTarget.index])?.id:undefined)
   const pickTargets = useMemo(() => lastCell ? pickMap(lastCell.x, lastCell.y, visibleLayers) : [], [pickMap, lastCell, visibleLayers])
   const pickedTarget = pickedId ? pickTargets.find(t => t.id === pickedId) ?? pickTargets[0] : undefined
   const [selection, setSelection] = useState<MapSelection | null>(null)
@@ -1155,6 +1181,7 @@ function MapView({ save, updateSave, viewport, onViewportChange }: { save: Parse
         <div className="tool-rail-divider" />
         <div className="tool-rail-bottom"><span className="status-dot" /><span>{size.width} × {size.height}</span><small>{sim ? `SIM v${sim.version}` : '无模拟区'}</small></div>
       </aside>
+      {onReturnToResources&&<button type="button" className="map-resource-back" onClick={onReturnToResources}><ArrowLeft size={14}/>返回资源统计</button>}
       <section className="map-center-panel">
         <div className="map-center-toolbar">
           <div className="toolbar-group map-overlay-control"><span className="toolbar-label">分析覆盖</span><select value={overlay} onChange={(event) => setOverlay(event.target.value as MapOverlay)}>
@@ -1577,7 +1604,9 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
   }, [])
   useEffect(() => { refreshOutlinesRef.current() }, [selectedCell, selection, targetBounds])
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [mapLoading, setMapLoading] = useState<string | null>(null)
+  const [mapLoading, setMapLoading] = useState<string | null>('正在准备地图画面…')
+  const [mapStage,setMapStage]=useState<MapLoadStage>('display')
+  const [mapCounts,setMapCounts]=useState<MapLoadCount>({completed:0,total:0,pending:0})
   const sceneRef = useRef<PixiWorldScene | null>(null)
   const pointerRef = useRef<{ mode: 'pan' | 'select' | 'brush' | 'shape' | 'point'; id: number; startX: number; startY: number; panX: number; panY: number; startCell: { x: number; y: number } | null; lastCell: { x: number; y: number } | null; moved: boolean } | null>(null)
   const cameraRef = useRef(viewport)
@@ -1633,7 +1662,8 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
     const scene = new PixiWorldScene()
     let active = true
     void scene.init(canvas).then((initialized) => {
-      if (!initialized || !active) return
+      if (!active) return
+      if (!initialized) { setMapStage('error'); setMapLoading('无法初始化地图显示，请重新进入地图。'); return }
       sceneRef.current = scene
       setSceneReady(true)
       const host = hostRef.current
@@ -1658,7 +1688,7 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
     if (viewportSize.width <= 0 || viewportSize.height <= 0) return
     const previous = cameraGeometryRef.current
     const resized = previous && (previous.width !== viewportSize.width || previous.height !== viewportSize.height)
-    const next = viewport.focusPrintingPod ? printingPodViewport(save, viewportSize.width, viewportSize.height)
+    const next = viewport.focusPoint ? objectMapViewport(save, viewportSize.width, viewportSize.height, viewport.focusPoint) : viewport.focusPrintingPod ? printingPodViewport(save, viewportSize.width, viewportSize.height)
       : resized ? resizeMapViewport(viewport, previous.fit, fitScale) : viewport
     cameraGeometryRef.current = { width: viewportSize.width, height: viewportSize.height, fit: fitScale }
     applyCamera(next)
@@ -1672,10 +1702,12 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
     const startedAt = performance.now()
     const metrics = hostRef.current?.dataset
     if (metrics) { delete metrics.overviewMs; delete metrics.textureReadyMs; delete metrics.firstSceneMs }
-    setMapLoading('地图概览已显示，正在加载纹理…')
+    setMapStage('display')
+    setMapCounts({completed:0,total:0,pending:0})
+    setMapLoading('正在生成并显示地图概览…')
     scene.setChunk({ key: 'loading-overview', layer: 'background', order: -1, canvas: createOniMapOverview(save),
       x: 0, y: 0, width: size.width * baseCellSize, height: size.height * baseCellSize })
-    requestAnimationFrame(() => { if (metrics && generation === buildRef.current) metrics.overviewMs = (performance.now() - startedAt).toFixed(1) })
+    requestAnimationFrame(() => { if (generation !== buildRef.current) return; if (metrics) metrics.overviewMs = (performance.now() - startedAt).toFixed(1); setMapStage('details'); setMapLoading('地图概览已显示，正在准备高清细节…') })
     const renderedKeysByLayer = new Map<OniChunkLayer, Set<string>>()
     let renderer: Awaited<ReturnType<typeof createOniChunkRenderer>> | null = null
     let cursor = 0
@@ -1707,6 +1739,7 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
       fluidClock.recordCost(fluidCost)
       if (metrics) metrics.fluidMs = fluidCost.toFixed(2)
     }
+    let lastProgressTime=0
     let tasks: Array<{ distance: number; x: number; row: number; widthCells: number; heightCells: number; key: string; cellSize: number }> = []
     const scheduleNext = () => {
       scheduledFrame = window.requestAnimationFrame(buildNext)
@@ -1747,7 +1780,7 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
       if (!shineView) lastShineKey = ''
       if (isInteractingRef.current) { scheduleNext(); return }
       const pending = renderer.pendingDetails > 0
-      if (pending !== detailLoading) { detailLoading = pending; setMapLoading(pending ? '正在补齐当前视野的高清画面…' : null) }
+      if (pending !== detailLoading) { detailLoading = pending; if(pending)setMapLoading('正在补齐当前视野的高清细节…') }
       const view = sceneViewportForCamera(scene.visibleWorldRect(), size.width, size.height, baseCellSize, window.devicePixelRatio || 1)
       const viewKey = view ? `${view.key}:${renderer.revision}:${dynamicSurfaces ? 'dynamic' : cameraKey}` : ''
       if (view && viewKey !== sceneKey) {
@@ -1783,13 +1816,23 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
       }
       if (!sceneComplete && cursor === tasks.length) {
         sceneComplete = true
-        if (!renderer.pendingDetails) setMapLoading(null)
+        if (sceneKey && viewKey===sceneKey && !renderer.pendingDetails) setMapLoading(null)
         if (metrics && !metrics.firstSceneMs) metrics.firstSceneMs = (performance.now() - startedAt).toFixed(1)
         const allLayers: readonly OniChunkLayer[] = ONI_CHUNK_LAYERS
         for (const layer of allLayers) {
           if (dynamicSurfaces && (layer === 'background' || layer === 'terrain')) continue
           if (animateFluids && (layer === 'gas' || layer === 'liquid')) continue
           scene.removeMissing(renderedKeysByLayer.get(layer) ?? new Set<string>(), layer)
+        }
+      }
+      if(now-lastProgressTime>=100){
+        lastProgressTime=now
+        if((!view||(sceneKey&&sceneComplete&&viewKey===sceneKey))&&!renderer.pendingDetails)setMapLoading(null)
+        else {
+          setMapStage('details')
+          setMapLoading('地图已显示，正在补齐当前视野的高清细节…')
+          const next={completed:cursor,total:tasks.length,pending:renderer.pendingDetails}
+          setMapCounts(old=>old.completed===next.completed&&old.total===next.total&&old.pending===next.pending?old:next)
         }
       }
       scheduleNext()
@@ -1802,7 +1845,7 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
       if (animateFluids) animationFrame = window.requestAnimationFrame(updateFluids)
       scheduleNext()
     }).catch((cause) => {
-      if (generation === buildRef.current && !(cause instanceof DOMException && cause.name === 'AbortError')) { setMapLoading('地图概览已显示，纹理加载失败，请稍后重新进入地图。'); console.error('ONI 地图分块准备失败。', cause) }
+      if (generation === buildRef.current && !(cause instanceof DOMException && cause.name === 'AbortError')) { setMapStage('error'); setMapLoading('地图概览已显示，纹理加载失败，请稍后重新进入地图。'); console.error('ONI 地图分块准备失败。', cause) }
     })
     return () => {
       buildRef.current += 1
@@ -1925,7 +1968,7 @@ function PixiMapCanvas({ save, visibleLayers, overlay, tool, brushSize: _brushSi
       refreshOutlinesRef.current()
       isInteractingRef.current = false
     }}
-  ><canvas ref={canvasRef} className="pixi-map-canvas" /><output ref={fpsRef} className="map-fps" aria-label="地图实际帧率" title="实际地图绘制帧率">— FPS</output>{mapLoading && <div className="map-loading-status" role="status">{mapLoading}</div>}</div>
+  ><canvas ref={canvasRef} className="pixi-map-canvas" /><output ref={fpsRef} className="map-fps" aria-label="地图实际帧率" title="实际地图绘制帧率">— FPS</output>{mapLoading && <MapLoadProgress stage={mapStage} detail={mapLoading} counts={mapCounts}/>}</div>
 }
 
 function DupesView({ save, updateSave, onOpenObject }: { save: ParsedSave; updateSave: (update: (save: ParsedSave) => void) => void; onOpenObject: (index: number) => void }) {
