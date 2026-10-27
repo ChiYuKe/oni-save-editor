@@ -1,3 +1,4 @@
+import { SeedCalculator } from './SeedCalculator'
 import { duplicantRows } from './lib/oniDuplicants'
 import { MapLoadProgress, type MapLoadStage, type MapLoadCount } from './MapLoadProgress'
 import type { GeyserStatistics } from './lib/oniResourceStatistics'
@@ -337,6 +338,7 @@ function parseSaveOffThread(bytes: Uint8Array): Promise<ParsedSave> {
 
 function App() {
   const [save, setSave] = useState<ParsedSave | null>(null)
+  const [seedMode,setSeedMode] = useState(false)
   const [yamlTemplate, setYamlTemplate] = useState<YamlTemplate | null>(null)
   const [yamlDocuments, setYamlDocuments] = useState<ImportedYamlTemplate[]>([])
   const [selectedYamlPath, setSelectedYamlPath] = useState('')
@@ -479,6 +481,7 @@ function App() {
 
   const returnHome = useCallback(() => {
     if (dirty && !window.confirm('当前有未导出的修改，确定返回主界面吗？')) return
+    setSeedMode(false)
     setSave(null)
     setYamlTemplate(null)
     setYamlDocuments([])
@@ -665,7 +668,7 @@ function App() {
       )}
 
       {!hasDocument ? (
-        <EmptyState loading={loading} isDragging={isDragging} onPick={openPicker} onDrop={handleDrop} onDragChange={setIsDragging} />
+        seedMode ? <SeedCalculator onBack={() => setSeedMode(false)} onGenerated={async file => { await loadFile(file); setView('resources') }} /> : <EmptyState onSeed={() => setSeedMode(true)} loading={loading} isDragging={isDragging} onPick={openPicker} onDrop={handleDrop} onDragChange={setIsDragging} />
       ) : yamlTemplate ? (
         <div className="workspace">
           <main className="main-content main-content-template">
@@ -700,7 +703,7 @@ function App() {
   )
 }
 
-function EmptyState({ loading, isDragging, onPick, onDrop, onDragChange }: { loading: boolean; isDragging: boolean; onPick: () => void; onDrop: (event: React.DragEvent<HTMLDivElement>) => void; onDragChange: (value: boolean) => void }) {
+function EmptyState({ onSeed, loading, isDragging, onPick, onDrop, onDragChange }: { onSeed: () => void; loading: boolean; isDragging: boolean; onPick: () => void; onDrop: (event: React.DragEvent<HTMLDivElement>) => void; onDragChange: (value: boolean) => void }) {
   const [landingLanguage, setLandingLanguage] = useState<'zh' | 'en'>('zh')
   const english = landingLanguage === 'en'
   return (
@@ -747,6 +750,7 @@ function EmptyState({ loading, isDragging, onPick, onDrop, onDragChange }: { loa
               {loading ? <><span className="spinner" />{english ? 'Parsing...' : '解析中...'}</> : <><FileUp size={17} />{english ? 'Choose file' : '选择文件'}</>}
             </button>
             <div className="upload-formats"><span>.SAV</span><span>.YAML</span></div>
+            <button className="landing-seed-entry" onClick={onSeed}><Grid2x2 size={15}/>{english ? 'Generate from a seed' : '从种子演算世界'}<ChevronRight size={14}/></button>
             <div className="upload-privacy"><Gauge size={14} /><span>{english ? 'Processed on this device. Nothing is uploaded.' : '数据只在当前设备处理，不会上传服务器'}</span></div>
           </section>
         </main>

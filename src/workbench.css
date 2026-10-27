@@ -48,7 +48,7 @@
 .saved-shell .topnav button.active { color:#fff; background:#2b2b2b; box-shadow:0 2px 6px #0002; }
 .saved-shell .button, .template-shell .button { border-radius:7px; min-height:32px; }
 .saved-shell .button-primary, .template-shell .button-primary { color:#fff; }
-.saved-shell .topbar-actions .button { min-height:30px; }
+.saved-shell .topbar-actions .button { min-height:30px; white-space:nowrap; flex-shrink:0; }
 .saved-shell .topbar-pill .button-quiet:hover { color:#fff; background:#292929; border-color:#363636; }
 .saved-shell .file-chip { padding:5px 9px; background:#202020; border:1px solid transparent; border-radius:6px; }
 .saved-shell .main-content:not(.main-content-map), .template-shell .main-content { width:min(100%,1480px); padding:32px 36px 48px; }
