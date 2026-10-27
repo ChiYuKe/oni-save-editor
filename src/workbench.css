@@ -88,6 +88,11 @@
 .saved-shell :is(.object-groups,.object-records) { border-right:1px solid var(--line); }
 .saved-shell :is(.search-box,.transform-grid label,.yaml-source-picker select) { border-radius:7px; background:#171717; }
 .saved-shell .search-box { height:36px; }
+/* The search wrapper owns focus styling; an inner input ring creates a second box. */
+.saved-shell .search-box:focus-within, .template-shell .search-box:focus-within { border-color:var(--line-strong); }
+.saved-shell .search-box input:focus, .saved-shell .search-box input:focus-visible,
+.template-shell .search-box input:focus, .template-shell .search-box input:focus-visible { outline:0; outline-offset:0; box-shadow:none; }
+
 .saved-shell :is(.object-group-row,.record-row,.dupe-row) { border-radius:7px; }
 .saved-shell :is(.object-group-row,.record-row,.dupe-row).selected { color:#f6d5d8; background:#e23e4317; box-shadow:inset 2px 0 #e76973; }
 .saved-shell .object-group-row { min-height:38px; font-size:11px; }
