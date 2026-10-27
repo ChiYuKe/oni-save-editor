@@ -96,6 +96,9 @@ export function worldSize(save: ParsedSave): WorldSize {
 }
 
 export function worldSeed(save: ParsedSave): number | undefined {
+  // Cluster worldDetail may contain the final asteroid's incremented seed.
+  const configured = stringDictionary(currentGameSettings(save), 'CurrentQualityLevelsBySetting').get('WorldgenSeed')
+  if (configured && /^\d+$/.test(configured) && Number.isSafeInteger(Number(configured))) return Number(configured)
   const worldDetail = member(save.gameData, 'worldDetail')?.value
   if (!worldDetail || worldDetail.kind !== 'object') return undefined
   return scalarNumber(member(worldDetail, 'globalWorldSeed')?.value)
@@ -275,7 +278,7 @@ function storyLevels(save: ParsedSave): Map<string, string> {
 }
 
 function clusterCoordinatePrefix(clusterLayout: string): string | undefined {
-  return CLUSTER_COORDINATE_PREFIXES[clusterLayout]
+  return CLUSTER_COORDINATE_PREFIXES[clusterLayout] ?? (clusterLayout.startsWith('clusters/') ? CLUSTER_COORDINATE_PREFIXES['worldgen::' + clusterLayout] : undefined)
 }
 
 /** Returns the same five-part coordinate shown by the game's seed UI. */
@@ -289,10 +292,14 @@ export function worldCoordinate(save: ParsedSave): string | undefined {
   const prefix = clusterLayout ? clusterCoordinatePrefix(clusterLayout) : undefined
   if (!prefix || !worldgenSeed || !/^\d+$/.test(worldgenSeed)) return undefined
 
+  // Native Durability swaps Default/Indestructible coordinate values outside Spaced Out.
+  const vanilla = Array.isArray(save.gameInfoJson.dlcIds) && !save.gameInfoJson.dlcIds.includes('EXPANSION1_ID')
+  const otherSettings = vanilla ? OTHER_COORDINATE_SETTINGS.map(setting => setting.id === 'Durability'
+    ? {...setting, levels: {...setting.levels, Default: 2, Indestructible: 0}} : setting) : OTHER_COORDINATE_SETTINGS
   return [
     prefix,
     worldgenSeed,
-    encodeCoordinate(OTHER_COORDINATE_SETTINGS, qualityLevels),
+    encodeCoordinate(otherSettings, qualityLevels),
     encodeCoordinate(STORY_COORDINATE_SETTINGS, storyLevels(save)),
     encodeCoordinate(MIXING_COORDINATE_SETTINGS, mixingLevels),
   ].join('-')
