@@ -14,9 +14,23 @@
 - 复制人：查看名称、坐标、体温和组件数量，支持修改名称与世界坐标。
 - 对象：按 SaveManager 分组检索实例，查看组件并编辑已解析的标量字段。
 
-## 本机种子演算
+## 本机种子演算（隐藏功能）
 
-首页选择「从种子演算世界」，输入数字种子和星群类型，或完整游戏坐标码，并选择 DLC 组合。本机 Unity 引擎负责真实世界生成，完成后直接打开地图与全部星球的间歇泉统计。需要先启动本机服务；[安装、运行与原生参数核对说明](tools/seed-engine/README.md)。GitHub Pages 负责界面，本机服务负责演算，远程引擎尚未托管。
+种子演算入口默认隐藏。在网站首页按 **F12 → Console（控制台）**，执行以下命令显示入口并刷新页面：
+
+```javascript
+localStorage.setItem('oni.seedCalculator', '1'); location.reload();
+```
+
+需要重新隐藏时执行：
+
+```javascript
+localStorage.removeItem('oni.seedCalculator'); location.reload();
+```
+
+开关会保存在当前浏览器中，不影响其他玩家；它只控制入口显示，演算仍需启动本机引擎服务。
+
+入口显示后选择「从种子演算世界」，输入数字种子和星群类型，或完整游戏坐标码，并选择 DLC 组合。本机 Unity 引擎负责真实世界生成，完成后可查看地图与全部星球的间歇泉统计。详见[安装、运行与原生参数核对说明](tools/seed-engine/README.md)。GitHub Pages 负责界面，远程引擎尚未托管。
 
 ## 开发
 
