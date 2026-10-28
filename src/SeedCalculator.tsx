@@ -1,7 +1,7 @@
 import {ThemeToggle} from './ThemeToggle'
 import {useEffect,useRef,useState} from 'react'
 import {ArrowLeft, Cpu, Download, Map, Play} from 'lucide-react'
-import {SelectMenu} from './SelectMenu'
+import {SeedClusterCarousel} from './SeedClusterCarousel'
 import {ONI_SEED_CLUSTERS} from './lib/oniSeedClusters.generated'
 import './seedCalculator.css'
 
@@ -58,7 +58,7 @@ export function SeedCalculator({onBack,onGenerated}:{onBack:()=>void;onGenerated
     <header><div className="eyebrow">NATIVE WORLD GENERATION</div><h1>种子演算</h1><p>在本机运行游戏生成流程，查看所有星球的地图与间歇泉。</p></header>
     <div className="seed-grid"><section className="seed-panel"><h2><Cpu size={19}/>生成设置</h2>
       <label>种子 / 完整坐标码<input value={input} onChange={e=>setInput(e.target.value)} placeholder="1234567 或 SNDST-…" disabled={busy}/></label>
-      {/^\d*$/.test(input)&&<fieldset disabled={busy}><legend>星群类型</legend><SelectMenu label="星群类型" value={effectiveCluster} options={available.map(c=>({value:c.id,label:`${c.name} · ${c.prefix}`}))} onChange={setCluster}/><p className="seed-note">完整坐标码会自动解析星群与混入设置。</p></fieldset>}
+      {/^\d*$/.test(input)&&<fieldset disabled={busy}><legend>星群类型</legend><SeedClusterCarousel value={effectiveCluster} options={available} onChange={setCluster} disabled={busy}/><p className="seed-note">完整坐标码会自动解析星群与混入设置。</p></fieldset>}
       <fieldset disabled={busy}><legend>引擎 DLC 组合</legend><div className="seed-dlcs">{dlcs.map(([id,name])=><label key={id}><input type="checkbox" checked={selected.includes(id)} onChange={e=>setSelected(e.target.checked?[...selected,id]:selected.filter(x=>x!==id))}/>{name}</label>)}</div></fieldset>
       <p className="seed-note">引擎按所选 DLC 启动，缺少内容时会明确报错。数字种子使用生存模式默认设置、关闭故事与内容混入；完整坐标码沿用其中设置。</p>
       <button className="button button-primary" disabled={!connected||busy} onClick={()=>void calculate()}><Play size={15}/>{busy?'引擎演算中…':'开始演算'}</button>
