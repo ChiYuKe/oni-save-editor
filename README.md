@@ -30,9 +30,9 @@ localStorage.removeItem('oni.seedCalculator'); location.reload();
 
 开关会保存在当前浏览器中，不影响其他玩家；它只控制入口显示，演算仍需启动本机引擎服务。
 
-推荐使用[独立 Windows 演算器（预览版）](https://github.com/ChiYuKe/oni-save-editor/releases/tag/seed-companion-v0.1.0-preview.1)：解压后双击 `OniSeedCompanion.exe`，选择已安装的《缺氧》目录，等窗口显示服务已启动，再点击工具里的「打开网页」即可直接进入演算页面；普通首页仍默认隐藏入口。玩家无需 Unity 编辑器、Node.js 或手动安装模组；首次会准备独立运行副本，需要额外磁盘空间。
+推荐使用[独立 Windows 演算器（预览版）](https://github.com/ChiYuKe/oni-save-editor/releases/tag/seed-companion-v0.2.0-preview.1)：解压后双击 `OniSeedCompanion.exe`，选择已安装的《缺氧》目录，等窗口显示服务已启动，再点击工具里的「打开网页」即可直接进入演算页面；普通首页仍默认隐藏入口。玩家无需 Unity 编辑器、Node.js 或手动安装模组；首次会准备独立运行副本，需要额外磁盘空间。
 
-入口显示后选择「从种子演算世界」，输入数字种子和星群类型，或完整游戏坐标码，并选择 DLC 组合。工具调用安装版游戏的原生生成流程、SimDLL 和泉配置，完成后网页显示地图与全部星球的间歇泉统计。[独立工具使用与构建说明](tools/seed-companion/README.md)。旧版开发用接口仍见 [Unity 编辑器运行方式](tools/seed-engine/README.md)。GitHub Pages 负责界面，远程引擎尚未托管。
+入口显示后选择「从种子演算世界」，输入数字种子和星群类型，或完整游戏坐标码，并选择 DLC 组合。工具调用安装版游戏的原生生成流程、SimDLL 和泉配置，完成后网页显示地图与全部星球的间歇泉统计。[独立工具使用与构建说明](tools/seed-companion/README.md)。新版支持在填写种子时提前预载，以及在查看结果时准备下次演算；本机九星球测试提交后等待由约 33 秒缩短至约 16 秒（不含网页地图加载，实际随电脑和种子变化）。旧版开发用接口仍见 [Unity 编辑器运行方式](tools/seed-engine/README.md)。GitHub Pages 负责界面，远程引擎尚未托管。
 
 ## 开发
 
