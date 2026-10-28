@@ -6,7 +6,7 @@ import {ONI_SEED_CLUSTERS} from './lib/oniSeedClusters.generated'
 import './seedCalculator.css'
 
 const endpoint=import.meta.env.DEV && import.meta.env.VITE_ONI_SEED_ENDPOINT ? String(import.meta.env.VITE_ONI_SEED_ENDPOINT) : 'http://127.0.0.1:5191'
-const companionDownload='https://github.com/ChiYuKe/oni-save-editor/releases/download/seed-companion-v0.2.0-preview.1/OniSeedCompanion-win-x64.zip'
+const companionDownload='https://github.com/ChiYuKe/oni-save-editor/releases/download/seed-companion-v0.2.1-preview.1/OniSeedCompanion-win-x64.zip'
 const dlcs=[['EXPANSION1_ID','眼冒金星'],['DLC2_ID','寒霜行星包'],['DLC3_ID','仿生强化包'],['DLC4_ID','史前行星包'],['DLC5_ID','海洋行星包'],['COSMETIC1_ID','装饰包']]
 type Progress={id:string;status:string;message:string;coordinate?:string;worldCount?:number;engineId?:string}
 async function request(path:string,init?:RequestInit){const response=await fetch(endpoint+path,{...init,signal:AbortSignal.timeout(15000)});const data=await response.json();if(!response.ok)throw new Error(data.message);return data}
