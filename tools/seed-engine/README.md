@@ -55,3 +55,20 @@ node node_modules/tsx/dist/cli.mjs scripts/check-seed-engine.ts "任务目录"
 | 眼冒金星 + 海洋、AquaticSpacedOutCluster | 9 | 34 | 13 |
 
 三组的类型、坐标、喷发产量、温度和活跃/休眠时长均通过原生 API 快照核对；眼冒金星组重复生成的泉位置和参数一致。网页提交 → 原生生成 → 资源统计 → 地图预览已实际验证。其余组合仍需逐组扩充回归样本；没有宣称所有版本和模组均已验证。
+
+
+## 显示隐藏入口
+
+种子演算入口默认隐藏。在本站首页按 F12 打开控制台，执行：
+
+```javascript
+localStorage.setItem('oni.seedCalculator', '1'); location.reload();
+```
+
+重新隐藏：
+
+```javascript
+localStorage.removeItem('oni.seedCalculator'); location.reload();
+```
+
+仅影响当前浏览器在本站保存的设置，不影响其他玩家。此开关只控制入口显示；演算仍需本机服务。
