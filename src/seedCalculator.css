@@ -10,3 +10,5 @@ html[data-theme=light] .seed-panel{background:#fff}html[data-theme=light] .seed-
 @media(max-width:720px){.seed-page{padding:24px 16px}.seed-grid{grid-template-columns:1fr}.seed-panel{padding:22px}}
 
 .seed-top{display:flex;align-items:center;justify-content:space-between}.seed-page .eyebrow{color:var(--ui-muted)}
+
+.seed-download{display:flex;align-items:center;justify-content:center;gap:9px;margin-top:20px;padding:12px;border-radius:8px;background:var(--ui-raised);color:var(--ui-text);font-size:12px;text-decoration:none}.seed-download:hover{filter:brightness(1.12)}

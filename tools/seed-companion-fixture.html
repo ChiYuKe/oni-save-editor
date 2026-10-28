@@ -1,0 +1,14 @@
+<!doctype html><meta charset="utf-8"><title>独立演算器联调</title>
+<p>正在打开独立演算器联调页面…</p>
+<script type="module">
+if (!import.meta.env.DEV) throw new Error('Development fixture only')
+const key='oni.seedCalculator', backup='oni.companionFixture.previous'
+if(new URLSearchParams(location.search).has('reset')){
+  const previous=sessionStorage.getItem(backup)
+  if(previous!==null){const value=JSON.parse(previous);if(value===null)localStorage.removeItem(key);else localStorage.setItem(key,value);sessionStorage.removeItem(backup)}
+  document.querySelector('p').textContent='已恢复原来的入口显示设置。'
+}else{
+  if(sessionStorage.getItem(backup)===null)sessionStorage.setItem(backup,JSON.stringify(localStorage.getItem(key)))
+  localStorage.setItem(key,'1');location.replace('/')
+}
+</script>

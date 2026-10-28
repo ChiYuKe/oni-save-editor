@@ -85,6 +85,13 @@ import { createOniChunkRenderer, type OniChunkLayer } from './lib/oniWorldChunkR
 import { drawMinionKanim, loadMinionKanimAssets, type MinionKanimAssets } from './lib/oniMinionKanim'
 
 // Browser-local debug opt-in; ordinary visitors keep the entry hidden.
+function clearSeedCompanionLink() {
+  const url = new URL(window.location.href)
+  if (!url.searchParams.has('seedCompanion')) return
+  url.searchParams.delete('seedCompanion')
+  window.history.replaceState(window.history.state, '', url.href)
+}
+
 function seedCalculatorEntryEnabled(): boolean {
   try { return localStorage.getItem('oni.seedCalculator') === '1' }
   catch { return false }
@@ -344,7 +351,7 @@ function parseSaveOffThread(bytes: Uint8Array): Promise<ParsedSave> {
 
 function App() {
   const [save, setSave] = useState<ParsedSave | null>(null)
-  const [seedMode,setSeedMode] = useState(false)
+  const [seedMode,setSeedMode] = useState(() => new URLSearchParams(window.location.search).get('seedCompanion') === '1')
   const [yamlTemplate, setYamlTemplate] = useState<YamlTemplate | null>(null)
   const [yamlDocuments, setYamlDocuments] = useState<ImportedYamlTemplate[]>([])
   const [selectedYamlPath, setSelectedYamlPath] = useState('')
@@ -488,6 +495,7 @@ function App() {
   const returnHome = useCallback(() => {
     if (dirty && !window.confirm('当前有未导出的修改，确定返回主界面吗？')) return
     setSeedMode(false)
+    clearSeedCompanionLink()
     setSave(null)
     setYamlTemplate(null)
     setYamlDocuments([])
@@ -674,7 +682,7 @@ function App() {
       )}
 
       {!hasDocument ? (
-        seedMode ? <SeedCalculator onBack={() => setSeedMode(false)} onGenerated={async file => { await loadFile(file); setView('resources') }} /> : <EmptyState onSeed={() => setSeedMode(true)} loading={loading} isDragging={isDragging} onPick={openPicker} onDrop={handleDrop} onDragChange={setIsDragging} />
+        seedMode ? <SeedCalculator onBack={() => { setSeedMode(false); clearSeedCompanionLink() }} onGenerated={async file => { await loadFile(file); setView('resources') }} /> : <EmptyState onSeed={() => setSeedMode(true)} loading={loading} isDragging={isDragging} onPick={openPicker} onDrop={handleDrop} onDragChange={setIsDragging} />
       ) : yamlTemplate ? (
         <div className="workspace">
           <main className="main-content main-content-template">

@@ -1,24 +1,26 @@
 import {ThemeToggle} from './ThemeToggle'
 import {useEffect,useRef,useState} from 'react'
-import {ArrowLeft, Cpu, Map, Play} from 'lucide-react'
+import {ArrowLeft, Cpu, Download, Map, Play} from 'lucide-react'
 import {SelectMenu} from './SelectMenu'
 import {ONI_SEED_CLUSTERS} from './lib/oniSeedClusters.generated'
 import './seedCalculator.css'
 
-const endpoint='http://127.0.0.1:5191'
+const endpoint=import.meta.env.DEV && import.meta.env.VITE_ONI_SEED_ENDPOINT ? String(import.meta.env.VITE_ONI_SEED_ENDPOINT) : 'http://127.0.0.1:5191'
+const companionDownload='https://github.com/ChiYuKe/oni-save-editor/releases/download/seed-companion-v0.1.0-preview.1/OniSeedCompanion-win-x64.zip'
 const dlcs=[['EXPANSION1_ID','眼冒金星'],['DLC2_ID','寒霜行星包'],['DLC3_ID','仿生强化包'],['DLC4_ID','史前行星包'],['DLC5_ID','海洋行星包'],['COSMETIC1_ID','装饰包']]
 type Progress={id:string;status:string;message:string;coordinate?:string;worldCount?:number;engineId?:string}
 async function request(path:string,init?:RequestInit){const response=await fetch(endpoint+path,{...init,signal:AbortSignal.timeout(15000)});const data=await response.json();if(!response.ok)throw new Error(data.message);return data}
 export function SeedCalculator({onBack,onGenerated}:{onBack:()=>void;onGenerated:(file:File)=>Promise<void>}){
+  const [nativeCompanion,setNativeCompanion]=useState(false)
   const [connected,setConnected]=useState(false),[error,setError]=useState(''),[input,setInput]=useState(''),[cluster,setCluster]=useState('expansion1::clusters/SandstoneStartCluster')
   const [selected,setSelected]=useState<string[]>(['EXPANSION1_ID']),[progress,setProgress]=useState<Progress|null>(null)
   const [busy,setBusy]=useState(false),[elapsed,setElapsed]=useState(0)
   const started=useRef(0), mounted=useRef(true)
   const available=ONI_SEED_CLUSTERS.filter(c=>c.required.every(id=>selected.includes(id))&&!c.forbidden.some(id=>selected.includes(id)))
   const effectiveCluster=available.some(c=>c.id===cluster)?cluster:available[0]?.id||''
-  useEffect(()=>{mounted.current=true;void request('/health').then(()=>setConnected(true)).catch(()=>setConnected(false));return()=>{mounted.current=false}},[])
+  useEffect(()=>{mounted.current=true;void request('/health').then(health=>{setConnected(true);setNativeCompanion(health.nativeRuntime===true && health.requiresUnityEditor===false)}).catch(()=>setConnected(false));return()=>{mounted.current=false}},[])
   useEffect(()=>{if(!busy)return;const timer=setInterval(()=>setElapsed(Math.floor((Date.now()-started.current)/1000)),1000);return()=>clearInterval(timer)},[busy])
-  const connect=async()=>{setError('');try{await request('/health');setConnected(true)}catch{setConnected(false);setError('无法连接本机演算引擎。请先运行本机服务，并允许浏览器访问本地网络。')}}
+  const connect=async()=>{setError('');try{const health=await request('/health');setConnected(true);setNativeCompanion(health.nativeRuntime===true && health.requiresUnityEditor===false)}catch{setConnected(false);setError('无法连接本机演算引擎。请先打开独立演算器，并允许浏览器访问本地网络。')}}
   const calculate=async()=>{
     if(busy)return
     setError('');setBusy(true);setElapsed(0);started.current=Date.now()
@@ -53,8 +55,9 @@ export function SeedCalculator({onBack,onGenerated}:{onBack:()=>void;onGenerated
       <p className="seed-note">引擎按所选 DLC 启动，缺少内容时会明确报错。数字种子使用生存模式默认设置、关闭故事与内容混入；完整坐标码沿用其中设置。</p>
       <button className="button button-primary" disabled={!connected||busy} onClick={()=>void calculate()}><Play size={15}/>{busy?'引擎演算中…':'开始演算'}</button>
     </section><aside className="seed-panel"><h2><Map size={19}/>演算状态</h2>
-      <div className="seed-connection"><span className={connected?'status-dot':''}/>{connected?'本机引擎已连接':'等待本机引擎'}<button onClick={()=>void connect()}>重新连接</button></div>
-      {!connected&&<p className="seed-note">本机服务地址：127.0.0.1:5191。启动方式见项目中的「种子演算」说明。</p>}
+      <div className="seed-connection"><span className={connected?'status-dot':''}/>{connected?(nativeCompanion?'独立演算器已连接':'本机引擎已连接'):'等待本机演算器'}<button onClick={()=>void connect()}>重新连接</button></div>
+      {!connected&&<p className="seed-note">下载并解压 Windows 演算器，双击启动后选择游戏目录。无需 Unity 编辑器或手动安装模组。</p>}
+      <a className="seed-download" href={companionDownload} target="_blank" rel="noreferrer"><Download size={16}/>下载 Windows 演算器（预览版）</a>
       <ol className="seed-stages">{[['starting','启动游戏引擎'],['generating','生成星群与地形'],['spawning','生成原生对象与泉数据'],['complete','打开地图与资源统计']].map(([stage,label])=><li key={stage} data-active={progress?.status===stage}>{label}</li>)}</ol>
       {busy&&<p role="status">已用时 {elapsed} 秒 · 首次生成需要等待引擎完成</p>}
       {progress?.coordinate&&<p className="seed-coordinate">{progress.coordinate}</p>}
