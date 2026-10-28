@@ -30,3 +30,6 @@ tools/full-map-layout-fixture.html
 *.njsproj
 *.sln
 *.sw?
+
+# Standalone companion build outputs
+tools/seed-companion/artifacts/
