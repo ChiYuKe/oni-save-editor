@@ -92,11 +92,6 @@ function clearSeedCompanionLink() {
   window.history.replaceState(window.history.state, '', url.href)
 }
 
-function seedCalculatorEntryEnabled(): boolean {
-  try { return localStorage.getItem('oni.seedCalculator') === '1' }
-  catch { return false }
-}
-
 type View = 'overview' | 'map' | 'dupes' | 'objects' | 'resources'
 type MapLayer = 'grid' | 'biome' | 'minions' | 'entities' | 'buildings' | 'geysers' | 'power' | 'plumbing' | 'ventilation' | 'automation' | 'shipment' | 'gas' | 'liquid' | 'ground' | 'backwall'
 type MapOverlay = 'none' | 'temperature' | 'mass' | 'disease' | 'visibility' | 'spawnable' | 'damage'
@@ -718,7 +713,6 @@ function App() {
 }
 
 function EmptyState({ onSeed, loading, isDragging, onPick, onDrop, onDragChange }: { onSeed: () => void; loading: boolean; isDragging: boolean; onPick: () => void; onDrop: (event: React.DragEvent<HTMLDivElement>) => void; onDragChange: (value: boolean) => void }) {
-  const [showSeedEntry] = useState(seedCalculatorEntryEnabled)
   const [landingLanguage, setLandingLanguage] = useState<'zh' | 'en'>('zh')
   const english = landingLanguage === 'en'
   return (
@@ -765,7 +759,7 @@ function EmptyState({ onSeed, loading, isDragging, onPick, onDrop, onDragChange 
               {loading ? <><span className="spinner" />{english ? 'Parsing...' : '解析中...'}</> : <><FileUp size={17} />{english ? 'Choose file' : '选择文件'}</>}
             </button>
             <div className="upload-formats"><span>.SAV</span><span>.YAML</span></div>
-            {showSeedEntry && <button className="landing-seed-entry" onClick={onSeed}><Grid2x2 size={15}/>{english ? 'Generate from a seed' : '从种子演算世界'}<ChevronRight size={14}/></button>}
+            <button className="landing-seed-entry" onClick={onSeed}><Grid2x2 size={15}/>{english ? 'Generate from a seed' : '从种子演算世界'}<ChevronRight size={14}/></button>
             <div className="upload-privacy"><Gauge size={14} /><span>{english ? 'Processed on this device. Nothing is uploaded.' : '数据只在当前设备处理，不会上传服务器'}</span></div>
           </section>
         </main>
