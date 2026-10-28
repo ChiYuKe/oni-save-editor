@@ -8,7 +8,7 @@ using Mono.Cecil.Cil;
 
 namespace OniSeedCompanion;
 public sealed record SeedRequest(int seed, string cluster, string coordinate, string[] dlcIds);
-public sealed class NativeEngine(string gameDirectory, string dataDirectory, string workerAssembly)
+public sealed class NativeEngine(string gameDirectory, string dataDirectory, string workerAssembly) : IDisposable
 {
     public string GameDirectory { get; } = Path.GetFullPath(gameDirectory);
     public string DataDirectory { get; } = Path.GetFullPath(dataDirectory);
@@ -125,7 +125,110 @@ public sealed class NativeEngine(string gameDirectory, string dataDirectory, str
         foreach (string name in new[] { "Assembly-CSharp.dll", "Assembly-CSharp-firstpass.dll" })
             File.Move(Path.Combine(managed, name + ".patched"), Path.Combine(managed, name), true);
     }
+    readonly SemaphoreSlim workerGate = new(1, 1);
+    Process? worker;
+    string workerDlcs = "", workerDirectory = "";
+    bool disposed;
+    public void Dispose()
+    {
+        disposed = true;
+        StopWorker();
+    }
+    void StopWorker()
+    {
+        var process = worker; worker = null;
+        if (process == null) return;
+        try { if (!process.HasExited) process.Kill(entireProcessTree: true); }
+        catch (InvalidOperationException) { }
+        finally { process.Dispose(); }
+    }
+    static async Task<Dictionary<string, JsonElement>?> ReadStatus(string path, CancellationToken cancellation)
+    {
+        try { return JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(await File.ReadAllTextAsync(path, cancellation)); }
+        catch (Exception error) when (error is IOException or JsonException) { return null; }
+    }
+    async Task<bool> Ready(string[] dlcs, bool graphics, CancellationToken cancellation)
+    {
+        ObjectDisposedException.ThrowIf(disposed, this);
+        string key = string.Join(",", dlcs.Order(StringComparer.Ordinal)) + (graphics ? ":graphics" : "");
+        bool preloaded = worker != null && !worker.HasExited && workerDlcs == key;
+        if (!preloaded)
+        {
+            StopWorker();
+            workerDirectory = Path.Combine(DataDirectory, "workers", Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(Path.Combine(workerDirectory, "engine-data"));
+            var start = new ProcessStartInfo(Path.Combine(RuntimeDirectory, "OxygenNotIncluded.exe")) { WorkingDirectory = RuntimeDirectory, UseShellExecute = false, CreateNoWindow = true, WindowStyle = ProcessWindowStyle.Hidden };
+            foreach (var arg in new[] { "-batchmode", "-nosound", "-screen-width", "128", "-screen-height", "128", "-logFile", Path.Combine(workerDirectory, "engine.log") }) start.ArgumentList.Add(arg);
+            start.ArgumentList.Add(graphics ? "-force-d3d11" : "-nographics");
+            start.Environment["ONI_SEED_ENGINE_REQUEST"] = "session";
+            start.Environment["ONI_SEED_ENGINE_SESSION"] = workerDirectory;
+            start.Environment["ONI_SEED_ENGINE_JOBS"] = Path.Combine(DataDirectory, "jobs");
+            start.Environment["ONI_SEED_ENGINE_ROOT"] = Path.Combine(workerDirectory, "engine-data");
+            start.Environment["ONI_SEED_ENGINE_DLCS"] = "," + string.Join(",", dlcs);
+            start.Environment["SteamAppId"] = "457140";
+            worker = Process.Start(start) ?? throw new IOException("无法启动游戏运行时。");
+            workerDlcs = key;
+            Message?.Invoke("正在预载原生游戏资源…填写种子时会提前准备，减少提交后的等待。");
+        }
+        while (true)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            if (worker == null || worker.HasExited) throw new IOException("原生引擎未能就绪，请检查日志：" + Path.Combine(workerDirectory, "engine.log"));
+            var state = await ReadStatus(Path.Combine(workerDirectory, "worker-status.json"), cancellation);
+            if (state?.GetValueOrDefault("status").GetString() == "ready") return preloaded;
+            await Task.Delay(100, cancellation);
+        }
+    }
+    public async Task Warmup(string[] dlcs, CancellationToken cancellation = default)
+    {
+        if (!await workerGate.WaitAsync(0, cancellation)) return;
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation); timeout.CancelAfter(TimeSpan.FromMinutes(3));
+        try { if (RuntimeDirectory.Length == 0) await Prepare(timeout.Token); await Ready(dlcs, false, timeout.Token); }
+        catch { StopWorker(); throw; }
+        finally { workerGate.Release(); }
+    }
     public async Task<(string directory, int exitCode)> Generate(SeedRequest request, string? directory = null, bool graphics = false, CancellationToken cancellation = default)
+    {
+        if (RuntimeDirectory.Length == 0) await Prepare(cancellation);
+        directory = Path.GetFullPath(string.IsNullOrEmpty(directory) ? Path.Combine(DataDirectory, "jobs", Guid.NewGuid().ToString("N")) : directory);
+        if (directory.Equals(GameDirectory, StringComparison.OrdinalIgnoreCase) || directory.StartsWith(GameDirectory + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) throw new IOException("任务输出不能写入游戏安装目录。");
+        if (File.Exists(Path.Combine(directory, "generated.sav"))) throw new IOException("此任务目录已有生成结果，请使用新的任务目录。");
+        Directory.CreateDirectory(directory);
+        // The session mailbox only accepts outputs beneath this tool's jobs directory.
+        if (!directory.StartsWith(Path.Combine(DataDirectory, "jobs") + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            return await GenerateOnce(request, directory, graphics, cancellation);
+        string json = JsonSerializer.Serialize(new { request.seed, request.cluster, request.coordinate, request.dlcIds, outputDirectory = directory });
+        await File.WriteAllTextAsync(Path.Combine(directory, "request.json"), json, cancellation);
+        await workerGate.WaitAsync(cancellation);
+        var watch = Stopwatch.StartNew();
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation); timeout.CancelAfter(TimeSpan.FromMinutes(20));
+        try
+        {
+            bool preloaded = await Ready(request.dlcIds, graphics, timeout.Token);
+            double startupSeconds = watch.Elapsed.TotalSeconds;
+            string mailbox = Path.Combine(workerDirectory, "next-request.json");
+            await File.WriteAllTextAsync(mailbox + ".tmp", json, timeout.Token);
+            File.Move(mailbox + ".tmp", mailbox, true);
+            while (true)
+            {
+                timeout.Token.ThrowIfCancellationRequested();
+                var state = await ReadStatus(Path.Combine(directory, "progress.json"), timeout.Token);
+                string? status = state?.GetValueOrDefault("status").GetString();
+                if (status is "complete" or "failed")
+                {
+                    await File.WriteAllTextAsync(Path.Combine(directory, "engine-info.json"), JsonSerializer.Serialize(new { engineId = EngineId, nativeRuntime = true, preloaded, startupSeconds, totalSeconds = watch.Elapsed.TotalSeconds, workerDirectory }), cancellation);
+                    try { File.Copy(Path.Combine(workerDirectory, "engine.log"), Path.Combine(directory, "engine.log"), true); } catch (IOException) { }
+                    StopWorker();
+                    return (directory, status == "complete" ? 0 : 1);
+                }
+                if (worker == null || worker.HasExited) throw new IOException("原生引擎意外退出。日志：" + Path.Combine(workerDirectory, "engine.log"));
+                await Task.Delay(100, timeout.Token);
+            }
+        }
+        catch { StopWorker(); throw; }
+        finally { workerGate.Release(); }
+    }
+    async Task<(string directory, int exitCode)> GenerateOnce(SeedRequest request, string? directory = null, bool graphics = false, CancellationToken cancellation = default)
     {
         if (RuntimeDirectory.Length == 0) await Prepare(cancellation);
         directory = Path.GetFullPath(string.IsNullOrEmpty(directory) ? Path.Combine(DataDirectory, "jobs", Guid.NewGuid().ToString("N")) : directory);

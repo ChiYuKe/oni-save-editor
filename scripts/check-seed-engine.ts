@@ -27,8 +27,25 @@ for(const g of native.geysers){
 }
 console.log(`PASS native engine ${data.seed}: ${size.width}x${size.height}, ${data.planets.length} planets, ${native.geysers.length} geysers; all positions, yields, dormancy and temperatures match game API`)
 if(process.argv[3]){
- const other=resourceStatistics(parseSave(new Uint8Array(readFileSync(path.join(process.argv[3],'generated.sav')))))
- const signature=(s:typeof data)=>s.geysers.map(g=>[g.typeId,g.x,g.y,g.emitRate,g.eruptDuration,g.idleDuration,g.activeDuration,g.dormantDuration]).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)))
+ const otherSave=parseSave(new Uint8Array(readFileSync(path.join(process.argv[3],'generated.sav'))))
+ const other=resourceStatistics(otherSave)
+ const signature=(s:typeof data)=>s.geysers.map(g=>[g.typeId,g.x,g.y,g.emitRate,g.eruptDuration,g.idleDuration,g.activeDuration,g.dormantDuration,g.temperature]).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)))
  assert.deepEqual(signature(data),signature(other),'Repeated seed must reproduce actual geyser positions and parameters')
  console.log('PASS repeated native generation: identical geyser placement and parameters')
+ if(process.argv.includes('--report-grid')){
+   const a=save.simData!,b=otherSave.simData!
+   assert.equal(a.cellCount,b.cellCount)
+   // Compare actual terrain and fluids, not timestamps, object IDs or random names.
+   const av=new DataView(a.bytes.buffer,a.bytes.byteOffset,a.bytes.byteLength),bv=new DataView(b.bytes.buffer,b.bytes.byteOffset,b.bytes.byteLength)
+   let changedElements=0,changedTemperature=0,changedMass=0
+   for(let i=0;i<a.cellCount;i++){
+     const ao=a.cellOffset+i*16,bo=b.cellOffset+i*16
+     if(av.getInt32(ao,true)!==bv.getInt32(bo,true))changedElements++
+     if(av.getFloat32(ao+4,true)!==bv.getFloat32(bo+4,true))changedTemperature++
+     if(av.getFloat32(ao+8,true)!==bv.getFloat32(bo+8,true))changedMass++
+   }
+   // Native Sim settling can differ between fresh runs even before optimization.
+   // Report these diagnostics separately; do not claim bitwise fluid determinism.
+   console.log('Native grid diagnostics (not an equivalence assertion):', {cells:a.cellCount,changedElements,changedTemperature,changedMass})
+ }
 }

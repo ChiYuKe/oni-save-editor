@@ -27,6 +27,7 @@ public sealed class SeedRuntime : MonoBehaviour
         public int worldCount;
         public string savePath;
         public string unityVersion;
+        public float generationSeconds, exportSeconds;
     }
     [Serializable] public class NativeGeyser
     {
@@ -46,6 +47,20 @@ public sealed class SeedRuntime : MonoBehaviour
     static bool spawned;
     static string resolvedCoordinate;
     static bool booted;
+    static string sessionDirectory;
+    static double phaseStarted;
+    static float generationSeconds;
+    static string sessionStatus;
+    [Serializable] public class WorkerStatus { public string status; public string message; }
+    static void SessionStatus(string status, string message)
+    {
+        if (sessionDirectory == null || sessionStatus == status) return;
+        sessionStatus = status;
+        string path = Path.Combine(sessionDirectory, "worker-status.json");
+        File.WriteAllText(path + ".tmp", JsonUtility.ToJson(new WorkerStatus { status = status, message = message }));
+        File.Copy(path + ".tmp", path, true);
+    }
+    static bool MenuReady() => MainMenu.Instance != null && CustomGameSettings.Instance != null && Game.Instance == null && !App.isLoading;
     public static string IsolatedRoot() => Environment.GetEnvironmentVariable("ONI_SEED_ENGINE_ROOT");
     public static bool ExcludedDlc(string id)
     {
@@ -61,20 +76,31 @@ public sealed class SeedRuntime : MonoBehaviour
         if (string.IsNullOrEmpty(requestPath)) { Application.Quit(64); return; }
         try
         {
-            request = JsonUtility.FromJson<Request>(File.ReadAllText(requestPath));
-            if (request.dlcIds == null || string.IsNullOrEmpty(request.outputDirectory)) throw new ArgumentException("Invalid seed request");
-            request.outputDirectory = Path.GetFullPath(request.outputDirectory);
-            Directory.CreateDirectory(request.outputDirectory);
-            if (Path.GetFullPath(IsolatedRoot()) != Path.Combine(request.outputDirectory, "engine-data"))
-                throw new ArgumentException("Worker output isolation is missing");
+            sessionDirectory = Environment.GetEnvironmentVariable("ONI_SEED_ENGINE_SESSION");
+            if (!string.IsNullOrEmpty(sessionDirectory))
+            {
+                sessionDirectory = Path.GetFullPath(sessionDirectory);
+                if (Path.GetFullPath(IsolatedRoot()) != Path.Combine(sessionDirectory, "engine-data")) throw new ArgumentException("Session isolation is missing");
+                step = -1;
+                SessionStatus("starting", "Loading native game resources");
+            }
+            else request = JsonUtility.FromJson<Request>(File.ReadAllText(requestPath));
+            if (sessionDirectory == null && (request.dlcIds == null || string.IsNullOrEmpty(request.outputDirectory))) throw new ArgumentException("Invalid seed request");
+            if (sessionDirectory == null)
+            {
+                request.outputDirectory = Path.GetFullPath(request.outputDirectory);
+                Directory.CreateDirectory(request.outputDirectory);
+                if (Path.GetFullPath(IsolatedRoot()) != Path.Combine(request.outputDirectory, "engine-data"))
+                    throw new ArgumentException("Worker output isolation is missing");
+            }
             Directory.CreateDirectory(IsolatedRoot());
             Application.runInBackground = true;
-            Application.targetFrameRate = 60;
+            Application.targetFrameRate = sessionDirectory == null ? 60 : 15;
             var host = new GameObject("ONI Seed Companion Worker");
             UnityEngine.Object.DontDestroyOnLoad(host);
             host.AddComponent<SeedRuntime>();
             started = Time.realtimeSinceStartup;
-            Write("starting", "Starting installed game's native runtime");
+            if (request != null) Write("starting", "Starting installed game's native runtime");
         }
         catch (Exception exception)
         {
@@ -89,7 +115,8 @@ public sealed class SeedRuntime : MonoBehaviour
         var progress = new Progress {status = status, message = message,
             coordinate = resolvedCoordinate ?? request.coordinate,
             dlcIds = request.dlcIds, worldCount = cluster == null ? 0 : cluster.worlds.Count,
-            savePath = savePath, unityVersion = Application.unityVersion};
+            savePath = savePath, unityVersion = Application.unityVersion, generationSeconds = generationSeconds,
+            exportSeconds = step == 2 ? (float)(Time.realtimeSinceStartup - phaseStarted) : 0};
         string path = Path.Combine(request.outputDirectory, "progress.json");
         File.WriteAllText(path + ".tmp", JsonUtility.ToJson(progress, true));
         File.Copy(path + ".tmp", path, true);
@@ -99,11 +126,27 @@ public sealed class SeedRuntime : MonoBehaviour
         if (step == 99) return;
         try
         {
+            if (step < 0)
+            {
+                if (!MenuReady()) return;
+                SessionStatus("ready", "Native resources are loaded");
+                string mailbox = Path.Combine(sessionDirectory, "next-request.json");
+                if (!File.Exists(mailbox)) return;
+                var next = JsonUtility.FromJson<Request>(File.ReadAllText(mailbox));
+                string output = Path.GetFullPath(next.outputDirectory);
+                string jobsRoot = Path.GetFullPath(Environment.GetEnvironmentVariable("ONI_SEED_ENGINE_JOBS")) + Path.DirectorySeparatorChar;
+                if (!output.StartsWith(jobsRoot, StringComparison.OrdinalIgnoreCase) || File.Exists(Path.Combine(output, "generated.sav"))) throw new ArgumentException("Invalid job output");
+                request = next; request.outputDirectory = output;
+                File.Delete(mailbox);
+                cluster = null; error = null; spawned = false; readyFrames = 0; resolvedCoordinate = null;
+                generationSeconds = 0; started = Time.realtimeSinceStartup;
+                step = 0; Application.targetFrameRate = 60; SessionStatus("busy", "Generating native seed");
+            }
             if (Time.realtimeSinceStartup - started > 1200) throw new TimeoutException("Native engine timed out after 20 minutes");
             if (error != null) throw new InvalidOperationException(error);
             if (step == 0)
             {
-                if (MainMenu.Instance == null || CustomGameSettings.Instance == null) return;
+                if (!MenuReady()) return;
                 WorldGen.WaitForPendingLoadSettings();
                 var actual = DlcManager.GetActiveDLCIds().Where(x => !string.IsNullOrEmpty(x)).OrderBy(x => x).ToArray();
                 var expected = request.dlcIds.Where(x => !string.IsNullOrEmpty(x)).OrderBy(x => x).ToArray();
@@ -137,6 +180,7 @@ public sealed class SeedRuntime : MonoBehaviour
                 cluster = new Cluster(clusterId, seed, stories, true, false);
                 SaveLoader.SetActiveSaveFilePath(null);
                 Write("generating", "Native cluster generation, templates and SimDLL settling");
+                phaseStarted = Time.realtimeSinceStartup;
                 cluster.Generate((key, fraction, stage) => error == null,
                     info => error = info.errorDesc + " " + info.exception, seed, seed, seed, seed);
                 step = 1;
@@ -145,13 +189,16 @@ public sealed class SeedRuntime : MonoBehaviour
             {
                 cluster.Join();
                 if (cluster.Status != Cluster.WorldGenStatus.Complete) throw new InvalidOperationException("Native world generation failed");
+                generationSeconds = (float)(Time.realtimeSinceStartup - phaseStarted);
+                phaseStarted = Time.realtimeSinceStartup;
                 Write("spawning", "Loading generated worlds and native geyser configurations");
                 App.LoadScene("backend"); step = 2;
             }
             else if (step == 2)
             {
                 if (Game.Instance == null || SaveGame.Instance == null || ClusterManager.Instance == null || SaveGame.Instance.worldGenSpawner == null) return;
-                if (++readyFrames < 120) return;
+                // Wait for native scene/component readiness, not two fixed two-second sleeps.
+                if (App.isLoading || !Game.Instance.isSpawned || !SaveGame.Instance.worldGenSpawner.isSpawned) return;
                 if (!spawned)
                 {
                     foreach (WorldContainer world in ClusterManager.Instance.WorldContainers)
@@ -159,6 +206,9 @@ public sealed class SeedRuntime : MonoBehaviour
                     SaveGame.Instance.worldGenSpawner.SpawnEverything();
                     spawned = true; readyFrames = 0; return;
                 }
+                if (++readyFrames < 3) return;
+                var nativeGeysers = UnityEngine.Object.FindObjectsByType<Geyser>(FindObjectsSortMode.None);
+                if (nativeGeysers.Any(g => !g.isSpawned || g.configuration == null)) return;
                 string path = Path.Combine(request.outputDirectory, "generated.sav");
                 var snapshot = new NativeSnapshot { coordinate = resolvedCoordinate,
                     geysers = UnityEngine.Object.FindObjectsByType<Geyser>(FindObjectsSortMode.None)
@@ -182,6 +232,7 @@ public sealed class SeedRuntime : MonoBehaviour
     static void Finish(int code)
     {
         step = 99;
+        SessionStatus(code == 0 ? "complete" : "failed", error ?? "Worker stopped");
         Application.Quit(code);
     }
 }

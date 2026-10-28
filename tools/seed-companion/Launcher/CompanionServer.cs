@@ -43,7 +43,18 @@ public sealed class CompanionServer(NativeEngine engine, int port = 5191) : IAsy
             if (request.Method == "OPTIONS") { response.StatusCode = 204; return; }
             await next(context);
         });
-        app.MapGet("/health", () => Results.Json(new { engine = "ONI installed game runtime", engineId = engine.EngineId, nativeRuntime = true, requiresUnityEditor = false, protocol = 1, session, busy = gate.CurrentCount == 0 }));
+        app.MapGet("/health", () => Results.Json(new { engine = "ONI installed game runtime", engineId = engine.EngineId, nativeRuntime = true, requiresUnityEditor = false, protocol = 1, supportsWarmup = true, session, busy = gate.CurrentCount == 0 }));
+        app.MapPost("/warmup", async (HttpRequest http) =>
+        {
+            if (!http.ContentType?.StartsWith("application/json", StringComparison.OrdinalIgnoreCase) ?? true) return Results.StatusCode(415);
+            string[]? selection;
+            try { selection = await http.ReadFromJsonAsync<string[]>(); }
+            catch (JsonException) { return Results.BadRequest(); }
+            if (selection == null || selection.Any(x => !dlcs.Contains(x))) return Results.BadRequest();
+            if (gate.CurrentCount == 0) return Results.Conflict();
+            _ = Task.Run(async () => { try { await engine.Warmup(selection.Distinct().Order(StringComparer.Ordinal).ToArray(), lifetime.Token); } catch (Exception e) { Message?.Invoke(e.Message); } });
+            return Results.Accepted();
+        });
         app.MapPost("/jobs", Submit);
         app.MapGet("/jobs/{id}", async (string id) => jobs.TryGetValue(id, out var job) ? Results.Json(await Progress(job)) : Results.NotFound(new { message = "任务不存在或工具已重新启动。" }));
         app.MapGet("/jobs/{id}/save", async (string id) =>
@@ -115,7 +126,14 @@ public sealed class CompanionServer(NativeEngine engine, int port = 5191) : IAsy
             }
         }
         catch (Exception error) { await Fail(job, error is OperationCanceledException ? "演算已停止或超时。" : error.Message); Message?.Invoke(error.Message); }
-        finally { gate.Release(); }
+        finally
+        {
+            gate.Release();
+            // Each seed has a fresh native world. Preload the next isolated process
+            // while the player inspects this result, instead of retaining Sim state.
+            if (!lifetime.IsCancellationRequested)
+                _ = Task.Run(async () => { try { await engine.Warmup(request.dlcIds, lifetime.Token); } catch (Exception e) { Message?.Invoke(e.Message); } });
+        }
     }
     static async Task Fail(Job job, string message)
     {
@@ -134,6 +152,7 @@ public sealed class CompanionServer(NativeEngine engine, int port = 5191) : IAsy
     public async ValueTask DisposeAsync()
     {
         lifetime.Cancel();
+        engine.Dispose();
         if (app != null) await app.DisposeAsync();
         lifetime.Dispose();
     }

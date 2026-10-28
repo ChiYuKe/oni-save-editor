@@ -18,7 +18,7 @@ public static class Program
         string Arg(string key, string fallback = "") => args.SkipWhile(x => x != key).Skip(1).FirstOrDefault() ?? fallback;
         try
         {
-            var engine = new NativeEngine(Arg("--game", GameLocator.Find() ?? ""), Arg("--data", Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OniSeedCompanion")), Arg("--worker", Path.Combine(AppContext.BaseDirectory, "OniSeedWorker.dll")));
+            using var engine = new NativeEngine(Arg("--game", GameLocator.Find() ?? ""), Arg("--data", Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OniSeedCompanion")), Arg("--worker", Path.Combine(AppContext.BaseDirectory, "OniSeedWorker.dll")));
             engine.Message += Console.WriteLine; await engine.Prepare();
             if (args.Contains("--prepare-only")) return 0;
             if (args.Contains("--serve"))
