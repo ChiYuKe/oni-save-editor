@@ -7,7 +7,7 @@
 1. 解压整个压缩包，双击 `OniSeedCompanion.exe`。请保留旁边的 `OniSeedWorker.dll`。
 2. 工具会尝试寻找 Steam 版《缺氧》。若没有找到，选择包含 `OxygenNotIncluded.exe` 的完整游戏安装目录。
 3. 首次启动会复制游戏运行资源到独立缓存，需要额外磁盘空间。游戏原目录、模组目录和已有存档不作修改。
-4. 等待窗口显示「服务已启动」，保持窗口打开。
+4. 等待状态卡片显示「演算器已就绪」，保持窗口打开。
 5. 点击工具窗口的「打开网页」，会直接进入种子演算页面。普通首页仍默认隐藏入口；若手动打开首页，也可以按 F12 → Console 执行：
 
 ```javascript
@@ -40,3 +40,7 @@ localStorage.setItem('oni.seedCalculator', '1'); location.reload();
 ```javascript
 localStorage.removeItem('oni.seedCalculator'); location.reload();
 ```
+
+## 桌面界面（0.2.1）
+
+窗口采用统一的黑色卡片、轻微阴影和深色标题栏，集中显示服务状态、游戏位置和运行记录。已有原生演算服务运行时会直接连接；若端口被其他程序占用，会显示中文原因和重试按钮。详细启动错误保存在工具缓存目录的 launcher.log。
