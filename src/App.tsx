@@ -1,3 +1,4 @@
+import { verifyNativeSeed, type NativeSeedSnapshot } from './lib/oniSeedVerification'
 import { SeedCalculator } from './SeedCalculator'
 import { duplicantRows } from './lib/oniDuplicants'
 import { MapLoadProgress, type MapLoadStage, type MapLoadCount } from './MapLoadProgress'
@@ -411,7 +412,7 @@ function App() {
     await loadYamlSources([{ file, path: file.name }])
   }, [loadYamlSources])
 
-  const loadFile = useCallback(async (file: File, handle: SaveFileHandle | null = null) => {
+  const loadFile = useCallback(async (file: File, handle: SaveFileHandle | null = null, verification?: NativeSeedSnapshot) => {
     if (!file.name.toLowerCase().endsWith('.sav')) {
       setError('请选择 Oxygen Not Included 的 .sav 存档文件。')
       return
@@ -421,6 +422,7 @@ function App() {
     setError('')
     try {
       const parsed = await parseSaveOffThread(new Uint8Array(await file.arrayBuffer()))
+      if (verification) verifyNativeSeed(parsed, verification)
       setSave(parsed)
       setResourceTrip(null)
       setYamlTemplate(null)
@@ -440,6 +442,7 @@ function App() {
       setYamlTemplate(null)
       setYamlDocuments([])
       setSelectedYamlPath('')
+      if (verification) throw cause
     } finally {
       setLoading(false)
       setReadingSave(false)
@@ -677,7 +680,7 @@ function App() {
       )}
 
       {!hasDocument ? (
-        seedMode ? <SeedCalculator onBack={() => { setSeedMode(false); clearSeedCompanionLink() }} onGenerated={async file => { await loadFile(file); setView('resources') }} /> : <EmptyState onSeed={() => setSeedMode(true)} loading={loading} isDragging={isDragging} onPick={openPicker} onDrop={handleDrop} onDragChange={setIsDragging} />
+        seedMode ? <SeedCalculator onBack={() => { setSeedMode(false); clearSeedCompanionLink() }} onGenerated={async (file, verification) => { await loadFile(file, null, verification); setView('resources') }} /> : <EmptyState onSeed={() => setSeedMode(true)} loading={loading} isDragging={isDragging} onPick={openPicker} onDrop={handleDrop} onDragChange={setIsDragging} />
       ) : yamlTemplate ? (
         <div className="workspace">
           <main className="main-content main-content-template">

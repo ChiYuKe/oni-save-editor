@@ -1,16 +1,27 @@
+import { SeedGameOptions, type SeedOptions } from './SeedGameOptions'
+import type { NativeSeedSnapshot } from './lib/oniSeedVerification'
 import {ThemeToggle} from './ThemeToggle'
-import {useEffect,useRef,useState} from 'react'
+import {useCallback, useEffect,useRef,useState} from 'react'
 import {ArrowLeft, Check, Cpu, Download, Map, Play} from 'lucide-react'
 import {SeedClusterCarousel} from './SeedClusterCarousel'
 import {ONI_SEED_CLUSTERS} from './lib/oniSeedClusters.generated'
 import './seedCalculator.css'
 
 const endpoint=import.meta.env.DEV && import.meta.env.VITE_ONI_SEED_ENDPOINT ? String(import.meta.env.VITE_ONI_SEED_ENDPOINT) : 'http://127.0.0.1:5191'
-const companionDownload='https://github.com/ChiYuKe/oni-save-editor/releases/download/seed-companion-v0.2.3-preview.1/OniSeedCompanion-win-x64.zip'
+const companionDownload='https://github.com/ChiYuKe/oni-save-editor/releases/download/seed-companion-v0.3.0-preview.1/OniSeedCompanion-win-x64.zip'
 const dlcs=[['EXPANSION1_ID','眼冒金星'],['DLC2_ID','寒霜行星包'],['DLC3_ID','仿生强化包'],['DLC4_ID','史前行星包'],['DLC5_ID','海洋行星包'],['COSMETIC1_ID','装饰包']]
 type Progress={id:string;status:string;message:string;coordinate?:string;worldCount?:number;engineId?:string}
-async function request(path:string,init?:RequestInit){const response=await fetch(endpoint+path,{...init,signal:AbortSignal.timeout(15000)});const data=await response.json();if(!response.ok)throw new Error(data.message);return data}
-export function SeedCalculator({onBack,onGenerated}:{onBack:()=>void;onGenerated:(file:File)=>Promise<void>}){
+function seedError(message:string|undefined){
+  if(!message)return '演算请求失败'
+  if(message.includes('Game rejected setting'))return '当前星群或 DLC 混入设置不兼容。请先启用对应的 DLC 内容混入，再调整生态或星球混入。详细原因已保存在任务日志中。'
+  if(message.includes('Invalid or unavailable game setting'))return '游戏无法应用选中的开局设置，请检查档位和 DLC 组合。'
+  return message.split(/\r?\n/)[0]
+}
+async function request(path:string,init?:RequestInit){const response=await fetch(endpoint+path,{...init,signal:AbortSignal.timeout(15000)});const data=await response.json();if(!response.ok)throw new Error(seedError(data.message));return data}
+export function SeedCalculator({onBack,onGenerated}:{onBack:()=>void;onGenerated:(file:File,verification?:NativeSeedSnapshot)=>Promise<void>}){
+  const [supportsSettings,setSupportsSettings]=useState(false),[supportsVerification,setSupportsVerification]=useState(false)
+  const [gameOptions,setGameOptions]=useState<{key:string;options:SeedOptions}|null>(null)
+  const changeOptions=useCallback((key:string,options:SeedOptions)=>setGameOptions({key,options}),[])
   const [nativeCompanion,setNativeCompanion]=useState(false)
   const [supportsWarmup,setSupportsWarmup]=useState(false)
   const [connected,setConnected]=useState(false),[error,setError]=useState(''),[input,setInput]=useState(''),[cluster,setCluster]=useState('expansion1::clusters/SandstoneStartCluster')
@@ -19,7 +30,7 @@ export function SeedCalculator({onBack,onGenerated}:{onBack:()=>void;onGenerated
   const started=useRef(0), mounted=useRef(true)
   const available=ONI_SEED_CLUSTERS.filter(c=>c.required.every(id=>selected.includes(id))&&!c.forbidden.some(id=>selected.includes(id)))
   const effectiveCluster=available.some(c=>c.id===cluster)?cluster:available[0]?.id||''
-  useEffect(()=>{mounted.current=true;void request('/health').then(health=>{setConnected(true);setSupportsWarmup(health.supportsWarmup===true);setNativeCompanion(health.nativeRuntime===true && health.requiresUnityEditor===false)}).catch(()=>setConnected(false));return()=>{mounted.current=false}},[])
+  useEffect(()=>{mounted.current=true;void request('/health').then(health=>{setConnected(true);setSupportsWarmup(health.supportsWarmup===true);setSupportsSettings(health.supportsSettings===true);setSupportsVerification(health.supportsVerification===true);setNativeCompanion(health.nativeRuntime===true && health.requiresUnityEditor===false)}).catch(()=>setConnected(false));return()=>{mounted.current=false}},[])
   const dlcKey=[...selected].sort().join(',')
   useEffect(()=>{
     if(!connected||!supportsWarmup||busy)return
@@ -27,23 +38,25 @@ export function SeedCalculator({onBack,onGenerated}:{onBack:()=>void;onGenerated
     return()=>clearTimeout(timer)
   },[connected,supportsWarmup,busy,dlcKey])
   useEffect(()=>{if(!busy)return;const timer=setInterval(()=>setElapsed(Math.floor((Date.now()-started.current)/1000)),1000);return()=>clearInterval(timer)},[busy])
-  const connect=async()=>{setError('');try{const health=await request('/health');setConnected(true);setSupportsWarmup(health.supportsWarmup===true);setNativeCompanion(health.nativeRuntime===true && health.requiresUnityEditor===false)}catch{setConnected(false);setError('无法连接本机演算引擎。请先打开独立演算器，并允许浏览器访问本地网络。')}}
+  const connect=async()=>{setError('');try{const health=await request('/health');setConnected(true);setSupportsWarmup(health.supportsWarmup===true);setSupportsSettings(health.supportsSettings===true);setSupportsVerification(health.supportsVerification===true);setNativeCompanion(health.nativeRuntime===true && health.requiresUnityEditor===false)}catch{setConnected(false);setError('无法连接本机演算引擎。请先打开独立演算器，并允许浏览器访问本地网络。')}}
   const calculate=async()=>{
     if(busy)return
     setError('');setBusy(true);setElapsed(0);started.current=Date.now()
     try{
       const coordinate=input.trim(),numeric=/^\d+$/.test(coordinate)
       if(!coordinate)throw new Error('请输入数字种子或游戏中的完整坐标码')
-      const job=await request('/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...(numeric?{seed:Number(coordinate),cluster:effectiveCluster}:{coordinate}),dlcIds:selected})}) as Progress
+      const job=await request('/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...(numeric?{seed:Number(coordinate),cluster:effectiveCluster}:{coordinate}),dlcIds:selected,...(numeric&&supportsSettings&&gameOptions?.key===dlcKey?{options:gameOptions.options}:{})})}) as Progress
       let state=job
       for(;;){
         if(!mounted.current)return
         setProgress(state)
-        if(state.status==='failed')throw new Error(state.message)
+        if(state.status==='failed')throw new Error(seedError(state.message))
         if(state.status==='complete'){
           const response=await fetch(endpoint+'/jobs/'+job.id+'/save',{signal:AbortSignal.timeout(120000)})
           if(!response.ok)throw new Error('无法读取引擎生成结果')
-          await onGenerated(new File([await response.arrayBuffer()],`种子-${numeric?coordinate:(state.coordinate?.match(/-(\d+)-/)?.[1]??'演算结果')}.sav`,{type:'application/octet-stream'}))
+          const verification=supportsVerification?await request(`/jobs/${job.id}/verification`) as NativeSeedSnapshot:undefined
+          setProgress({...state,status:'verifying'})
+          await onGenerated(new File([await response.arrayBuffer()],`种子-${numeric?coordinate:(state.coordinate?.match(/-(\d+)-/)?.[1]??'演算结果')}.sav`,{type:'application/octet-stream'}),verification)
           break
         }
         await new Promise(resolve=>setTimeout(resolve,500))
@@ -60,14 +73,15 @@ export function SeedCalculator({onBack,onGenerated}:{onBack:()=>void;onGenerated
       <label>种子 / 完整坐标码<input value={input} onChange={e=>setInput(e.target.value)} placeholder="1234567 或 SNDST-…" disabled={busy}/></label>
       {/^\d*$/.test(input)&&<fieldset disabled={busy}><legend>星群类型</legend><SeedClusterCarousel value={effectiveCluster} options={available} onChange={setCluster} disabled={busy}/><p className="seed-note">完整坐标码会自动解析星群与混入设置。</p></fieldset>}
       <fieldset className="seed-dlc-field" disabled={busy}><legend><span>启用内容</span><span className="seed-dlc-count">已启用 {selected.length} 项</span></legend><div className="seed-dlcs">{dlcs.map(([id,name])=><button type="button" className="seed-dlc-chip" key={id} aria-pressed={selected.includes(id)} disabled={busy} onClick={()=>setSelected(current=>current.includes(id)?current.filter(value=>value!==id):[...current,id])}><img src={`${import.meta.env.BASE_URL}assets/dlc/${id.replace(/_ID$/,'').toLowerCase()}.webp`} alt="" aria-hidden="true" width={28} height={22}/><span>{name}</span><span className="seed-dlc-check" aria-hidden="true">{selected.includes(id)&&<Check size={13} strokeWidth={2.2}/>}</span></button>)}</div></fieldset>
-      <p className="seed-note">引擎按所选 DLC 启动，缺少内容时会明确报错。数字种子使用生存模式默认设置、关闭故事与内容混入；完整坐标码沿用其中设置。</p>
+      {/^\d*$/.test(input)&&connected&&supportsSettings&&<SeedGameOptions endpoint={endpoint} dlcKey={dlcKey} disabled={busy} onChange={changeOptions}/>}
+      <p className="seed-note">{!/^\d*$/.test(input)?'完整坐标码使用码内难度、故事与混入设置。':supportsSettings?'未修改的设置沿用原生预设，故事与混入默认关闭。':'当前演算器使用默认设置；更新工具后可自定义开局。'} 引擎按所选 DLC 启动，缺少内容时会报错。</p>
       <button className="button button-primary" disabled={!connected||busy} onClick={()=>void calculate()}><Play size={15}/>{busy?'引擎演算中…':'开始演算'}</button>
     </section><aside className="seed-panel"><h2><Map size={19}/>演算状态</h2>
       <div className="seed-connection"><span className={connected?'status-dot':''}/>{connected?(nativeCompanion?'独立演算器已连接':'本机引擎已连接'):'等待本机演算器'}<button onClick={()=>void connect()}>重新连接</button></div>
       {!connected&&<p className="seed-note">下载并解压 Windows 演算器，双击启动后选择游戏目录。无需 Unity 编辑器或手动安装模组。</p>}
       <a className="seed-download" href={companionDownload} target="_blank" rel="noreferrer"><Download size={16}/>下载 Windows 演算器（预览版）</a>
       {supportsWarmup&&<p className="seed-note">已启用提前预载：填写种子时准备引擎，查看结果时准备下一次演算。相同设置的已生成种子直接读取缓存。</p>}
-      <ol className="seed-stages">{[['starting','启动游戏引擎'],['generating','生成星群与地形'],['spawning','生成原生对象与泉数据'],['complete','打开地图与资源统计']].map(([stage,label])=><li key={stage} data-active={progress?.status===stage}>{label}</li>)}</ol>
+      <ol className="seed-stages">{[['starting','启动游戏引擎'],['generating','生成星群与地形'],['spawning','生成原生对象与泉数据'],['verifying','核验星球与间歇泉数据'],['complete','打开地图与资源统计']].map(([stage,label])=><li key={stage} data-active={progress?.status===stage}>{label}</li>)}</ol>
       {busy&&<p role="status">已用时 {elapsed} 秒 · 正在执行游戏原生生成流程</p>}
       {progress?.coordinate&&<p className="seed-coordinate">{progress.coordinate}</p>}
       {progress?.worldCount? <p>{progress.worldCount} 个星球</p>:null}

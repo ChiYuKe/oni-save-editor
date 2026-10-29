@@ -1,3 +1,4 @@
+import {verifyNativeSeed} from '../src/lib/oniSeedVerification'
 import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
 import path from 'node:path'
@@ -9,9 +10,17 @@ const directory=process.argv[2]
 const expected=JSON.parse(readFileSync(path.join(directory,'request.json'),'utf8'))
 const status=JSON.parse(readFileSync(path.join(directory,'progress.json'),'utf8'))
 assert.equal(status.status,'complete')
+if(expected.options){
+ const snapshot=JSON.parse(readFileSync(path.join(directory,'native-geysers.json'),'utf8'))
+ for(const group of ['quality','stories','mixing'])for(const choice of expected.options[group]??[]){
+  assert.equal(snapshot.appliedOptions[group].find((item:{id:string})=>item.id===choice.id)?.value,choice.value,`Native engine must apply ${group}.${choice.id}`)
+ }
+ console.log('PASS requested options match applied native settings')
+}
 const native=JSON.parse(readFileSync(path.join(directory,'native-geysers.json'),'utf8'))
 const save=parseSave(new Uint8Array(readFileSync(path.join(directory,'generated.sav'))))
 const data=resourceStatistics(save),size=worldSize(save)
+if(native.worlds) {verifyNativeSeed(save,native);console.log('PASS native world manifest: every planet position, size and source matches the save')}
 assert.equal(data.seed,expected.seed||Number(native.coordinate.match(/-(\d+)-/)?.[1]))
 assert.equal(data.coordinate,native.coordinate)
 assert.equal(data.planets.length,status.worldCount)
