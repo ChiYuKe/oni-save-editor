@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <AssemblyName>OniSeedCompanion</AssemblyName>
     <UseWindowsForms>true</UseWindowsForms>
-    <Version>0.2.2</Version>
+    <Version>0.2.3</Version>
   </PropertyGroup>
   <ItemGroup><PackageReference Include="Mono.Cecil" Version="0.11.6" /></ItemGroup>
   <ItemGroup><FrameworkReference Include="Microsoft.AspNetCore.App" /></ItemGroup>

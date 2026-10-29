@@ -15,6 +15,7 @@ public sealed class NativeEngine(string gameDirectory, string dataDirectory, str
     public string WorkerAssembly { get; } = Path.GetFullPath(workerAssembly);
     public string EngineId { get; private set; } = "";
     public string RuntimeDirectory { get; private set; } = "";
+    RuntimeCache? runtimeCache;
     public event Action<string>? Message;
     static readonly string[] required = ["OxygenNotIncluded.exe", "UnityPlayer.dll", "OxygenNotIncluded_Data/Managed/Assembly-CSharp.dll", "OxygenNotIncluded_Data/Managed/Assembly-CSharp-firstpass.dll", "OxygenNotIncluded_Data/Plugins/x86_64/SimDLL.dll"];
     public static void ValidateGame(string root)
@@ -51,33 +52,48 @@ public sealed class NativeEngine(string gameDirectory, string dataDirectory, str
         }
         EngineId = Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
         RuntimeDirectory = Path.Combine(DataDirectory, "runtimes", EngineId);
-        if (File.Exists(Path.Combine(RuntimeDirectory, "companion-ready.json"))) { Message?.Invoke("独立运行副本已就绪。游戏原目录未修改。"); return; }
+        runtimeCache ??= new RuntimeCache(Path.Combine(DataDirectory, "runtimes"), EngineId);
+        if (File.Exists(Path.Combine(RuntimeDirectory, "companion-ready.json")))
+        {
+            runtimeCache.Prune(Message, cancellation);
+            Message?.Invoke("独立运行副本已就绪。游戏原目录未修改。"); return;
+        }
         Directory.CreateDirectory(Path.GetDirectoryName(RuntimeDirectory)!);
         string staging = RuntimeDirectory + ".preparing-" + Guid.NewGuid().ToString("N");
         Directory.CreateDirectory(staging);
-        Message?.Invoke("首次准备独立运行副本，需要复制游戏运行资源…");
-        foreach (var name in new[] { "OxygenNotIncluded.exe", "UnityPlayer.dll" }) File.Copy(Path.Combine(GameDirectory, name), Path.Combine(staging, name));
-        foreach (var dir in new[] { "MonoBleedingEdge", "OxygenNotIncluded_Data" })
-            foreach (var file in Directory.EnumerateFiles(Path.Combine(GameDirectory, dir), "*", SearchOption.AllDirectories))
-            {
-                cancellation.ThrowIfCancellationRequested();
-                if (new[] { ".pdb", ".log" }.Contains(Path.GetExtension(file).ToLowerInvariant())) continue;
-                string target = Path.Combine(staging, Path.GetRelativePath(GameDirectory, file));
-                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-                File.Copy(file, target);
-            }
-        string managed = Path.Combine(staging, "OxygenNotIncluded_Data/Managed");
-        File.Copy(WorkerAssembly, Path.Combine(managed, "OniSeedWorker.dll"));
-        Patch(managed, WorkerAssembly);
-        string assemblies = Path.Combine(staging, "OxygenNotIncluded_Data/ScriptingAssemblies.json");
-        var registered = JsonNode.Parse(await File.ReadAllTextAsync(assemblies, cancellation))!;
-        registered["names"]!.AsArray().Add("OniSeedWorker.dll");
-        registered["types"]!.AsArray().Add(16);
-        await File.WriteAllTextAsync(assemblies, registered.ToJsonString(), cancellation);
-        // Steam application identity only. Native ownership and DLC checks are preserved.
-        await File.WriteAllTextAsync(Path.Combine(staging, "steam_appid.txt"), "457140", cancellation);
-        await File.WriteAllTextAsync(Path.Combine(staging, "companion-ready.json"), JsonSerializer.Serialize(new { EngineId, source = GameDirectory }), cancellation);
-        Directory.Move(staging, RuntimeDirectory);
+        try
+        {
+            Message?.Invoke("首次准备独立运行副本，需要复制游戏运行资源…");
+            foreach (var name in new[] { "OxygenNotIncluded.exe", "UnityPlayer.dll" }) File.Copy(Path.Combine(GameDirectory, name), Path.Combine(staging, name));
+            foreach (var dir in new[] { "MonoBleedingEdge", "OxygenNotIncluded_Data" })
+                foreach (var file in Directory.EnumerateFiles(Path.Combine(GameDirectory, dir), "*", SearchOption.AllDirectories))
+                {
+                    cancellation.ThrowIfCancellationRequested();
+                    if (new[] { ".pdb", ".log" }.Contains(Path.GetExtension(file).ToLowerInvariant())) continue;
+                    string target = Path.Combine(staging, Path.GetRelativePath(GameDirectory, file));
+                    Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                    File.Copy(file, target);
+                }
+            string managed = Path.Combine(staging, "OxygenNotIncluded_Data/Managed");
+            File.Copy(WorkerAssembly, Path.Combine(managed, "OniSeedWorker.dll"));
+            Patch(managed, WorkerAssembly);
+            string assemblies = Path.Combine(staging, "OxygenNotIncluded_Data/ScriptingAssemblies.json");
+            var registered = JsonNode.Parse(await File.ReadAllTextAsync(assemblies, cancellation))!;
+            registered["names"]!.AsArray().Add("OniSeedWorker.dll");
+            registered["types"]!.AsArray().Add(16);
+            await File.WriteAllTextAsync(assemblies, registered.ToJsonString(), cancellation);
+            // Steam application identity only. Native ownership and DLC checks are preserved.
+            await File.WriteAllTextAsync(Path.Combine(staging, "steam_appid.txt"), "457140", cancellation);
+            await File.WriteAllTextAsync(Path.Combine(staging, "companion-ready.json"), JsonSerializer.Serialize(new { EngineId, source = GameDirectory }), cancellation);
+            Directory.Move(staging, RuntimeDirectory);
+        }
+        finally
+        {
+            // Remove only this preparation attempt, including cancellation/failed copies.
+            try { if (Directory.Exists(staging)) RuntimeCache.DeleteTree(staging); }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
+        }
+        runtimeCache.Prune(Message, cancellation);
         Message?.Invoke("独立运行副本准备完成。无需 Unity 编辑器。");
     }
     static void ValidateBindings(string managed, string helper)
@@ -132,7 +148,8 @@ public sealed class NativeEngine(string gameDirectory, string dataDirectory, str
     public void Dispose()
     {
         disposed = true;
-        StopWorker();
+        try { StopWorker(); }
+        finally { runtimeCache?.Dispose(); runtimeCache = null; }
     }
     void StopWorker(bool cleanDirectory = true)
     {
