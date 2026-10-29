@@ -2,6 +2,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <LangVersion>latest</LangVersion>
+    <Version>0.3.0</Version>
     <AssemblyName>OniSeedWorker</AssemblyName>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
   </PropertyGroup>

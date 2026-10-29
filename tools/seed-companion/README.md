@@ -81,3 +81,24 @@ OniSeedCompanion.exe --game 'D:/Steam/steamapps/common/OxygenNotIncluded' --data
 准备新副本时仍需要临时容纳新旧两份资源，以免复制失败后无法使用旧版。取消或复制失败会清理本次未完成副本。旧版本遗留的 `.preparing-…` 文件夹及无法识别的目录不会自动删除；完全退出所有演算器后可手动清理。`jobs` 和玩家游戏安装目录不在此清理范围内。
 
 清理保护测试：`dotnet run --project tools/seed-companion/CacheTests/CacheTests.csproj -c Release`，覆盖旧版淘汰、使用锁、取消、未知目录及目录链接保护。
+
+## 原生开局设置与结果核验（0.3）
+
+数字种子现在可选择生存或轻松预设，并调整难度与规则、故事特质、内容混入。选项及中文名称从所选 DLC 对应的安装版游戏接口和自带翻译读取，不在网页中硬编码档位。调试选项与云存储设置不开放。未修改的难度沿用预设，故事与混入仍默认关闭；完整坐标码使用码内设置，不能同时附加自定义参数。
+
+引擎先验证选项和档位，再调用原生设置接口及混入兼容性检查。被游戏拒绝的组合会报错，不能静默换成默认值。切换 DLC 会重载设置并重置自定义项；切换游戏预设会恢复对应难度。部分混入需要先在“内容混入”中启用其 DLC 混入。
+
+生成时会记录实际应用的设置、最终坐标码及每个星球的位置、尺寸和类型。网页打开结果前，在原有存档解析流程中核对所有星球，以及全部产出型间歇泉的位置、种类、产量、温度和喷发/活跃/休眠时长；发现不一致时停止打开结果并显示错误。液体循环泉不混入产出型间歇泉核验。
+
+这是原生 API 快照与导出存档的一致性核验，不等同于每个版本、每个种子都经过独立游戏开局对照。原生 Sim 的流体结算不宣称逐字节一致。旧工具仍可使用默认流程，自定义设置和新核验需要同时更新网页与工具。
+
+此版本确实更新了工作组件，首次启动可能需要准备新运行副本；就绪后会沿用 0.2.3 的规则清理闲置旧版。
+
+开发核验：
+
+- `GET /health` 增加 `supportsSettings` 和 `supportsVerification`。
+- `GET /settings?dlcs=DLC5_ID,EXPANSION1_ID` 在预载完成后返回原生设置目录，未就绪返回 `{ "ready": false }`。
+- `/jobs` 可附加 `options: { mode: "survival" | "nosweat", quality: [{id,value}], stories: [{id,value}], mixing: [{id,value}] }`；按 ID 排序规范化缓存键，拒绝重复项和坐标码混用。
+- `GET /jobs/{id}/verification` 提供已完成任务的 `native-geysers.json`，包括原生星球清单和实际设置。
+- `tsx scripts/check-seed-engine.ts <任务目录> [原生基准目录]` 检查星球、参数和实际应用设置。
+- `tsx scripts/check-seed-verification.ts <任务目录>` 验证错误坐标、星球和间歇泉数据会被拒绝。

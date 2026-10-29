@@ -7,7 +7,9 @@ using Mono.Cecil;
 using Mono.Cecil.Cil;
 
 namespace OniSeedCompanion;
-public sealed record SeedRequest(int seed, string cluster, string coordinate, string[] dlcIds);
+public sealed record SettingChoice(string id, string value);
+public sealed record GenerationOptions(string mode, SettingChoice[]? quality, SettingChoice[]? stories, SettingChoice[]? mixing);
+public sealed record SeedRequest(int seed, string cluster, string coordinate, string[] dlcIds, GenerationOptions? options = null);
 public sealed class NativeEngine(string gameDirectory, string dataDirectory, string workerAssembly) : IDisposable
 {
     public string GameDirectory { get; } = Path.GetFullPath(gameDirectory);
@@ -231,6 +233,16 @@ public sealed class NativeEngine(string gameDirectory, string dataDirectory, str
             await Task.Delay(100, cancellation);
         }
     }
+    public async Task<JsonElement?> ReadSettings(string[] dlcs)
+    {
+        if (workerDlcs != string.Join(",", dlcs.Order(StringComparer.Ordinal)) || workerDirectory.Length == 0) return null;
+        try
+        {
+            using var catalog = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(workerDirectory, "settings.json")));
+            return catalog.RootElement.Clone();
+        }
+        catch (Exception error) when (error is IOException or JsonException) { return null; }
+    }
     public async Task Warmup(string[] dlcs, CancellationToken cancellation = default)
     {
         if (!await workerGate.WaitAsync(0, cancellation)) return;
@@ -249,7 +261,7 @@ public sealed class NativeEngine(string gameDirectory, string dataDirectory, str
         // The session mailbox only accepts outputs beneath this tool's jobs directory.
         if (!directory.StartsWith(Path.Combine(DataDirectory, "jobs") + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
             return await GenerateOnce(request, directory, graphics, cancellation);
-        string json = JsonSerializer.Serialize(new { request.seed, request.cluster, request.coordinate, request.dlcIds, outputDirectory = directory });
+        string json = JsonSerializer.Serialize(new { request.seed, request.cluster, request.coordinate, request.dlcIds, request.options, outputDirectory = directory });
         await File.WriteAllTextAsync(Path.Combine(directory, "request.json"), json, cancellation);
         await workerGate.WaitAsync(cancellation);
         var watch = Stopwatch.StartNew();
@@ -289,7 +301,7 @@ public sealed class NativeEngine(string gameDirectory, string dataDirectory, str
         if (File.Exists(Path.Combine(directory, "generated.sav"))) throw new IOException("此任务目录已有生成结果，请使用新的任务目录。");
         Directory.CreateDirectory(directory);
         string isolated = Path.Combine(directory, "engine-data"); Directory.CreateDirectory(isolated);
-        await File.WriteAllTextAsync(Path.Combine(directory, "request.json"), JsonSerializer.Serialize(new { request.seed, request.cluster, request.coordinate, request.dlcIds, outputDirectory = directory }), cancellation);
+        await File.WriteAllTextAsync(Path.Combine(directory, "request.json"), JsonSerializer.Serialize(new { request.seed, request.cluster, request.coordinate, request.dlcIds, request.options, outputDirectory = directory }), cancellation);
         await File.WriteAllTextAsync(Path.Combine(directory, "engine-info.json"), JsonSerializer.Serialize(new { engineId = EngineId, nativeRuntime = true, createdAt = DateTime.UtcNow }), cancellation);
         var start = new ProcessStartInfo(Path.Combine(RuntimeDirectory, "OxygenNotIncluded.exe")) { WorkingDirectory = RuntimeDirectory, UseShellExecute = false, CreateNoWindow = true, WindowStyle = ProcessWindowStyle.Hidden };
         foreach (var arg in new[] { "-batchmode", "-nosound", "-screen-width", "128", "-screen-height", "128", "-logFile", Path.Combine(directory, "engine.log") }) start.ArgumentList.Add(arg);

@@ -43,7 +43,21 @@ public sealed class CompanionServer(NativeEngine engine, int port = 5191) : IAsy
             if (request.Method == "OPTIONS") { response.StatusCode = 204; return; }
             await next(context);
         });
-        app.MapGet("/health", () => Results.Json(new { engine = "ONI installed game runtime", engineId = engine.EngineId, nativeRuntime = true, requiresUnityEditor = false, protocol = 1, supportsWarmup = true, session, busy = gate.CurrentCount == 0 }));
+        app.MapGet("/health", () => Results.Json(new { engine = "ONI installed game runtime", engineId = engine.EngineId, nativeRuntime = true, requiresUnityEditor = false, protocol = 1, supportsWarmup = true, supportsSettings = true, supportsVerification = true, session, busy = gate.CurrentCount == 0 }));
+        app.MapGet("/settings", async (string? dlcs) =>
+        {
+            var selection = (dlcs ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).Distinct().Order(StringComparer.Ordinal).ToArray();
+            if (selection.Any(x => !CompanionServer.dlcs.Contains(x))) return Results.BadRequest();
+            var catalog = await engine.ReadSettings(selection);
+            return catalog.HasValue ? Results.Json(catalog.Value) : Results.Json(new { ready = false });
+        });
+        app.MapGet("/jobs/{id}/verification", async (string id) =>
+        {
+            if (!jobs.TryGetValue(id, out var job)) return Results.NotFound();
+            if ((await Progress(job)).GetValueOrDefault("status")?.ToString() != "complete") return Results.Conflict();
+            string path = Path.Combine(job.Directory, "native-geysers.json");
+            return File.Exists(path) ? Results.File(path, "application/json") : Results.NotFound();
+        });
         app.MapPost("/warmup", async (HttpRequest http) =>
         {
             if (!http.ContentType?.StartsWith("application/json", StringComparison.OrdinalIgnoreCase) ?? true) return Results.StatusCode(415);
@@ -81,6 +95,19 @@ public sealed class CompanionServer(NativeEngine engine, int port = 5191) : IAsy
                 request = request with { seed = 0, cluster = "", coordinate = request.coordinate.Trim().ToUpperInvariant() };
             }
             else if (request.seed <= 0 || string.IsNullOrEmpty(request.cluster) || !System.Text.RegularExpressions.Regex.IsMatch(request.cluster, "^[-A-Za-z0-9_/:]+$")) throw new ArgumentException("需要有效种子和星群类型。");
+            if (!string.IsNullOrWhiteSpace(request.coordinate) && request.options != null) throw new ArgumentException("完整坐标码不能同时附加开局设置。");
+            if (request.options != null)
+            {
+                if (request.options.mode is not ("survival" or "nosweat")) throw new ArgumentException("开局模式无效。");
+                SettingChoice[] Normalize(SettingChoice[]? choices)
+                {
+                    choices ??= [];
+                    if (choices.Length > 100 || choices.Any(x => x == null || string.IsNullOrEmpty(x.id) || x.id.Length > 120 || string.IsNullOrEmpty(x.value) || x.value.Length > 120) || choices.Select(x => x.id).Distinct().Count() != choices.Length)
+                        throw new ArgumentException("开局设置无效或重复。");
+                    return choices.OrderBy(x => x.id, StringComparer.Ordinal).ToArray();
+                }
+                request = request with { options = request.options with { quality = Normalize(request.options.quality), stories = Normalize(request.options.stories), mixing = Normalize(request.options.mixing) } };
+            }
             request = request with { coordinate = request.coordinate ?? "", dlcIds = request.dlcIds.Distinct().Order(StringComparer.Ordinal).ToArray() };
         }
         catch (Exception error) { return Results.BadRequest(new { message = error.Message }); }

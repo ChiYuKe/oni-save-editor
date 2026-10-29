@@ -17,6 +17,100 @@ public sealed class SeedRuntime : MonoBehaviour
         public string cluster;
         public string[] dlcIds;
         public string outputDirectory;
+        public GenerationOptions options;
+    }
+    [Serializable] public class Choice { public string id, value; }
+    [Serializable] public class GenerationOptions
+    {
+        public string mode;
+        public Choice[] quality, stories, mixing;
+    }
+    [Serializable] public class Level { public string id, label; }
+    [Serializable] public class Setting
+    {
+        public string id, label, tooltip, survivalDefault, nosweatDefault;
+        public Level[] levels;
+    }
+    [Serializable] public class Catalog
+    {
+        public bool ready = true;
+        public string[] dlcIds;
+        public Setting[] quality, stories, mixing;
+    }
+    [Serializable] public class NativeWorld { public int id, x, y, width, height; public string source; }
+    static bool Editable(SettingConfig config) => config.id != "WorldgenSeed" && config.id != "ClusterLayout" && config.id != "SaveToCloud" && !config.debug_only && config.ShowInUI();
+    static Setting Describe(SettingConfig config) => new Setting {
+        id = config.id, label = config.label, tooltip = config.tooltip,
+        survivalDefault = config.GetDefaultLevelId(), nosweatDefault = config.GetNoSweatDefaultLevelId(),
+        levels = config.GetLevels().Select(level => new Level { id = level.id, label = level.label }).ToArray()
+    };
+    static Setting DescribeStory(SettingConfig config)
+    {
+        var result = Describe(config);
+        var story = Db.Get().Stories.Get(config.id);
+        result.label = Strings.Get(story.StoryTrait.name);
+        result.tooltip = Strings.Get(story.StoryTrait.description);
+        return result;
+    }
+    static void LocalizeCatalog(Catalog catalog)
+    {
+        string path = Localization.GetPreinstalledLocalizationFilePath("zh_klei");
+        if (!File.Exists(path)) return;
+        var english = Localization.LoadStringsFile(path, true);
+        var chinese = Localization.LoadStringsFile(path, false);
+        var translations = new System.Collections.Generic.Dictionary<string, string>();
+        foreach (var pair in english)
+        {
+            string translated;
+            if (!string.IsNullOrEmpty(pair.Value) && chinese.TryGetValue(pair.Key, out translated) && !string.IsNullOrEmpty(translated)) translations[pair.Value] = translated;
+        }
+        Func<string, string> translate = text => text != null && translations.ContainsKey(text) ? translations[text] : text;
+        foreach (var setting in catalog.quality.Concat(catalog.stories).Concat(catalog.mixing))
+        {
+            setting.label = translate(setting.label); setting.tooltip = translate(setting.tooltip);
+            foreach (var level in setting.levels) level.label = translate(level.label);
+        }
+    }
+    static void ExportCatalog()
+    {
+        string path = Path.Combine(sessionDirectory, "settings.json");
+        if (File.Exists(path)) return;
+        var settings = CustomGameSettings.Instance;
+        var catalog = new Catalog {
+            dlcIds = DlcManager.GetActiveDLCIds().Where(x => !string.IsNullOrEmpty(x)).OrderBy(x => x).ToArray(),
+            quality = settings.QualitySettings.Values.Where(Editable).Select(Describe).ToArray(),
+            stories = settings.StorySettings.Values.Where(Editable).Select(DescribeStory).ToArray(),
+            mixing = settings.MixingSettings.Values.Where(Editable).Select(Describe).ToArray()
+        };
+        LocalizeCatalog(catalog);
+        File.WriteAllText(path + ".tmp", JsonUtility.ToJson(catalog, true));
+        File.Move(path + ".tmp", path);
+    }
+    static void ApplyChoices(Choice[] choices, System.Collections.Generic.Dictionary<string, SettingConfig> configs, Action<SettingConfig, string> apply)
+    {
+        if (choices == null) return;
+        foreach (var choice in choices)
+        {
+            SettingConfig config;
+            if (choice == null || !configs.TryGetValue(choice.id, out config) || !Editable(config) || !config.GetLevels().Any(x => x.id == choice.value))
+                throw new ArgumentException("Invalid or unavailable game setting: " + (choice == null ? "null" : choice.id + "=" + choice.value));
+            apply(config, choice.value);
+        }
+    }
+    static Choice[] Capture(System.Collections.Generic.Dictionary<string, SettingConfig> configs, Func<SettingConfig, SettingLevel> read) =>
+        configs.Values.Where(Editable).Select(config => new Choice { id = config.id, value = read(config).id }).ToArray();
+    static GenerationOptions CaptureOptions(CustomGameSettings settings) => new GenerationOptions {
+        mode = settings.customGameMode.ToString(),
+        quality = Capture(settings.QualitySettings, settings.GetCurrentQualitySetting),
+        stories = Capture(settings.StorySettings, settings.GetCurrentStoryTraitSetting),
+        mixing = Capture(settings.MixingSettings, settings.GetCurrentMixingSettingLevel)
+    };
+    static void CheckApplied(Choice[] expected, Choice[] actual)
+    {
+        if (expected == null) return;
+        foreach (var choice in expected)
+            if (!actual.Any(x => x.id == choice.id && x.value == choice.value))
+                throw new ArgumentException("Game rejected setting for this cluster/DLC combination: " + choice.id + "=" + choice.value);
     }
     [Serializable] public class Progress
     {
@@ -38,6 +132,9 @@ public sealed class SeedRuntime : MonoBehaviour
     {
         public string coordinate;
         public NativeGeyser[] geysers;
+        public NativeWorld[] worlds;
+        public GenerationOptions appliedOptions;
+        public string unityVersion;
     }
     static Request request;
     static Cluster cluster;
@@ -129,6 +226,7 @@ public sealed class SeedRuntime : MonoBehaviour
             if (step < 0)
             {
                 if (!MenuReady()) return;
+                ExportCatalog();
                 SessionStatus("ready", "Native resources are loaded");
                 string mailbox = Path.Combine(sessionDirectory, "next-request.json");
                 if (!File.Exists(mailbox)) return;
@@ -153,6 +251,11 @@ public sealed class SeedRuntime : MonoBehaviour
                 if (!actual.SequenceEqual(expected)) throw new InvalidOperationException("DLC mismatch. Engine: " + string.Join(",", actual) + "; requested: " + string.Join(",", expected));
                 var settings = CustomGameSettings.Instance;
                 settings.LoadClusters(); settings.SetSurvivalDefaults(); settings.DisableAllStories(); settings.DisableAllMixing();
+                if (request.options != null && string.IsNullOrWhiteSpace(request.coordinate))
+                {
+                    if (request.options.mode == "nosweat") settings.SetNosweatDefaults();
+                    else if (request.options.mode != null && request.options.mode != "survival") throw new ArgumentException("Unknown game mode");
+                }
                 string clusterId = request.cluster;
                 int seed = request.seed;
                 string[] parts = null;
@@ -174,6 +277,17 @@ public sealed class SeedRuntime : MonoBehaviour
                     settings.ParseAndApplySettingsCode(parts[3]);
                     settings.ParseAndApplyStoryTraitSettingsCode(parts.Length >= 5 ? parts[4] : "0");
                     settings.ParseAndApplyMixingSettingsCode(parts.Length >= 6 ? parts[5] : "0");
+                }
+                else if (request.options != null)
+                {
+                    ApplyChoices(request.options.quality, settings.QualitySettings, settings.SetQualitySetting);
+                    ApplyChoices(request.options.stories, settings.StorySettings, settings.SetStorySetting);
+                    ApplyChoices(request.options.mixing, settings.MixingSettings, settings.SetMixingSetting);
+                    settings.RemoveInvalidMixingSettings();
+                    var applied = CaptureOptions(settings);
+                    CheckApplied(request.options.quality, applied.quality);
+                    CheckApplied(request.options.stories, applied.stories);
+                    CheckApplied(request.options.mixing, applied.mixing);
                 }
                 resolvedCoordinate = settings.GetSettingsCoordinate();
                 var stories = settings.GetCurrentStories().Select(x => Db.Get().Stories.Get(x).worldgenStoryTraitKey).ToList();
@@ -210,7 +324,11 @@ public sealed class SeedRuntime : MonoBehaviour
                 var nativeGeysers = UnityEngine.Object.FindObjectsByType<Geyser>(FindObjectsSortMode.None);
                 if (nativeGeysers.Any(g => !g.isSpawned || g.configuration == null)) return;
                 string path = Path.Combine(request.outputDirectory, "generated.sav");
+                var worlds = ClusterManager.Instance.WorldContainers.Where(w => !w.IsModuleInterior).ToArray();
+                if (worlds.Length != cluster.worlds.Count || worlds.Any(w => w.Width <= 0 || w.Height <= 0)) throw new InvalidOperationException("Generated world count or dimensions are incomplete");
                 var snapshot = new NativeSnapshot { coordinate = resolvedCoordinate,
+                    unityVersion = Application.unityVersion, appliedOptions = CaptureOptions(CustomGameSettings.Instance),
+                    worlds = worlds.Select(w => new NativeWorld { id = w.id, x = w.WorldOffset.x, y = w.WorldOffset.y, width = w.Width, height = w.Height, source = w.worldName }).ToArray(),
                     geysers = UnityEngine.Object.FindObjectsByType<Geyser>(FindObjectsSortMode.None)
                     .Where(g => g.configuration != null).Select(g => new NativeGeyser {
                         typeId = g.configuration.geyserType.id,
