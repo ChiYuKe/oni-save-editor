@@ -3,7 +3,7 @@
 .seed-back{display:flex;align-items:center;gap:8px;background:transparent;border:0;color:inherit;cursor:pointer}
 .seed-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:22px}.seed-panel{min-width:0;background:#1b1b1b;box-shadow:0 8px 28px #0002;border-radius:14px;padding:28px}.seed-panel h2{display:flex;gap:10px;align-items:center;font-size:17px;margin:0 0 26px}
 .seed-panel>label{display:flex;flex-direction:column;gap:10px;font-size:12px;margin-bottom:22px}.seed-panel>label>input{background:#151515;border:1px solid #ffffff0c;border-radius:8px;padding:13px;color:inherit;min-width:0;outline:none}.seed-panel>label>input:focus{border-color:#555}.seed-panel small{color:#888;font-size:11px;line-height:1.7}
-.seed-panel fieldset{min-inline-size:0;max-width:100%;border:0;padding:0;margin:24px 0}.seed-panel legend{font-size:12px;margin-bottom:14px}.seed-dlcs{display:grid;grid-template-columns:1fr 1fr;gap:15px}.seed-dlcs label{display:flex;align-items:center;gap:8px;font-size:12px}.seed-dlcs input{accent-color:#e63e47}
+.seed-panel fieldset{min-inline-size:0;max-width:100%;border:0;padding:0;margin:24px 0}.seed-panel legend{font-size:12px;margin-bottom:14px}
 .seed-connection{display:flex;align-items:center;gap:9px;font-size:12px}.seed-connection button{margin-left:auto;border:0;background:#ffffff08;color:inherit;padding:7px 10px;border-radius:6px;cursor:pointer}.seed-stages{list-style:none;padding:12px 0;counter-reset:stage}.seed-stages li{counter-increment:stage;padding:16px 0;color:#777;font-size:12px}.seed-stages li:before{content:counter(stage);display:inline-grid;place-items:center;width:24px;height:24px;background:#ffffff06;border-radius:50%;margin-right:12px}.seed-stages li[data-active=true]{color:inherit}.seed-coordinate{overflow-wrap:anywhere;font-size:12px}.seed-error{font-size:12px;color:#f38a8a;white-space:pre-wrap;overflow-wrap:anywhere}.seed-panel button:disabled{opacity:.45;cursor:default}
 .landing-seed-entry{margin-top:18px;background:transparent;border:0;color:inherit;display:flex;gap:8px;align-items:center;cursor:pointer;font-size:12px}
 html[data-theme=light] .seed-panel{min-width:0;background:#fff}html[data-theme=light] .seed-panel>label>input{background:#f6f6f6;border-color:#ddd}html[data-theme=light] .seed-stages li:before,html[data-theme=light] .seed-connection button{background:#00000006}
@@ -36,3 +36,16 @@ html[data-theme=light] .seed-panel{min-width:0;background:#fff}html[data-theme=l
 
 
 .seed-cluster-track>button[aria-checked=true]{z-index:1}
+
+.seed-dlc-field legend{display:flex;align-items:center;justify-content:space-between;width:100%;padding:0}
+.seed-dlc-count{color:var(--ui-muted);font-size:10px;font-weight:400}
+.seed-dlcs{display:flex;flex-wrap:wrap;gap:8px}
+.seed-dlc-chip{display:flex;align-items:center;justify-content:center;gap:6px;flex:1 1 140px;min-width:0;min-height:42px;padding:8px 10px;border:1px solid transparent;border-radius:999px;background:var(--ui-raised,#242424);color:var(--ui-muted,#999);font:inherit;font-size:12px;white-space:nowrap;cursor:pointer;transition:background .16s ease,color .16s ease,box-shadow .16s ease}
+.seed-dlc-chip img{width:28px;height:22px;object-fit:contain;flex-shrink:0;opacity:.6;filter:grayscale(.6);transition:opacity .16s ease,filter .16s ease}
+.seed-dlc-chip:hover:not(:disabled){color:var(--ui-text);background:color-mix(in srgb,var(--ui-raised,#242424) 88%,var(--ui-text) 12%)}
+.seed-dlc-chip[aria-pressed=true]{background:color-mix(in srgb,var(--ui-raised,#242424) 80%,var(--ui-text) 20%);color:var(--ui-text);box-shadow:0 2px 6px #0002}
+.seed-dlc-chip[aria-pressed=true] img{opacity:1;filter:grayscale(.1)}
+.seed-dlc-check{display:grid;place-items:center;flex:0 0 13px;width:13px;height:14px;color:inherit}
+.seed-dlc-chip:focus-visible{outline:2px solid var(--ui-muted);outline-offset:3px}
+@media(prefers-reduced-motion:reduce){.seed-dlc-chip,.seed-dlc-chip img{transition:none}}
+@media(forced-colors:active){.seed-dlc-chip{border-color:ButtonText}.seed-dlc-chip[aria-pressed=true]{border-color:Highlight;outline:1px solid Highlight;outline-offset:-3px}}

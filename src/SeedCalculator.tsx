@@ -1,6 +1,6 @@
 import {ThemeToggle} from './ThemeToggle'
 import {useEffect,useRef,useState} from 'react'
-import {ArrowLeft, Cpu, Download, Map, Play} from 'lucide-react'
+import {ArrowLeft, Check, Cpu, Download, Map, Play} from 'lucide-react'
 import {SeedClusterCarousel} from './SeedClusterCarousel'
 import {ONI_SEED_CLUSTERS} from './lib/oniSeedClusters.generated'
 import './seedCalculator.css'
@@ -59,7 +59,7 @@ export function SeedCalculator({onBack,onGenerated}:{onBack:()=>void;onGenerated
     <div className="seed-grid"><section className="seed-panel"><h2><Cpu size={19}/>生成设置</h2>
       <label>种子 / 完整坐标码<input value={input} onChange={e=>setInput(e.target.value)} placeholder="1234567 或 SNDST-…" disabled={busy}/></label>
       {/^\d*$/.test(input)&&<fieldset disabled={busy}><legend>星群类型</legend><SeedClusterCarousel value={effectiveCluster} options={available} onChange={setCluster} disabled={busy}/><p className="seed-note">完整坐标码会自动解析星群与混入设置。</p></fieldset>}
-      <fieldset disabled={busy}><legend>引擎 DLC 组合</legend><div className="seed-dlcs">{dlcs.map(([id,name])=><label key={id}><input type="checkbox" checked={selected.includes(id)} onChange={e=>setSelected(e.target.checked?[...selected,id]:selected.filter(x=>x!==id))}/>{name}</label>)}</div></fieldset>
+      <fieldset className="seed-dlc-field" disabled={busy}><legend><span>启用内容</span><span className="seed-dlc-count">已启用 {selected.length} 项</span></legend><div className="seed-dlcs">{dlcs.map(([id,name])=><button type="button" className="seed-dlc-chip" key={id} aria-pressed={selected.includes(id)} disabled={busy} onClick={()=>setSelected(current=>current.includes(id)?current.filter(value=>value!==id):[...current,id])}><img src={`${import.meta.env.BASE_URL}assets/dlc/${id.replace(/_ID$/,'').toLowerCase()}.webp`} alt="" aria-hidden="true" width={28} height={22}/><span>{name}</span><span className="seed-dlc-check" aria-hidden="true">{selected.includes(id)&&<Check size={13} strokeWidth={2.2}/>}</span></button>)}</div></fieldset>
       <p className="seed-note">引擎按所选 DLC 启动，缺少内容时会明确报错。数字种子使用生存模式默认设置、关闭故事与内容混入；完整坐标码沿用其中设置。</p>
       <button className="button button-primary" disabled={!connected||busy} onClick={()=>void calculate()}><Play size={15}/>{busy?'引擎演算中…':'开始演算'}</button>
     </section><aside className="seed-panel"><h2><Map size={19}/>演算状态</h2>
