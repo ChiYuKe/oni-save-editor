@@ -134,13 +134,48 @@ public sealed class NativeEngine(string gameDirectory, string dataDirectory, str
         disposed = true;
         StopWorker();
     }
-    void StopWorker()
+    void StopWorker(bool cleanDirectory = true)
     {
         var process = worker; worker = null;
-        if (process == null) return;
-        try { if (!process.HasExited) process.Kill(entireProcessTree: true); }
-        catch (InvalidOperationException) { }
-        finally { process.Dispose(); }
+        string directory = workerDirectory; workerDirectory = "";
+        bool exited = process == null;
+        if (process != null)
+        {
+            try
+            {
+                if (!process.HasExited) process.Kill(entireProcessTree: true);
+                exited = process.WaitForExit(5000);
+            }
+            catch (InvalidOperationException) { exited = true; }
+            finally { process.Dispose(); }
+        }
+        // Never remove a running session, task results, or a caller-supplied directory.
+        if (!cleanDirectory || !exited || string.IsNullOrEmpty(directory)) return;
+        string root = Path.GetFullPath(Path.Combine(DataDirectory, "workers"));
+        string target = Path.GetFullPath(directory);
+        if (!string.Equals(Path.GetDirectoryName(target), root, StringComparison.OrdinalIgnoreCase)
+            || !Guid.TryParseExact(Path.GetFileName(target), "N", out _)) return;
+        try
+        {
+            if (!Directory.Exists(target)) return;
+            DeleteSessionDirectory(target);
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            Message?.Invoke("临时目录暂时无法清理，退出演算器后可手动删除：" + target);
+        }
+    }
+    static void DeleteSessionDirectory(string directory)
+    {
+        // Do not follow junctions or symbolic links, including nested ones.
+        if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0)
+        {
+            Directory.Delete(directory);
+            return;
+        }
+        foreach (string file in Directory.EnumerateFiles(directory)) File.Delete(file);
+        foreach (string child in Directory.EnumerateDirectories(directory)) DeleteSessionDirectory(child);
+        Directory.Delete(directory);
     }
     static async Task<Dictionary<string, JsonElement>?> ReadStatus(string path, CancellationToken cancellation)
     {
@@ -184,7 +219,7 @@ public sealed class NativeEngine(string gameDirectory, string dataDirectory, str
         if (!await workerGate.WaitAsync(0, cancellation)) return;
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation); timeout.CancelAfter(TimeSpan.FromMinutes(3));
         try { if (RuntimeDirectory.Length == 0) await Prepare(timeout.Token); await Ready(dlcs, false, timeout.Token); }
-        catch { StopWorker(); throw; }
+        catch { StopWorker(cleanDirectory: false); throw; }
         finally { workerGate.Release(); }
     }
     public async Task<(string directory, int exitCode)> Generate(SeedRequest request, string? directory = null, bool graphics = false, CancellationToken cancellation = default)
@@ -218,14 +253,14 @@ public sealed class NativeEngine(string gameDirectory, string dataDirectory, str
                 {
                     await File.WriteAllTextAsync(Path.Combine(directory, "engine-info.json"), JsonSerializer.Serialize(new { engineId = EngineId, nativeRuntime = true, preloaded, startupSeconds, totalSeconds = watch.Elapsed.TotalSeconds, workerDirectory }), cancellation);
                     try { File.Copy(Path.Combine(workerDirectory, "engine.log"), Path.Combine(directory, "engine.log"), true); } catch (IOException) { }
-                    StopWorker();
+                    StopWorker(cleanDirectory: status == "complete");
                     return (directory, status == "complete" ? 0 : 1);
                 }
                 if (worker == null || worker.HasExited) throw new IOException("原生引擎意外退出。日志：" + Path.Combine(workerDirectory, "engine.log"));
                 await Task.Delay(100, timeout.Token);
             }
         }
-        catch { StopWorker(); throw; }
+        catch { StopWorker(cleanDirectory: false); throw; }
         finally { workerGate.Release(); }
     }
     async Task<(string directory, int exitCode)> GenerateOnce(SeedRequest request, string? directory = null, bool graphics = false, CancellationToken cancellation = default)
